@@ -1,3 +1,4 @@
+import scrapers-util.py
 class NasdaqScraper :
     def __init__(self,exchange_list=None,unwanted_keys_list=None) : 
         self.exchanges=["nyse", "nasdaq"]
