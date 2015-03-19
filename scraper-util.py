@@ -1,10 +1,12 @@
-def invoke_url(url,headers=None) :
+def invoke_url(url,headers=None, raw=False) :
   import requests
   if headers is not None :
     ret = requests.get(url, headers=headers)        
   else :
-    ret = requests.get(url)        
-  return ret.text
+    ret = requests.get(url)
+  if not raw : ret = ret.text
+  else : ret = ret.content
+  return ret
 
 def get_nasdaq_csv(exchange) : # from nasdaq.com
   headers = {
@@ -17,28 +19,21 @@ def get_nasdaq_csv(exchange) : # from nasdaq.com
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
   }
   url = "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange
-  return invoke_url(url,headers)
+  return invoke_url(url,headers,raw=True)
 
 def format_nasdaq(ret,unwanted_keys,exchange) :
-   ret['Exchange'] = exchange
+   import pandas as pd
+   ret['Exchange'] = pd.Series(exchange, index=ret.index)
    if unwanted_keys is not None  : 
      for key in unwanted_keys:
-       if key in ret.keys() : del ret[key]
+       if key in ret.columns.tolist() : ret.drop(key, 1)
    return ret
-def parse_csv(csv):
-  lines = csv.splitlines()
-  rr = range(0,len(lines))
-  keys = []
-  for r in rr :
-    ret = lines[r].replace('","',"|").split('|')
-    if len(ret) == 0 : continue
-    ret = list(map(lambda x : x.replace('"',''), ret))
-    ret = list(map(lambda x : x.replace(',',''), ret))
-    if r == 0 :
-      keys=ret
-      continue
-    if len(keys) == len(ret) : ret = dict(zip(keys,ret))
-    yield ret
+def parse_csv(csv) :
+    import pandas as pd
+    import io
+    ret = pd.read_csv(io.BytesIO(csv), encoding='utf8', sep=",",index_col="Symbol")
+    return ret
+    
 def parse_number(s):
     ret=""
     try:
