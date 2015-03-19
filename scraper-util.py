@@ -74,13 +74,18 @@ def parse_yahoo(soup) :
     if isinstance(text, str) :  yield text
     else : yield str(text*factor))
 def parse_csv_stock_symbol_symbols(csv):
-	lines = csv.splitlines()
-	rr = range(0,len(lines))
-	for r in rr :
-		if r == 0 : continue
-		ret = lines[r].split(',')
-		if len(ret) == 0 : continue
-		yield map(lambda x : x.replace('"',''), ret)
+  lines = csv.splitlines()
+  rr = range(0,len(lines))
+  keys = []
+  for r in rr :
+    ret = lines[r].replace('","',"|").split('|')
+    if len(ret) == 0 : continue
+    ret = list(map(lambda x : x.replace('"',''), ret))
+    if r == 0 :
+      keys=ret
+      continue
+    if len(keys) == len(ret) : ret = dict(zip(keys,ret))
+    yield ret
 def parse_number(s):
     ret=""
     try:
