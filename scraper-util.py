@@ -60,25 +60,21 @@ def parse_yahoo_1(soup) :
 	for tag in ['td','strong'] :
 	  for cell in table.findAll(tag):
 	    text = cell.find(text=True)
-	    if text: yield text,factor
+	    if text: yield text.replace(u'\xa0', u' '),factor
 def parse_yahoo_2(text,factor) :
-  text = utils.strip_string_whitespace(text)
-	text = text.replace(u'\xa0', u' ')
-	text = str(text).text.replace(',', "")
-	if text:
-	  if text[0] == "(":
-	     text_list = list(text)
-	     text_list[0] = "-"
-	     text_list[-1] = ""
-	     text = "".join(text_list)
-	     if utils.is_number(text):
-	       text_float = float(text) * factor
-	       if utils.relevant_float(text_float):
-	         text = str(text_float)
-	       else:
-	         text = str(int(text_float))
-  if text:
-    yield str(text))
+  text = " ".join(text.split()).replace(',', "")
+  if text[0] == "(":
+  	text_list = list(text)
+	text_list[0] = "-"
+	text_list[-1] = ""
+	text = "".join(text_list)
+  if utils.is_number(text):
+    text_float = float(text) * factor
+    if utils.relevant_float(text_float):
+	   text = str(text_float)
+    else:
+	   text = str(int(text_float))
+  yield str(text))
 def parse_csv_stock_symbol_symbols(csv):
 	lines = csv.splitlines()
 	rr = range(0,len(lines))
