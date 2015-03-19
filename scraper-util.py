@@ -1,15 +1,10 @@
 def invoke_url(url,headers=None) :
-  import urllib.request
+  import requests
   if headers is not None :
-    response = urllib.request.Request(url, headers=headers)
+    ret = requests.get(url, headers=headers)        
   else :
-    response = urllib.request.Request(url)
-  ret = urllib.request.urlopen(response)
-  ret = ret.read()
-  if isinstance(ret, str): # Python2
-    return ret
-  elif isinstance(ret, bytes): # Python3
-    return ret.decode("utf-8")
+    ret = requests.get(url)        
+  return ret.text
 
 def get_nasdaq_csv(exchange) : # from nasdaq.com
   headers = {
@@ -76,8 +71,8 @@ def get_yahoo_analyst_estimates(ticker) :
   return invoke_url('http://finance.yahoo.com/q/ae?s=%s+Analyst+Estimates' % ticker)
 
 def format_as_soup(url_response) :
-  import BeautifulSoup
-  return BeautifulSoup(url_response, convertEntities=BeautifulSoup.HTML_ENTITIES)  
+  from bs4 import BeautifulSoup
+  return BeautifulSoup(url_response)  
 
 def parse_yahoo_1(soup) :
 	factor = 1
