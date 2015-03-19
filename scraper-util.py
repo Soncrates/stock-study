@@ -22,12 +22,18 @@ def get_nasdaq_csv(exchange) : # from nasdaq.com
   return invoke_url(url,headers,raw=True)
 
 def format_nasdaq(ret,unwanted_keys,exchange) :
-   import pandas as pd
-   ret['Exchange'] = pd.Series(exchange, index=ret.index)
-   if unwanted_keys is not None  : 
-     for key in unwanted_keys:
-       if key in ret.columns.tolist() : ret.drop(key, 1)
-   return ret
+  import pandas as pd
+  ret['Exchange'] = pd.Series(exchange, index=ret.index)
+  if unwanted_keys is not None  : 
+    for key in unwanted_keys:
+      if key in ret.columns.tolist() : ret.drop(key, 1)
+  temp = ret.to_dict()
+  if unwanted_keys is not None  : 
+    for key in unwanted_keys:
+      if key in temp.keys() : del temp[key]
+  if len(temp.keys()) < len(ret.columns.tolist()) :
+    ret = pd.DataFrame.from_dict(temp)
+  return ret
 def parse_csv(csv) :
     import pandas as pd
     import io
