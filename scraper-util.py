@@ -45,7 +45,7 @@ def parse_csv_from_nasdaq(csv,unwanted_keys) :
      if unwanted_keys is not None  : 
        for key in unwanted_keys:
          if key in ret.keys() : del ret[key]
-       yield ret
+     yield ret
 
 def get_morningstar_cash_flow(exchange_code, ticker) :
   return 'http://financials.morningstar.com/ajax/ReportProcess4HtmlAjax.html?&t=%s:%s&region=usa&culture=en-US&cur=USD&reportType=cf&period=12&dataType=A&order=asc&columnYear=5&rounding=3&view=raw&r=963470&callback=jsonp%d&_=%d' % (exchange_code, ticker, int(time.time()), int(time.time()+150))
