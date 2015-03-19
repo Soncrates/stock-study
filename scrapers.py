@@ -1,22 +1,25 @@
 import scraper-util.py
 
 class BaseScraper :
-    def __init__(self,data_get,data_parse) :
-        self.get_data = data_get
-        self.parse_data = data_parse
+  def __init__(self,data_get,data_parse, data_formatter=None) :
+    self.get_data = data_get
+    self.parse_data = data_parse
+    self.data_formatter = data_formatter
 
 class YahooScraper(BaseScraper) :
-    def __init__(self,data_get,data_parse) :
-      BaseScraper.__init__( self,data_get,data_parse)
+    def __init__(self,data_get,data_format,data_parse) :
+      BaseScraper.__init__( self,data_get,data_parse,data_format)
     def __call__(self,symbol) :
-      import BeautifulSoup
       ret = self.get_data(symbol)
+      print (ret)
+      if self.data_formatter is not None :
+        ret = self.data_formatter(ret)
       for token in self.parse_data(ret) :
         yield token
 
 class NasdaqScraper(BaseScraper) :
-    def __init__(self,data_get,data_parse,exchange_list=None,unwanted_keys_list=None) : 
-        BaseScraper.__init__( self,data_get,data_parse)
+    def __init__(self,data_get,data_parse,data_formatter,exchange_list=None,unwanted_keys_list=None) : 
+        BaseScraper.__init__( self,data_get,data_parse,data_formatter)
         self.exchanges=["nyse", "nasdaq"]
         self.unwanted_keys=['Summary Quote','MarketCap','LastSale','IPOyear']
         if exchange_list is not None  : self.exchanges = exchange_list
@@ -29,15 +32,16 @@ class NasdaqScraper(BaseScraper) :
       ret = {}
       for exchange in exchanges :
         data = self.get_data(exchange)
-        for ele in self.parse_data(data,unwanted_keys) :
+        for ele in self.parse_data(data) :
+          if self.data_formatter is not None :
+             ele = self.data_formatter(ele,unwanted_keys,exchange)
           symbol=ele['Symbol']
           del ele['Symbol']
-          ele['Exchange'] = exchange
           ret[symbol] = ele
       return ret
         
-nasdaq = NasdaqScraper(get_csv_from_nasdaq,parse_csv_from_nasdaq)
-yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow_soup,parse_yahoo)
-yahoo_income_statement = YahooScraper(get_yahoo_income_statement_soup,parse_yahoo)
-yahoo_balance_sheet = YahooScraper(get_yahoo_balance_sheet_soup,parse_yahoo)
-yahoo_analyst_estimates_soup = YahooScraper(get_yahoo_analyst_estimates_soup,parse_yahoo)
+nasdaq = NasdaqScraper(get_nasdaq_csv,parse_csv,format_nasdaq)
+yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow,format_as_soup,parse_yahoo)
+yahoo_income_statement = YahooScraper(get_yahoo_income_statement,format_as_soup,parse_yahoo)
+yahoo_balance_sheet = YahooScraper(get_yahoo_balance_sheet,format_as_soup,parse_yahoo)
+yahoo_analyst_estimates_soup = YahooScraper(get_yahoo_analyst_estimates,format_as_soup,parse_yahoo)
