@@ -1,11 +1,11 @@
 def invoke_url(url,headers) :
-	import urllib.request
-	response = urllib.request.Request(url, headers=headers)
-	ret = urllib.request.urlopen(response)
-	ret = ret.read()
-	if isinstance(ret, str): # Python2
-		return ret
-	elif isinstance(ret, bytes): # Python3
+  import urllib.request
+  response = urllib.request.Request(url, headers=headers)
+  ret = urllib.request.urlopen(response)
+  ret = ret.read()
+  if isinstance(ret, str): # Python2
+    return ret
+  elif isinstance(ret, bytes): # Python3
 		return ret.decode("utf-8")
 
 def get_stock_from_nasdaq(exchanges=["nyse", "nasdaq"]) : # from nasdaq.com
@@ -23,7 +23,7 @@ def get_stock_from_nasdaq(exchanges=["nyse", "nasdaq"]) : # from nasdaq.com
 def get_csv_from_nasdaq(exchanges) :
   for url, headers in get_stock_from_nasdaq(exchanges) :
     yield invoke_url(url,headers)
-def parse_csv_stock_symbols(csv,unwanted_keys):
+def parse_csv_stock_symbols(csv):
   lines = csv.splitlines()
   rr = range(0,len(lines))
   keys = []
@@ -36,9 +36,6 @@ def parse_csv_stock_symbols(csv,unwanted_keys):
       keys=ret
       continue
     if len(keys) == len(ret) : ret = dict(zip(keys,ret))
-    if unwanted_keys is not None  : 
-      for key in unwanted_keys:
-        if key in ret.keys() : del ret[key]
     yield ret
 def parse_csv_from_nasdaq(csv,unwanted_keys) :
    for ret in parse_csv_stock_symbols(csv) :
