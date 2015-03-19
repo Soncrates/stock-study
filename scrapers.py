@@ -23,7 +23,7 @@ class NasdaqScraper(BaseScraper) :
         if unwanted_keys_list is not None  : self.unwanted_keys = unwanted_keys_list
     def __call__(self,exchange_list=None,unwanted_keys_list=None) :
       exchanges = self.exchanges
-      self.unwanted_keys
+      unwanted_keys = self.unwanted_keys
       if exchange_list is not None  : exchanges = exchange_list
       if unwanted_keys_list is not None  : unwanted_keys = unwanted_keys_list
       ret = {}
