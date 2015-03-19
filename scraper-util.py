@@ -24,12 +24,12 @@ def get_nasdaq_csv(exchange) : # from nasdaq.com
   url = "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange
   return invoke_url(url,headers)
 
-def parse_nasdaq_csv(csv,unwanted_keys) :
-   for ret in parse_csv(csv) :
-      if unwanted_keys is not None  : 
-        for key in unwanted_keys:
-          if key in ret.keys() : del ret[key]
-      yield ret
+def format_nasdaq(ret,unwanted_keys,exchange) :
+   ret['Exchange'] = exchange
+   if unwanted_keys is not None  : 
+     for key in unwanted_keys:
+       if key in ret.keys() : del ret[key]
+   return ret
 def parse_csv(csv):
   lines = csv.splitlines()
   rr = range(0,len(lines))
@@ -44,6 +44,14 @@ def parse_csv(csv):
       continue
     if len(keys) == len(ret) : ret = dict(zip(keys,ret))
     yield ret
+def parse_number(s):
+    ret=""
+    try:
+        ret = float(s)
+    except ValueError:
+        return s
+    if ret - int(ret) == 0 : return int(ret)
+    return ret
 
 def get_morningstar_cash_flow(exchange_code, ticker) :
   url = 'http://financials.morningstar.com/ajax/ReportProcess4HtmlAjax.html?&t=%s:%s&region=usa&culture=en-US&cur=USD&reportType=cf&period=12&dataType=A&order=asc&columnYear=5&rounding=3&view=raw&r=963470&callback=jsonp%d&_=%d' % (exchange_code, ticker, int(time.time()), int(time.time()+150))
@@ -93,11 +101,3 @@ def parse_yahoo(soup) :
     text = parse_yahoo_2(text)
     if isinstance(text, str) :  yield text
     else : yield str(text*factor))
-def parse_number(s):
-    ret=""
-    try:
-        ret = float(s)
-    except ValueError:
-        return s
-    if ret - int(ret) == 0 : return int(ret)
-    return ret
