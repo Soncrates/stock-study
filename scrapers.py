@@ -27,10 +27,12 @@ class NasdaqScraper(BaseScraper) :
       if exchange_list is not None  : exchanges = exchange_list
       if unwanted_keys_list is not None  : unwanted_keys = unwanted_keys_list
       ret = {}
-      for data in self.get_data(exchanges) :
+      for exchange in exchanges :
+        data = self.get_data(exchange)
         for ele in self.parse_data(data,unwanted_keys) :
           symbol=ele['Symbol']
           del ele['Symbol']
+          ele['Exchange'] = exchange
           ret[symbol] = ele
       return ret
         
