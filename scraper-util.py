@@ -8,21 +8,27 @@ def invoke_url(url,headers) :
   elif isinstance(ret, bytes): # Python3
 		return ret.decode("utf-8")
 
-def get_stock_from_nasdaq(exchanges=["nyse", "nasdaq"]) : # from nasdaq.com
-	headers = {
-		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
-		'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8',
-		'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,;q=0.3',
-		'Accept-Encoding': 'none',
-		'Accept-Language': 'en-US,en;q=0.8',
-		'Connection': 'keep-alive',
-		'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,/*;q=0.8'
-	}
-	for exchange in exchanges :
-		yield "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange, headers
-def get_csv_from_nasdaq(exchanges) :
-  for url, headers in get_stock_from_nasdaq(exchanges) :
-    yield invoke_url(url,headers)
+def get_stock_from_nasdaq(exchange) : # from nasdaq.com
+  headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+    'Accept-Encoding': 'none',
+    'Accept-Language': 'en-US,en;q=0.8',
+    'Connection': 'keep-alive',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+  }
+  return "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange, headers
+    
+def get_csv_from_nasdaq(exchange) :
+  url, headers = get_stock_from_nasdaq(exchange)
+  return invoke_url(url,headers)
+def parse_csv_from_nasdaq(csv,unwanted_keys) :
+   for ret in parse_csv_stock_symbols(csv) :
+      if unwanted_keys is not None  : 
+        for key in unwanted_keys:
+          if key in ret.keys() : del ret[key]
+      yield ret
 def parse_csv_stock_symbols(csv):
   lines = csv.splitlines()
   rr = range(0,len(lines))
