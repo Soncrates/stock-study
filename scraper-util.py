@@ -72,25 +72,35 @@ def get_yahoo_analyst_estimates(ticker) :
 
 def format_as_soup(url_response) :
   from bs4 import BeautifulSoup
-  return BeautifulSoup(url_response)  
+  return BeautifulSoup(url_response)
 
 def parse_yahoo_1(soup) :
-	factor = 1
-	thousands = soup.body.findAll(text= "All numbers in thousands")
-	if thousands : factor = 1000
-	table = soup.find("table", { "class" : "yfnc_tabledata1" })
-	for tag in ['td','strong'] :
-	  for cell in table.findAll(tag):
-	    text = cell.find(text=True)
-	    if text: yield text.replace(u'\xa0', u' '),factor
+  factor = 1
+  thousands = soup.body.findAll(text= "All numbers in thousands")
+  if thousands : factor = 1000
+  table = soup.find("table", { "class" : "yfnc_tabledata1" })
+  prev = ''
+  for cell in table.findAll(parse_yahoo3):
+      text = cell.find(text=True)
+      if not text : continue
+      text = text.replace(u'\xa0', u' ')
+      text = text.strip()
+      if len(text) == 0: continue
+      if text == prev : continue
+      prev=text
+      yield text,factor
 def parse_yahoo_2(text) :
   text = " ".join(text.split()).replace(',', "")
+  if len(text) == 0 : return ''
   if text[0] == "(":
-  	text_list = list(text)
-	text_list[0] = "-"
-	text_list[-1] = ""
-	text = "".join(text_list)
+    text_list = list(text)
+    text_list[0] = "-"
+    text_list[-1] = ""
+    text = "".join(text_list)
   return parse_number(text)
+def parse_yahoo3(tag) :
+    if tag.name not in ['td','strong'] : return False
+    return True
 def parse_yahoo(soup) :
   for text,factor in parse_yahoo_1(soup) :
     text = parse_yahoo_2(text)
