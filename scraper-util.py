@@ -81,6 +81,7 @@ def parse_csv_stock_symbol_symbols(csv):
     ret = lines[r].replace('","',"|").split('|')
     if len(ret) == 0 : continue
     ret = list(map(lambda x : x.replace('"',''), ret))
+    ret = list(map(lambda x : x.replace(',',''), ret))
     if r == 0 :
       keys=ret
       continue
