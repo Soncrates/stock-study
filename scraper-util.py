@@ -52,29 +52,27 @@ def invoke_url(url,headers) :
 	elif isinstance(ret, bytes): # Python3
 		return ret.decode("utf-8")
 def parse_yahoo_1(soup) :
-	factor = 0
+	factor = 1
 	thousands = soup.body.findAll(text= "All numbers in thousands")
 	if thousands : factor = 1000
 	table = soup.find("table", { "class" : "yfnc_tabledata1" })
-	ret = []
 	for tag in ['td','strong'] :
 	  for cell in table.findAll(tag):
 	    text = cell.find(text=True)
 	    if text: yield text.replace(u'\xa0', u' '),factor
-def parse_yahoo_2(text,factor) :
+def parse_yahoo_2(text) :
   text = " ".join(text.split()).replace(',', "")
   if text[0] == "(":
   	text_list = list(text)
 	text_list[0] = "-"
 	text_list[-1] = ""
 	text = "".join(text_list)
-  if utils.is_number(text):
-    text_float = float(text) * factor
-    if utils.relevant_float(text_float):
-	   text = str(text_float)
-    else:
-	   text = str(int(text_float))
-  yield str(text))
+  return parse_number(text)
+def parse_yahoo(soup) :
+  for text,factor in parse_yahoo_1(soup) :
+    text = parse_yahoo_2(text)
+    if isinstance(text, str) :  yield text
+    yield str(text*factor))
 def parse_csv_stock_symbol_symbols(csv):
 	lines = csv.splitlines()
 	rr = range(0,len(lines))
@@ -83,3 +81,11 @@ def parse_csv_stock_symbol_symbols(csv):
 		ret = lines[r].split(',')
 		if len(ret) == 0 : continue
 		yield map(lambda x : x.replace('"',''), ret)
+def parse_number(s):
+    ret=""
+    try:
+        ret = float(s)
+    except ValueError:
+        return s
+    if ret - int(ret) == 0 : return int(ret)
+    return ret
