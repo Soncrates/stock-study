@@ -46,7 +46,7 @@ def invoke_url(url,headers) :
 	import urllib.request
 	response = urllib.request.Request(url, headers=headers)
 	ret = urllib.request.urlopen(response)
-	ret = ret.page()
+	ret = ret.read()
 	if isinstance(ret, str): # Python2
 		return ret
 	elif isinstance(ret, bytes): # Python3
