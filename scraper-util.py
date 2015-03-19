@@ -1,3 +1,13 @@
+def invoke_url(url,headers) :
+	import urllib.request
+	response = urllib.request.Request(url, headers=headers)
+	ret = urllib.request.urlopen(response)
+	ret = ret.read()
+	if isinstance(ret, str): # Python2
+		return ret
+	elif isinstance(ret, bytes): # Python3
+		return ret.decode("utf-8")
+
 def get_stock_from_nasdaq(exchanges=["nyse", "nasdaq"]) : # from nasdaq.com
 	headers = {
 		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
@@ -10,6 +20,32 @@ def get_stock_from_nasdaq(exchanges=["nyse", "nasdaq"]) : # from nasdaq.com
 	}
 	for exchange in exchanges :
 		yield "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange, headers
+def get_csv_from_nasdaq(exchanges) :
+  for url, headers in get_stock_from_nasdaq(exchanges) :
+    yield invoke_url(url,headers)
+def parse_csv_stock_symbols(csv,unwanted_keys):
+  lines = csv.splitlines()
+  rr = range(0,len(lines))
+  keys = []
+  for r in rr :
+    ret = lines[r].replace('","',"|").split('|')
+    if len(ret) == 0 : continue
+    ret = list(map(lambda x : x.replace('"',''), ret))
+    ret = list(map(lambda x : x.replace(',',''), ret))
+    if r == 0 :
+      keys=ret
+      continue
+    if len(keys) == len(ret) : ret = dict(zip(keys,ret))
+    if unwanted_keys is not None  : 
+      for key in unwanted_keys:
+        if key in ret.keys() : del ret[key]
+    yield ret
+def parse_csv_from_nasdaq(csv,unwanted_keys) :
+   for ret in parse_csv_stock_symbols(csv) :
+     if unwanted_keys is not None  : 
+       for key in unwanted_keys:
+         if key in ret.keys() : del ret[key]
+       yield ret
 
 def get_morningstar_cash_flow(exchange_code, ticker) :
   return 'http://financials.morningstar.com/ajax/ReportProcess4HtmlAjax.html?&t=%s:%s&region=usa&culture=en-US&cur=USD&reportType=cf&period=12&dataType=A&order=asc&columnYear=5&rounding=3&view=raw&r=963470&callback=jsonp%d&_=%d' % (exchange_code, ticker, int(time.time()), int(time.time()+150))
@@ -41,16 +77,6 @@ def get_yahoo_analyst_estimates_soup(ticker) :
   ticker = get_yahoo_analyst_estimates(ticker)
   return BeautifulSoup(invoke_url(ticker), convertEntities=BeautifulSoup.HTML_ENTITIES)
 
-
-def invoke_url(url,headers) :
-	import urllib.request
-	response = urllib.request.Request(url, headers=headers)
-	ret = urllib.request.urlopen(response)
-	ret = ret.read()
-	if isinstance(ret, str): # Python2
-		return ret
-	elif isinstance(ret, bytes): # Python3
-		return ret.decode("utf-8")
 def parse_yahoo_1(soup) :
 	factor = 1
 	thousands = soup.body.findAll(text= "All numbers in thousands")
@@ -73,23 +99,6 @@ def parse_yahoo(soup) :
     text = parse_yahoo_2(text)
     if isinstance(text, str) :  yield text
     else : yield str(text*factor))
-def parse_csv_stock_symbol_symbols(csv,unwanted_keys):
-  lines = csv.splitlines()
-  rr = range(0,len(lines))
-  keys = []
-  for r in rr :
-    ret = lines[r].replace('","',"|").split('|')
-    if len(ret) == 0 : continue
-    ret = list(map(lambda x : x.replace('"',''), ret))
-    ret = list(map(lambda x : x.replace(',',''), ret))
-    if r == 0 :
-      keys=ret
-      continue
-    if len(keys) == len(ret) : ret = dict(zip(keys,ret))
-    if unwanted_keys is not None  : 
-      for key in unwanted_keys:
-        if key in ret.keys() : del ret[key]
-    yield ret
 def parse_number(s):
     ret=""
     try:
