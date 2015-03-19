@@ -72,7 +72,7 @@ def parse_yahoo(soup) :
   for text,factor in parse_yahoo_1(soup) :
     text = parse_yahoo_2(text)
     if isinstance(text, str) :  yield text
-    yield str(text*factor))
+    else : yield str(text*factor))
 def parse_csv_stock_symbol_symbols(csv):
 	lines = csv.splitlines()
 	rr = range(0,len(lines))
