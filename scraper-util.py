@@ -73,7 +73,7 @@ def parse_yahoo(soup) :
     text = parse_yahoo_2(text)
     if isinstance(text, str) :  yield text
     else : yield str(text*factor))
-def parse_csv_stock_symbol_symbols(csv):
+def parse_csv_stock_symbol_symbols(csv,unwanted_keys):
   lines = csv.splitlines()
   rr = range(0,len(lines))
   keys = []
@@ -86,6 +86,9 @@ def parse_csv_stock_symbol_symbols(csv):
       keys=ret
       continue
     if len(keys) == len(ret) : ret = dict(zip(keys,ret))
+    if unwanted_keys is not None  : 
+      for key in unwanted_keys:
+        if key in ret.keys() : del ret[key]
     yield ret
 def parse_number(s):
     ret=""
