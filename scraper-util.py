@@ -1,14 +1,17 @@
-def invoke_url(url,headers) :
+def invoke_url(url,headers=None) :
   import urllib.request
-  response = urllib.request.Request(url, headers=headers)
+  if headers is not None :
+    response = urllib.request.Request(url, headers=headers)
+  else :
+    response = urllib.request.Request(url)
   ret = urllib.request.urlopen(response)
   ret = ret.read()
   if isinstance(ret, str): # Python2
     return ret
   elif isinstance(ret, bytes): # Python3
-		return ret.decode("utf-8")
+    return ret.decode("utf-8")
 
-def get_stock_from_nasdaq(exchange) : # from nasdaq.com
+def get_nasdaq_csv(exchange) : # from nasdaq.com
   headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -18,18 +21,16 @@ def get_stock_from_nasdaq(exchange) : # from nasdaq.com
     'Connection': 'keep-alive',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
   }
-  return "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange, headers
-    
-def get_csv_from_nasdaq(exchange) :
-  url, headers = get_stock_from_nasdaq(exchange)
+  url = "http://www.nasdaq.com/screening/companies-by-name.aspx?letter=0&exchange=%s&render=download" % exchange
   return invoke_url(url,headers)
-def parse_csv_from_nasdaq(csv,unwanted_keys) :
-   for ret in parse_csv_stock_symbols(csv) :
+
+def parse_nasdaq_csv(csv,unwanted_keys) :
+   for ret in parse_csv(csv) :
       if unwanted_keys is not None  : 
         for key in unwanted_keys:
           if key in ret.keys() : del ret[key]
       yield ret
-def parse_csv_stock_symbols(csv):
+def parse_csv(csv):
   lines = csv.splitlines()
   rr = range(0,len(lines))
   keys = []
@@ -43,12 +44,6 @@ def parse_csv_stock_symbols(csv):
       continue
     if len(keys) == len(ret) : ret = dict(zip(keys,ret))
     yield ret
-def parse_csv_from_nasdaq(csv,unwanted_keys) :
-   for ret in parse_csv_stock_symbols(csv) :
-     if unwanted_keys is not None  : 
-       for key in unwanted_keys:
-         if key in ret.keys() : del ret[key]
-     yield ret
 
 def get_morningstar_cash_flow(exchange_code, ticker) :
   return 'http://financials.morningstar.com/ajax/ReportProcess4HtmlAjax.html?&t=%s:%s&region=usa&culture=en-US&cur=USD&reportType=cf&period=12&dataType=A&order=asc&columnYear=5&rounding=3&view=raw&r=963470&callback=jsonp%d&_=%d' % (exchange_code, ticker, int(time.time()), int(time.time()+150))
@@ -60,25 +55,17 @@ def get_morningstar_key_ratios(exchange_code,ticker) :
   return 'http://financials.morningstar.com/financials/getFinancePart.html?&callback=jsonp1408061143067&t=%s:%s&region=usa&culture=en-US&cur=USD&order=asc&_=1408061143210' % (exchange_code, ticker)
 
 def get_yahoo_cash_flow(ticker) :
-  return 'http://finance.yahoo.com/q/cf?s=%s&annual' % ticker
-def get_yahoo_cash_flow_soup(ticker) :
-  ticker = get_yahoo_cash_flow(ticker)
-  return BeautifulSoup(invoke_url(ticker), convertEntities=BeautifulSoup.HTML_ENTITIES)
+  return invoke_url('http://finance.yahoo.com/q/cf?s=%s&annual' % ticker)
 def get_yahoo_income_statement(ticker) :
-  return 'http://finance.yahoo.com/q/is?s=%s&annual' % ticker
-def get_yahoo_income_statement_soup(ticker) :
-  ticker = get_yahoo_income_statement(ticker)
-  return BeautifulSoup(invoke_url(ticker), convertEntities=BeautifulSoup.HTML_ENTITIES)
+  return invoke_url('http://finance.yahoo.com/q/is?s=%s&annual' % ticker)
 def get_yahoo_balance_sheet(ticker) :
-  return 'http://finance.yahoo.com/q/bs?s=%s&annual' % ticker
-def get_yahoo_balance_sheet_soup(ticker) :
-  ticker = get_yahoo_balance_sheet(ticker)
-  return BeautifulSoup(invoke_url(ticker), convertEntities=BeautifulSoup.HTML_ENTITIES)
+  return invoke_url('http://finance.yahoo.com/q/bs?s=%s&annual' % ticker)
 def get_yahoo_analyst_estimates(ticker) :
-  return 'http://finance.yahoo.com/q/ae?s=%s+Analyst+Estimates' % ticker
-def get_yahoo_analyst_estimates_soup(ticker) :
-  ticker = get_yahoo_analyst_estimates(ticker)
-  return BeautifulSoup(invoke_url(ticker), convertEntities=BeautifulSoup.HTML_ENTITIES)
+  return invoke_url('http://finance.yahoo.com/q/ae?s=%s+Analyst+Estimates' % ticker)
+
+def format_as_soup(url_response) :
+  import BeautifulSoup
+  return BeautifulSoup(url_response, convertEntities=BeautifulSoup.HTML_ENTITIES)  
 
 def parse_yahoo_1(soup) :
 	factor = 1
