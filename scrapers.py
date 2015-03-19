@@ -21,7 +21,7 @@ class NasdaqScraper(BaseScraper) :
   def __init__(self,data_get,data_parse,data_formatter,exchange_list=None,unwanted_keys_list=None) : 
     BaseScraper.__init__( self,data_get,data_parse,data_formatter)
     self.exchanges=["nyse", "nasdaq"]
-    self.unwanted_keys=['Summary Quote','MarketCap','LastSale','IPOyear']
+    self.unwanted_keys=['Summary Quote','MarketCap','LastSale','IPOyear','Unnamed: 8']
     if exchange_list is not None  : self.exchanges = exchange_list
     if unwanted_keys_list is not None  : self.unwanted_keys = unwanted_keys_list
   def __call__(self,exchange_list=None,unwanted_keys_list=None) :
@@ -30,17 +30,14 @@ class NasdaqScraper(BaseScraper) :
     unwanted_keys = self.unwanted_keys
     if exchange_list is not None  : exchanges = exchange_list
     if unwanted_keys_list is not None  : unwanted_keys = unwanted_keys_list
-    ret = None
-    for exchange in exchanges :
-      data = self.get_data(exchange)
-      data = self.parse_data(data)
-      if self.data_formatter is not None :
-        data = self.data_formatter(data,unwanted_keys,exchange)
-      if ret is None : ret = data
-      else : 
-        temp = dict(list(ret.items()) + list(data.items()))
-        ret = pd.DataFrame.from_dict(temp)
-    return ret
+    data = None
+    for exchange in exchanges : 
+      if data is None : data = self.get_data(exchange)
+      else : data = b"".join([data, self.get_data(exchange)])
+    data = self.parse_data(data)
+    if self.data_formatter is not None :
+      data = self.data_formatter(data,unwanted_keys,exchange)
+    return data.reindex()
         
 nasdaq = NasdaqScraper(get_nasdaq_csv,parse_csv,format_nasdaq)
 yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow,format_as_soup,parse_yahoo)
