@@ -25,19 +25,18 @@ class NasdaqScraper(BaseScraper) :
     if exchange_list is not None  : self.exchanges = exchange_list
     if unwanted_keys_list is not None  : self.unwanted_keys = unwanted_keys_list
   def __call__(self,exchange_list=None,unwanted_keys_list=None) :
-    import pandas as pd
     exchanges = self.exchanges
     unwanted_keys = self.unwanted_keys
     if exchange_list is not None  : exchanges = exchange_list
     if unwanted_keys_list is not None  : unwanted_keys = unwanted_keys_list
-    data = None
+    ret = None
     for exchange in exchanges : 
-      if data is None : data = self.get_data(exchange)
-      else : data = b"".join([data, self.get_data(exchange)])
-    data = self.parse_data(data)
+      if ret is None : ret = self.get_data(exchange)
+      else : ret = b"".join([ret, self.get_data(exchange)])
+    ret = self.parse_data(ret)
     if self.data_formatter is not None :
-      data = self.data_formatter(data,unwanted_keys,exchange)
-    return data.reindex()
+      ret = self.data_formatter(ret,unwanted_keys,exchange)
+    return ret.reindex()
         
 nasdaq = NasdaqScraper(get_nasdaq_csv,parse_csv,format_nasdaq)
 yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow,format_as_soup,parse_yahoo)
