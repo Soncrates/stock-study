@@ -106,4 +106,4 @@ def parse_yahoo(soup) :
   for text,factor in parse_yahoo_1(soup) :
     text = parse_yahoo_2(text)
     if isinstance(text, str) :  yield text
-    else : yield str(text*factor))
+    else : yield str(text*factor)
