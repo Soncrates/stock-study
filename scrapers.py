@@ -1,5 +1,13 @@
 import scraper-util.py
 
+class ExpireTimer() :
+    def __init__(self,expire=1) :
+      import datetime as dt
+      self.expire = dt.datetime.today() + dt.timedelta(minutes = expire)
+    def __call__(self) :
+      import datetime as dt
+      return self.expire > dt.datetime.today()
+
 class BaseScraper :
   def __init__(self,data_get,data_parse, data_formatter=None) :
     self.get_data = data_get
@@ -38,8 +46,10 @@ class NasdaqScraper(BaseScraper) :
       ret = self.data_formatter(ret,unwanted_keys,exchange)
     return ret.reindex()
         
-nasdaq = NasdaqScraper(get_nasdaq_csv,parse_csv,format_nasdaq)
+nasdaqscraper = NasdaqScraper(get_nasdaq_csv,parse_csv,format_nasdaq)
 yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow,format_as_soup,parse_yahoo)
 yahoo_income_statement = YahooScraper(get_yahoo_income_statement,format_as_soup,parse_yahoo)
 yahoo_balance_sheet = YahooScraper(get_yahoo_balance_sheet,format_as_soup,parse_yahoo)
 yahoo_analyst_estimates_soup = YahooScraper(get_yahoo_analyst_estimates,format_as_soup,parse_yahoo)
+
+nasdaq = NasdaqInfo(nasdaqscraper)
