@@ -80,10 +80,8 @@ def format_as_soup(url_response) :
   return BeautifulSoup(url_response)
 def format_yahoo_finaance_rss(rss) :
   import xmltodict,re
-  ret = []
   for item in re.findall(r'<item>(\w+)<\/item>', rss) :
-    ret.append(xmltodict.parse(item))
-  return ret
+    yield xmltodict.parse(item)
 def parse_yahoo_1(soup) :
   factor = 1
   thousands = soup.body.findAll(text= "All numbers in thousands")
@@ -136,27 +134,26 @@ class YQLQuery(object):
   _quoteslist = 'yahoo.finance.quoteslist'
   _sectors = 'yahoo.finance.sectors'
   _industry = 'yahoo.finance.industry'
-	def __init__(self):
-
-	def __call__(self, yql):
+  def __init__(self):
+  def __call__(self, yql):
     import urllib
     import simplejson as json
-	  queryString = urllib.urlencode({'q': yql, 'format': 'json', 'env': self._DATATABLES_URL})
-	  url = self.PUBLIC_API_URL + '?' + queryString
-	  ret = invoke_url(url)
+    queryString = urllib.urlencode({'q': yql, 'format': 'json', 'env': self._DATATABLES_URL})
+    url = self.PUBLIC_API_URL + '?' + queryString
+    ret = invoke_url(url)
 	  ret = json.loads(ret)
+	  return ret
   def __is_valid_response(self, response, field):
     return 'query' in response and 'results' in response['query'] and field in response['query']['results']
-    
   def __validate_response(self, response, tagToCheck):
     if self.__is_valid_response(response, tagToCheck):
-      quoteInfo = response['query']['results'][tagToCheck]
+      ret = response['query']['results'][tagToCheck]
     else:
       if 'error' in response:
         raise QueryError('YQL query failed with error: "%s".' % response['error']['description'])
       else:
         raise QueryError('YQL response malformed.')
-      return quoteInfo
+    return ret
 class YQLStock(object) :
   def __init__(query,table,tag) :
     self.query = query
@@ -170,14 +167,14 @@ class YQLStockQuote(YQLStock) :
   def __init__() :
     YQLStock.__init__(YQLQuery(),YQLQuery._quotes,'quote')
 class YQLStockOptions(YQLStock) :
-    def __init__() :
-      YQLStock.__init__(YQLQuery(),YQLQuery._options,'optionsChain')
+  def __init__() :
+    YQLStock.__init__(YQLQuery(),YQLQuery._options,'optionsChain')
 class YQLStockQuoteSummary(YQLStock) :
-    def __init__() :
-      YQLStock.__init__(YQLQuery(),YQLQuery._quoteslist,'quote')
+  def __init__() :
+    YQLStock.__init__(YQLQuery(),YQLQuery._quoteslist,'quote')
 class YQLStockNameBySector(YQLStock) :
-    def __init__() :
-      YQLStock.__init__(YQLQuery(),YQLQuery._sectors,'sector')
+  def __init__() :
+    YQLStock.__init__(YQLQuery(),YQLQuery._sectors,'sector')
 class YQLStockByIndustry(YQLStock) :
-    def __init__() :
-      YQLStock.__init__(YQLQuery(),YQLQuery._industry,'industry')
+  def __init__() :
+    YQLStock.__init__(YQLQuery(),YQLQuery._industry,'industry')
