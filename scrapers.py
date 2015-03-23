@@ -53,3 +53,17 @@ yahoo_balance_sheet = YahooScraper(get_yahoo_balance_sheet,format_as_soup,parse_
 yahoo_analyst_estimates_soup = YahooScraper(get_yahoo_analyst_estimates,format_as_soup,parse_yahoo)
 
 nasdaq = NasdaqInfo(nasdaqscraper)
+
+class StockScraper() :
+    def __init__(self) :
+        self.expire = {}
+        self.cache = {}
+    def __call__(self,stock) :
+        y1,y2,r = get_year_paramters()
+        if stock not in self.cache.keys() : 
+            self.cache[stock] = get_yahoo_historical(stock,y1)
+            self.expire[stock] = ExpireTimer(30) 
+            return self.cache[stock]
+        elif self.expire[stock]() :  return self.cache[stock]
+        self.cache[stock] = get_yahoo_historical(stock,y1)
+        self.expire[stock] = ExpireTimer(30) 
