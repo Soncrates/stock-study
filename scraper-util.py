@@ -127,3 +127,57 @@ def get_yahoo_historical(stock,year,strict=True) :
     if year != first.year : return None
     if 1 != first.month : return None
     return ret
+
+class YQLQuery(object):
+  _YAHOO_URL = 'http://query.yahooapis.com/v1/public/yql'
+  _DATATABLES_URL = 'store://datatables.org/alltableswithkeys'
+  _quotes = 'yahoo.finance.quotes'
+  _options = 'yahoo.finance.options'
+  _quoteslist = 'yahoo.finance.quoteslist'
+  _sectors = 'yahoo.finance.sectors'
+  _industry = 'yahoo.finance.industry'
+	def __init__(self):
+
+	def __call__(self, yql):
+    import urllib
+    import simplejson as json
+	  queryString = urllib.urlencode({'q': yql, 'format': 'json', 'env': self._DATATABLES_URL})
+	  url = self.PUBLIC_API_URL + '?' + queryString
+	  ret = invoke_url(url)
+	  ret = json.loads(ret)
+  def __is_valid_response(self, response, field):
+    return 'query' in response and 'results' in response['query'] and field in response['query']['results']
+    
+  def __validate_response(self, response, tagToCheck):
+    if self.__is_valid_response(response, tagToCheck):
+      quoteInfo = response['query']['results'][tagToCheck]
+    else:
+      if 'error' in response:
+        raise QueryError('YQL query failed with error: "%s".' % response['error']['description'])
+      else:
+        raise QueryError('YQL response malformed.')
+      return quoteInfo
+class YQLStock(object) :
+  def __init__(query,table,tag) :
+    self.query = query
+    self.table = table
+	  self.tag = tag
+  def __call__(symbol, columns='*') :
+    yql = 'select %s from %s where symbol in (%s)' %(columns, self.table, symbol)
+    ret = self.query(yql)
+    return self.query.__validate_response(ret, self.tag)
+class YQLStockQuote(YQLStock) :
+  def __init__() :
+    YQLStock.__init__(YQLQuery(),YQLQuery._quotes,'quote')
+class YQLStockOptions(YQLStock) :
+    def __init__() :
+      YQLStock.__init__(YQLQuery(),YQLQuery._options,'optionsChain')
+class YQLStockQuoteSummary(YQLStock) :
+    def __init__() :
+      YQLStock.__init__(YQLQuery(),YQLQuery._quoteslist,'quote')
+class YQLStockNameBySector(YQLStock) :
+    def __init__() :
+      YQLStock.__init__(YQLQuery(),YQLQuery._sectors,'sector')
+class YQLStockByIndustry(YQLStock) :
+    def __init__() :
+      YQLStock.__init__(YQLQuery(),YQLQuery._industry,'industry')
