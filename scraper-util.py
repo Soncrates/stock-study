@@ -70,11 +70,20 @@ def get_yahoo_balance_sheet(ticker) :
   return invoke_url('http://finance.yahoo.com/q/bs?s=%s&annual' % ticker)
 def get_yahoo_analyst_estimates(ticker) :
   return invoke_url('http://finance.yahoo.com/q/ae?s=%s+Analyst+Estimates' % ticker)
+def get_yahoo_rss_stock(ticker) :
+  return invoke_url('http://finance.yahoo.com/rss/headline?s=%s' % ticker)
+def get_yahoo_rss_industry(ticker) :
+  return invoke_url('http://finance.yahoo.com/rss/industry?s=%s' % ticker)
 
 def format_as_soup(url_response) :
   from bs4 import BeautifulSoup
   return BeautifulSoup(url_response)
-
+def format_yahoo_finaance_rss(rss) :
+  import xmltodict,re
+  ret = []
+  for item in re.findall(r'<item>(\w+)<\/item>', rss) :
+    ret.append(xmltodict.parse(item))
+  return ret
 def parse_yahoo_1(soup) :
   factor = 1
   thousands = soup.body.findAll(text= "All numbers in thousands")
