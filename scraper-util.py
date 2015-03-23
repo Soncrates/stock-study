@@ -107,3 +107,14 @@ def parse_yahoo(soup) :
     text = parse_yahoo_2(text)
     if isinstance(text, str) :  yield text
     else : yield str(text*factor)
+def get_yahoo_historical(stock,year,strict=True) :
+    import pandas.io.data as pdd
+    try :
+        ret = pdd.DataReader(stock, data_source='yahoo', start='{}/1/1'.format(year))
+    except IOError :
+        return None
+    if not strict : return ret
+    first = ret.index.tolist()[0]
+    if year != first.year : return None
+    if 1 != first.month : return None
+    return ret
