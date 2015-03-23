@@ -155,26 +155,45 @@ class YQLQuery(object):
         raise QueryError('YQL response malformed.')
     return ret
 class YQLStock(object) :
-  def __init__(query,table,tag) :
+  def __init__(self,query,table,tag) :
     self.query = query
     self.table = table
 	  self.tag = tag
-  def __call__(symbol, columns='*') :
+  def __call__(self,symbol, columns='*') :
     yql = 'select %s from %s where symbol in (%s)' %(columns, self.table, symbol)
     ret = self.query(yql)
     return self.query.__validate_response(ret, self.tag)
 class YQLStockQuote(YQLStock) :
-  def __init__() :
+  def __init__(self) :
     YQLStock.__init__(YQLQuery(),YQLQuery._quotes,'quote')
 class YQLStockOptions(YQLStock) :
-  def __init__() :
+  def __init__(self) :
     YQLStock.__init__(YQLQuery(),YQLQuery._options,'optionsChain')
 class YQLStockQuoteSummary(YQLStock) :
-  def __init__() :
+  def __init__(self) :
     YQLStock.__init__(YQLQuery(),YQLQuery._quoteslist,'quote')
 class YQLStockNameBySector(YQLStock) :
-  def __init__() :
+  def __init__(self) :
     YQLStock.__init__(YQLQuery(),YQLQuery._sectors,'sector')
+  def __call__(self)
+    yql = 'select * from %s' % self.table
+    ret = self.query(yql)
+    return self.query.__validate_response(ret, self.tag)
 class YQLStockByIndustry(YQLStock) :
-  def __init__() :
+  def __init__(self) :
     YQLStock.__init__(YQLQuery(),YQLQuery._industry,'industry')
+  def __call__(self,id)
+    yql = 'select * from %s where id =\'%s\'' % self.table, id)
+    ret = self.query(yql)
+    return self.query.__validate_response(ret, self.tag)
+class YQLNews(object) :
+  RSS_URL = 'http://finance.yahoo.com/rss/headline?s='
+  def __init__(self,query,table,tag) :
+    self.query = query
+  def __call__(self,symbol) :
+    yql = 'select title, link, description, pubDate from rss where url=\'%s%s\'' % RSS_URL,symbol
+    ret = self.query(yql)['query']['results']['item']
+    if ret[0]['title'].find('not found') > 0:
+      raise QueryError('Feed for %s does not exist.' % symbol)
+    else:
+      return ret
