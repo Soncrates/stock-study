@@ -45,25 +45,31 @@ class NasdaqScraper(BaseScraper) :
     if self.data_formatter is not None :
       ret = self.data_formatter(ret,unwanted_keys,exchange)
     return ret.reindex()
+class NasdaqService() :
+    def __init__(self,service) :
+        self.service = service
+        self.fresh = None
+        self.cache = None
+    def __call__(self) :
+        if self.cache is None or not self.fresh(): 
+            self.cache = self.service()
+            self.fresh = ExpireTimer(24*60) 
+        return self.cache
+class StockService() :
+    def __init__(self) :
+        self.fresh = {}
+        self.cache = {}
+    def __call__(self,stock) :
+        if stock not in self.cache.keys() or not self.fresh[stock](): 
+            y1,y2,r = get_year_paramters()
+            self.cache[stock] = get_yahoo_historical(stock,y1)
+            self.fresh[stock] = ExpireTimer(24*60) 
+        return self.cache[stock]
         
-nasdaqscraper = NasdaqScraper(get_nasdaq_csv,parse_csv,format_nasdaq)
 yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow,format_as_soup,parse_yahoo)
 yahoo_income_statement = YahooScraper(get_yahoo_income_statement,format_as_soup,parse_yahoo)
 yahoo_balance_sheet = YahooScraper(get_yahoo_balance_sheet,format_as_soup,parse_yahoo)
 yahoo_analyst_estimates_soup = YahooScraper(get_yahoo_analyst_estimates,format_as_soup,parse_yahoo)
 
-nasdaq = NasdaqInfo(nasdaqscraper)
-
-class StockScraper() :
-    def __init__(self) :
-        self.expire = {}
-        self.cache = {}
-    def __call__(self,stock) :
-        y1,y2,r = get_year_paramters()
-        if stock not in self.cache.keys() : 
-            self.cache[stock] = get_yahoo_historical(stock,y1)
-            self.expire[stock] = ExpireTimer(30) 
-            return self.cache[stock]
-        elif self.expire[stock]() :  return self.cache[stock]
-        self.cache[stock] = get_yahoo_historical(stock,y1)
-        self.expire[stock] = ExpireTimer(30) 
+nasdaqscraper = NasdaqService(get_nasdaq_csv,parse_csv,format_nasdaq)
+nasdaq = NasdaqService(nasdaqscraper)
