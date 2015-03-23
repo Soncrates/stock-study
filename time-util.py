@@ -1,4 +1,4 @@
-def get_year_paramters(time=10) :
+def get_year_parameters(time=10) :
     import datetime as dt
     today = dt.datetime.today()
     d = dt.timedelta(days = ((time+1)*365))
