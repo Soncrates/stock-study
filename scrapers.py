@@ -1,12 +1,5 @@
 import scraper-util.py
-
-class ExpireTimer() :
-    def __init__(self,expire=1) :
-      import datetime as dt
-      self.expire = dt.datetime.today() + dt.timedelta(minutes = expire)
-    def __call__(self) :
-      import datetime as dt
-      return self.expire > dt.datetime.today()
+import time-util.py
 
 class BaseScraper :
   def __init__(self,data_get,data_parse, data_formatter=None) :
