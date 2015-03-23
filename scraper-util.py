@@ -139,10 +139,10 @@ class YQLQuery(object):
     import urllib
     import simplejson as json
     queryString = urllib.urlencode({'q': yql, 'format': 'json', 'env': self._DATATABLES_URL})
-    url = self.PUBLIC_API_URL + '?' + queryString
+    url = self._YAHOO_URL  + '?' + queryString
     ret = invoke_url(url)
-	  ret = json.loads(ret)
-	  return ret
+    ret = json.loads(ret)
+    return ret
   def __is_valid_response(self, response, field):
     return 'query' in response and 'results' in response['query'] and field in response['query']['results']
   def __validate_response(self, response, tagToCheck):
