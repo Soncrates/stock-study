@@ -12,7 +12,6 @@ class YahooScraper(BaseScraper) :
       BaseScraper.__init__( self,data_get,data_parse,data_format)
     def __call__(self,symbol) :
       ret = self.get_data(symbol)
-      print (ret)
       if self.data_formatter is not None :
         ret = self.data_formatter(ret)
       for token in self.parse_data(ret) :
@@ -54,7 +53,7 @@ class StockService() :
         self.cache = {}
     def __call__(self,stock) :
         if stock not in self.cache.keys() or not self.fresh[stock](): 
-            y1,y2,r = get_year_paramters()
+            y1,y2,r = get_year_parameters()
             self.cache[stock] = get_yahoo_historical(stock,y1)
             self.fresh[stock] = ExpireTimer(24*60) 
         return self.cache[stock]
