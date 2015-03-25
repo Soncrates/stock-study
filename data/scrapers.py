@@ -57,11 +57,3 @@ class StockService() :
             self.cache[stock] = get_yahoo_historical(stock,y1)
             self.fresh[stock] = ExpireTimer(24*60) 
         return self.cache[stock]
-      
-yahoo_cash_flow = YahooScraper(get_yahoo_cash_flow,format_as_soup,parse_yahoo)
-yahoo_income_statement = YahooScraper(get_yahoo_income_statement,format_as_soup,parse_yahoo)
-yahoo_balance_sheet = YahooScraper(get_yahoo_balance_sheet,format_as_soup,parse_yahoo)
-yahoo_analyst_estimates_soup = YahooScraper(get_yahoo_analyst_estimates,format_as_soup,parse_yahoo)
-
-nasdaqscraper = NasdaqService(get_nasdaq_csv,parse_csv,format_nasdaq)
-nasdaq = NasdaqService(nasdaqscraper)
