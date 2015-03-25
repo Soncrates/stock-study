@@ -67,3 +67,45 @@ class YQLNews(object) :
         if ret[0]['title'].find('not found') > 0:
             raise IOError('Feed for %s does not exist.' % symbol)
         return ret
+class YQLNewsItem(object) :
+    RSS_URL = 'http://finance.yahoo.com/rss/headline?s='
+    def __init__(self,query=YQLQuery()) :
+        self.query = query
+    def __call__(self,symbol) :
+        if '^' in symbol : return None
+        yql = 'select title,link, pubDate from rss where url=\'%s%s\'' % (YQLNews.RSS_URL,symbol)
+        ret = self.query(yql)
+        if ret is None  :return None
+        if 'query' in ret : ret = ret['query']
+        if ret is None  :return None
+        if 'results' in ret : ret = ret['results']
+        if ret is None  :return None
+        if 'item' in ret : ret = ret['item']
+        if ret is None  :return None
+        if isinstance(ret,list) :
+            if 'title' in ret[0] and ret[0]['title'].find('not found') > 0:
+                raise IOError('Feed for %s does not exist.' % symbol)
+        elif isinstance(ret,dict) :
+            if 'error' in ret :
+                raise IOError('Failed to read feed for %s : %s ' % (symbol,ret['error'])) 
+            else :
+                print(ret.keys())
+        else :
+            print(type(ret))
+        return ret
+class YQLNewsList(object) :
+    def __init__(self,query=YQLNewsItem()) :
+        self.query = query
+        self.fresh = {}
+        self.cache = {}
+    def __call__(self,stock) :
+        if stock not in self.cache.keys() or not self.fresh[stock](): 
+            ret = self.query(stock)
+            self.fresh[stock] = ExpireTimer(24*60)
+            self.cache[stock] = self.__transform(ret)
+    def __transform(self,rss) :
+        if rss is None : return rss 
+        for item in rss :
+            del (item['title'])
+            item['link'] = item['link'].split('*')[1]
+        return rss
