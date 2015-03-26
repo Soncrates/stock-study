@@ -1,3 +1,7 @@
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.figure as figure
+
 def monthly_summary(stock_dict) :
     fig, ax = plt.subplots()
     fig.set_size_inches(10,10)
