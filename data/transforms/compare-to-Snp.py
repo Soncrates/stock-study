@@ -20,7 +20,7 @@ def gen_normalize_by_month(stock,pct, month) :
         temp=one_month_many_years(key,normalized)
         yield key[1], _month, label,temp 
 
-class compareStock(object) :
+class CompareStock(object) :
   def __init__(self,service = StockService()) :
      self.spy = 'spx'
      self.spy_symbol = '^GSPC'
