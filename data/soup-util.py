@@ -1,6 +1,15 @@
 def format_as_soup(url_response) :
   from bs4 import BeautifulSoup
   return BeautifulSoup(url_response)
+    
+def parse_number(s):
+    ret=""
+    try:
+        ret = float(s)
+    except ValueError:
+        return s
+    if ret - int(ret) == 0 : return int(ret)
+    return ret
 def parse_yahoo_1(soup) :
   factor = 1
   thousands = soup.body.findAll(text= "All numbers in thousands")
