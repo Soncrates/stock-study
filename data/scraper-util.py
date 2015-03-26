@@ -51,3 +51,11 @@ def format_yahoo_finance_rss(rss) :
   import xmltodict,re
   for item in re.findall(r'<item>(\w+)<\/item>', rss) :
     yield xmltodict.parse(item)
+
+def get_exchange_code(stock) :
+  if stock is None : return None
+  exchange = getattr(stock, "StockExchange_yf")
+  if exchange == 'NYSE':
+    exchange_code = "XNYS"
+  elif exchange == "NasdaqNM":
+    exchange_code = "XNAS"
