@@ -39,15 +39,6 @@ def parse_csv(csv) :
     import io
     ret = pd.read_csv(io.BytesIO(csv), encoding='utf8', sep=",",index_col="Symbol")
     return ret
-    
-def parse_number(s):
-    ret=""
-    try:
-        ret = float(s)
-    except ValueError:
-        return s
-    if ret - int(ret) == 0 : return int(ret)
-    return ret
 
 def get_morningstar_cash_flow(exchange_code, ticker) :
   url = 'http://financials.morningstar.com/ajax/ReportProcess4HtmlAjax.html?&t=%s:%s&region=usa&culture=en-US&cur=USD&reportType=cf&period=12&dataType=A&order=asc&columnYear=5&rounding=3&view=raw&r=963470&callback=jsonp%d&_=%d' % (exchange_code, ticker, int(time.time()), int(time.time()+150))
@@ -75,45 +66,10 @@ def get_yahoo_rss_stock(ticker) :
 def get_yahoo_rss_industry(ticker) :
   return invoke_url('http://finance.yahoo.com/rss/industry?s=%s' % ticker)
 
-def format_as_soup(url_response) :
-  from bs4 import BeautifulSoup
-  return BeautifulSoup(url_response)
-def format_yahoo_finaance_rss(rss) :
+def format_yahoo_finance_rss(rss) :
   import xmltodict,re
   for item in re.findall(r'<item>(\w+)<\/item>', rss) :
     yield xmltodict.parse(item)
-def parse_yahoo_1(soup) :
-  factor = 1
-  thousands = soup.body.findAll(text= "All numbers in thousands")
-  if thousands : factor = 1000
-  table = soup.find("table", { "class" : "yfnc_tabledata1" })
-  prev = ''
-  for cell in table.findAll(parse_yahoo3):
-      text = cell.find(text=True)
-      if not text : continue
-      text = text.replace(u'\xa0', u' ')
-      text = text.strip()
-      if len(text) == 0: continue
-      if text == prev : continue
-      prev=text
-      yield text,factor
-def parse_yahoo_2(text) :
-  text = " ".join(text.split()).replace(',', "")
-  if len(text) == 0 : return ''
-  if text[0] == "(":
-    text_list = list(text)
-    text_list[0] = "-"
-    text_list[-1] = ""
-    text = "".join(text_list)
-  return parse_number(text)
-def parse_yahoo3(tag) :
-    if tag.name not in ['td','strong'] : return False
-    return True
-def parse_yahoo(soup) :
-  for text,factor in parse_yahoo_1(soup) :
-    text = parse_yahoo_2(text)
-    if isinstance(text, str) :  yield text
-    else : yield str(text*factor)
 def get_yahoo_historical(stock,year,strict=True) :
     import pandas.io.data as pdd
     try :
