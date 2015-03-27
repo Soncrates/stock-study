@@ -51,7 +51,7 @@ class ScraperUtil (object) :
             self.cache = {}
         def __call__(self,stock) :
             if stock not in self.cache.keys() or not self.fresh[stock](): 
-                y1,y2,r = get_year_parameters()
-                self.cache[stock] = get_yahoo_historical(stock,y1)
+                y1,y2,r = TimeUtil.get_year_parameters()
+                self.cache[stock] = YahooParse.get_stock_daily(stock,y1)
                 self.fresh[stock] = TimeUtil.ExpireTimer(24*60) 
             return self.cache[stock]
