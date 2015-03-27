@@ -28,7 +28,10 @@ class WebUtils(object) :
         soup = WebUtils.format_as_soup(html)
         ret =  []
         for p in soup.body.findAll('p') :
-            ret.append(p.text)
+            text = p.text
+            text = text.replace(u'\xa0', u' ')
+            text = text.strip()
+            ret.append(text)
         return ret
     @staticmethod
     def format_noodle(url) :
