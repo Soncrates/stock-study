@@ -23,4 +23,4 @@ for symbol in stocks().index.values:
     print(symbol)
     for token in yahoo_cash_flow(symbol) :
         print (token)
-        break
+    break
