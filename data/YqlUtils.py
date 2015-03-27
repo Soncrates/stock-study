@@ -33,8 +33,8 @@ class YQLBase(object) :
             self.table = table
             self.tag = tag
         def __call__(self,symbol, columns='*') :
+            #yql = 'select title, link, description, pubDate from rss where url=\'%s%s\'' % (YQLNews.RSS_URL,symbol)
             yql = 'select %s from %s where symbol in (\'%s\')' %(columns, self.table, symbol)
-            print(yql)
             ret = self.query(yql)
             return self.query.validate_response(ret, self.tag)
 class YQL(object) :
