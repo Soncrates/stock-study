@@ -63,6 +63,7 @@ class YahooParse(object) :
       thousands = soup.body.findAll(text= "All numbers in thousands")
       if thousands : factor = 1000
       table = soup.find("table", { "class" : "yfnc_tabledata1" })
+      if table is None : return
       prev = ''
       for cell in table.findAll(YahooParse.validtag):
           text = cell.find(text=True)
