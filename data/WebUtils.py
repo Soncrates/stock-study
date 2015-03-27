@@ -82,7 +82,7 @@ class YahooParse(object) :
         text_list[0] = "-"
         text_list[-1] = ""
         text = "".join(text_list)
-      return parse_number(text)
+      return WebUtils.parse_number(text)
     @staticmethod
     def validtag(tag) :
         if tag.name not in ['td','strong'] : return False
