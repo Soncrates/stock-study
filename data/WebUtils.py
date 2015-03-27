@@ -93,3 +93,15 @@ class YahooParse(object) :
         text = YahooParse.finance_2(text)
         if isinstance(text, str) :  yield text
         else : yield str(text*factor)
+    @staticmethod
+    def get_stock_daily(stock,year,strict=True) :
+        import pandas.io.data as pdd
+        try :
+            ret = pdd.DataReader(stock, data_source='yahoo', start='{}/1/1'.format(year))
+        except IOError :
+            return None
+        if not strict : return ret
+        first = ret.index.tolist()[0]
+        if year != first.year : return None
+        if 1 != first.month : return None
+        return ret
