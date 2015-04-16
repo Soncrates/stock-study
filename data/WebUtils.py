@@ -1,7 +1,7 @@
 class WebUtils(object) :
   class Scrape(object) :
     from functools import lru_cache
-    @lru_cache(maxsize=None)
+    @lru_cache(maxsize=100)
     def __call__(self,url,headers=None, raw=False) :
       #print(url)
       return WebUtils.invoke_url(url,headers,raw)
