@@ -1,4 +1,4 @@
-class ScraperUtil (object) :
+class ScraperUtils (object) :
     class Base :
       def __init__(self,data_get,data_parse, data_formatter=None) :
         self.get_data = data_get
