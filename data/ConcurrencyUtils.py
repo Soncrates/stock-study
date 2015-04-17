@@ -1,46 +1,7 @@
 class ConcurrencyUtils(object) :
-  class ConcurrentActor(object) :
+  class ConcurrencyService(object) :
       def __init__(self,monad) :
-          self.monad=monad
-      @staticmethod
-      def test_types() :
-          '''
-          We want type detection, to determine if we should treat elements as atomic or as a collection of objects
-          str, bytearray, bytes, and buffers should all be treated as an argument, but based on type how do we distinguish
-          between str and list?
-          So far the best answer is hasattr(type, 'istitle')
-          but this test will help in case the next big change
-          '''
-          import collections
-          #memoryview
-          StringTypes = [str, bytearray, bytes]
-          StringCount = len(StringTypes)
-          StringAttr = map(lambda x : set(dir(x)), StringTypes)
-          StringAttr = flatten_collection(StringAttr)
-  
-          SequenceTypes = [list, tuple, range]
-          SetTypes = [ set, frozenset ]
-          MappingTypes = [dict]
-          CollectionTypes = [collections.Counter, collections.deque, collections.OrderedDict, collections.defaultdict]
-          ContainerTypes = SequenceTypes + SetTypes + MappingTypes + CollectionTypes
-          ContainerCount = len(ContainerTypes)
-          ContainerAttrs = map(lambda x : set(dir(x)), ContainerTypes)
-          ContainerAttrs = flatten_collection(ContainerAttrs)
-  
-          Strings = filter(lambda x : StringAttr.count(x) == StringCount, StringAttr.copy())
-          Containers = filter(lambda x : ContainerAttrs.count(x) == ContainerCount, ContainerAttrs.copy())
-          Strings = set(Strings)
-          Containers = set(Containers)
-  
-          print (sorted(Strings))
-          print (sorted(Containers))
-          print (sorted(Containers - Strings))
-          print (sorted(Strings - Containers))
-          _temp = ContainerTypes + StringTypes
-          print(_temp)
-          test = filter(lambda x: hasattr(x, 'istitle'),_temp)
-          print(list(test))
-          
+          self.monad=monad          
       def single_arg(self,monad,args, max_workers=5) :
           import concurrent.futures
           ret = {}
@@ -57,7 +18,10 @@ class ConcurrencyUtils(object) :
                   except Exception as exc:
                       log_err.append('%r generated an exception: %s' % (key[0:80], exc))
                   else:
-                      log_std.append('%r response is %d bytes' % (key[0:80], len(data)))
+                      response = 0
+                      if data is not None :
+                        response = len(data)
+                      log_std.append('%r response is %d bytes' % (key[0:80], response))
           print({'std':log_std,'err':log_err})
           return ret
       def tuple_arg(self,monad,args) :
@@ -68,6 +32,74 @@ class ConcurrencyUtils(object) :
           if not hasattr(args, '__iter__') : raise TypeError('args has no iterator %s' % type(args))
           if not hasattr(args, '__getitem__') : args = list(args)
           ret = self.single_arg
-          if not isinstance(args[0], str) :
-              if not hasattr(args[0], 'istitle') : ret = self.tuple_arg
+          if len(args) > 0 :
+            if not TypeUtils.is_single(args[0]) : ret = self.tuple_arg
           return ret(self.monad,args)
+  class CacheService(object) :
+    def __init__(self,service = print, config = None) :
+      self._cache_time = 24*60
+      self._throttle_time = 10
+      if config is not None : 
+          self._cache_time = config['duration_cache']
+          self._throttle_time = config['duration_throttle']
+      self._fresh = {}
+      self._cache = {}
+      self._throttled = set([])
+      self._skip = {}
+      self.service = ConcurrencyService(service)
+    def clear(self) :
+        self._cache.clear()
+        self._fresh.clear()
+        self._throttled.clear()
+        self._skip.clear()
+    def __getitem__(self, key):
+      return self._cache[key]
+    def __setitem__(self, key, item):
+        if item is None : 
+            self._skip[key] = TimeUtil.ExpireTimer(self._throttle_time) 
+            self._throttled.add(key)
+        else :
+            self._fresh[key] = TimeUtil.ExpireTimer(self._cache_time) 
+            self._cache[key] = item
+        return item
+    def __contains__(self,key = None) :
+      ret = True
+      if key is not None and not hasattr(key,'__hash__') : 
+        ret = False
+      elif key is not None and not TypeUtils.is_single(key):
+        ret = False
+      else : 
+        ret = key in self._cache.keys() and self._fresh[key]()
+#      print(list(self.cache.keys()))
+      return ret
+    def is_throttled(self,key) :
+      ret = True
+      if key is not None and not hasattr(key,'__hash__') : 
+        ret = False
+      elif key is not None and not TypeUtils.is_single(key):
+        ret = False
+      else : 
+        ret = key in self._throttled and self._skip[key]()
+      return ret
+    def __call__(self,key = None) :
+      ret = None
+      if TypeUtils.is_single(key) : 
+        if not self.__contains__(key) and not self.is_throttled(key): 
+            ret = self.service(key)
+            self.__setitem__(key,ret)
+        if self.__contains__(key) : 
+            ret = self.__getitem__(key)
+      else :
+        cached = filter(lambda k : self.__contains__(k) or self.is_throttled(k), key)
+        not_cached = set(key) - set(cached)
+        temp = self.service(not_cached)
+        if temp is not None and not TypeUtils.is_single(temp):
+          for k,v in temp.items() :
+            self.__setitem__(k,v)
+        ret = {}
+        for k in key :
+          if not self.__contains__(k) : continue
+          v = self.__getitem__(k)
+          if v is None : continue
+          ret[k] = v
+      return ret
