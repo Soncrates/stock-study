@@ -43,6 +43,16 @@ class YahooFinance(object) :
     @staticmethod
     def get_rss_industry(ticker) :
       return WebUtils.invoke_url('http://finance.yahoo.com/rss/industry?s=%s' % ticker)
+
+class StockUtils(object) :
+    @staticmethod
+    def get_exchange_code(stock) :
+      if stock is None : return None
+      exchange = getattr(stock, "StockExchange_yf")
+      if exchange == 'NYSE':
+        exchange_code = "XNYS"
+      elif exchange == "NasdaqNM":
+        exchange_code = "XNAS"
 class YahooParse(object) :
     @staticmethod
     def finance_1(soup) :
