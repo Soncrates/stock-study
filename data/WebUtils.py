@@ -66,3 +66,8 @@ class WebUtils(object) :
           text = text.strip()
           ret.append(text)
       return ret
+  @staticmethod
+  def get_items_from_feed(rss) :
+    import xmltodict,re
+    for item in re.findall(r'<item>(\w+)<\/item>', rss) :
+      yield xmltodict.parse(item)
