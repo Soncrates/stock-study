@@ -1,11 +1,9 @@
-nasdaqScraper = ScraperUtil.Nasdaq(NasDaq.get_csv,NasDaq.parse_csv_into_panda,NasDaq.format_panda)
-nasdaqScraper_alt = ScraperUtil.Nasdaq(NasDaq.get_csv,NasDaq.parse_csv_into_panda,data_formatter=None)
 yahoo_cash_flow = ScraperUtil.Yahoo(YahooFinance.get_cash_flow,WebUtils.format_as_soup,YahooParse.finance)
 yahoo_income_statement = ScraperUtil.Yahoo(YahooFinance.get_income_statement,WebUtils.format_as_soup,YahooParse.finance)
 yahoo_balance_sheet = ScraperUtil.Yahoo(YahooFinance.get_balance_sheet,WebUtils.format_as_soup,YahooParse.finance)
 yahoo_analyst_estimates_soup = ScraperUtil.Yahoo(YahooFinance.get_analyst_estimates,WebUtils.format_as_soup,YahooParse.finance)
 
-stocks = ScraperUtil.NasdaqService(nasdaqScraper)
+stocks = CacheService(NasDaqPandaDataService())
 news = YQL.NewsFeedList(YQL.NewsFeed())
 temp = {}
 for symbol in stocks().index.values :
