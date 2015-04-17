@@ -4,7 +4,7 @@ yahoo_balance_sheet = ScraperUtil.Yahoo(YahooFinance.get_balance_sheet,WebUtils.
 yahoo_analyst_estimates_soup = ScraperUtil.Yahoo(YahooFinance.get_analyst_estimates,WebUtils.format_as_soup,YahooParse.finance)
 
 stocks = CacheService(NasDaqPandaDataService())
-news = YQL.NewsFeedList(YQL.NewsFeed())
+news = CacheService(YQL.NewsFeed())
 temp = {}
 for symbol in stocks().index.values :
     if symbol[0] not in temp.keys() :
