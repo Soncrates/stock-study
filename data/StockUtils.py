@@ -15,38 +15,4 @@ class MorningStar(object) :
     def get_key_ratios(exchange_code,ticker) :
       url = 'http://financials.morningstar.com/financials/getFinancePart.html?&callback=jsonp1408061143067&t=%s:%s&region=usa&culture=en-US&cur=USD&order=asc&_=1408061143210' % (exchange_code, ticker)
       return WebUtils.invoke_url(url)
-class YahooFinance(object) : 
-    @staticmethod
-    def get_cash_flow(ticker) :
-      return WebUtils.invoke_url('http://finance.yahoo.com/q/cf?s=%s&annual' % ticker)
-    @staticmethod
-    def get_income_statement(ticker) :
-      return WebUtils.invoke_url('http://finance.yahoo.com/q/is?s=%s&annual' % ticker)
-    @staticmethod
-    def get_balance_sheet(ticker) :
-      return WebUtils.invoke_url('http://finance.yahoo.com/q/bs?s=%s&annual' % ticker)
-    @staticmethod
-    def get_analyst_estimates(ticker) :
-      return WebUtils.invoke_url('http://finance.yahoo.com/q/ae?s=%s+Analyst+Estimates' % ticker)
-    @staticmethod
-    def get_rss_stock(ticker) :
-      return WebUtils.invoke_url('http://finance.yahoo.com/rss/headline?s=%s' % ticker)
-    @staticmethod
-    def get_rss_industry(ticker) :
-      return WebUtils.invoke_url('http://finance.yahoo.com/rss/industry?s=%s' % ticker)
 
-    @staticmethod
-    def format_yahoo_finance_rss(rss) :
-      import xmltodict,re
-      for item in re.findall(r'<item>(\w+)<\/item>', rss) :
-        yield xmltodict.parse(item)
-  
-class StockUtils(object) :
-    @staticmethod
-    def get_exchange_code(stock) :
-      if stock is None : return None
-      exchange = getattr(stock, "StockExchange_yf")
-      if exchange == 'NYSE':
-        exchange_code = "XNYS"
-      elif exchange == "NasdaqNM":
-        exchange_code = "XNAS"
