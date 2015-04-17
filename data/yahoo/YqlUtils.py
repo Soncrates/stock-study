@@ -75,7 +75,7 @@ class YQL(object) :
             if ret is None  :return None
             if 'item' in ret : ret = ret['item']
             if ret is None  :return None
-            print (type(ret))
+#            print (type(ret))
             if isinstance(ret,list) :
                 if 'title' in ret[0] and ret[0]['title'].find('not found') > 0:
                     raise IOError('Feed for %s does not exist.' % symbol)
@@ -86,27 +86,16 @@ class YQL(object) :
                     print(ret.keys())
             else :
                 print(type(ret))
-            return ret
-    class NewsFeedList(object) :
-        def __init__(self,query) :
-            self.query = query
-            self.fresh = {}
-            self.cache = {}
-        def __call__(self,stock) :
-            if stock not in self.cache.keys() or not self.fresh[stock](): 
-                ret = self.query(stock)
-                self.fresh[stock] = TimeUtil.ExpireTimer(24*60)
-                self.cache[stock] = self.__transform(ret)
-            return self.cache[stock]
+            return self._transform(ret)
         def __transform(self,rss) :
             if rss is None : return rss
             for item in rss :
                 del (item['title'])
                 url = item['link'].split('*')[1]
-                soup = WebUtils.format_noodle(url)
-                if soup is None : soup = WebUtils.format_yahoo_finance(url)
-                if soup is None : soup = WebUtils.format_biz_yahoo(url)
-                if soup is None : soup = WebUtils.format_investopedia(url)
-                if soup is None : soup = WebUtils.format_generic(url)
+                soup = YahooUtils.format_noodle(url)
+                if soup is None : soup = YahooUtils.format_yahoo_finance(url)
+                if soup is None : soup = YahooUtils.format_biz_yahoo(url)
+                if soup is None : soup = YahooUtils.format_investopedia(url)
+                if soup is None : soup = YahooUtils.format_generic(url)
                 item['link'] = soup
             return rss
