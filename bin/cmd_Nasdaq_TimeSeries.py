@@ -36,6 +36,6 @@ if __name__ == "__main__" :
    import os,sys
 
    pwd = os.getcwd()
-   pwd = pwd.replace('bin','lib')
+   pwd = pwd.replace('bin','local')
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
    main(pwd,*file_list)

@@ -45,7 +45,7 @@ if __name__ == '__main__' :
 
    pwd = os.getcwd()
    pwd = pwd.replace('bin','local')
-   stock_ini = '{}/stock_meta.ini'.format(pwd)
+   stock_ini = '{}/nasdaq_background.ini'.format(pwd)
    nasdaq = '{}/{}'.format(pwd,NASDAQ.path)
    nasdaq = NASDAQ.init(filename=nasdaq)
    profile = YAHOO_PROFILE()

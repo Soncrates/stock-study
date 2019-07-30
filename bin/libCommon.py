@@ -1,5 +1,6 @@
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 import pandas_datareader as web
+import pandas as pd
 import datetime
 import ConfigParser
 
@@ -72,6 +73,8 @@ class INI(object) :
                   if ',' in value :
                      value = value.split(',')
                      value = map(lambda key : key.strip(), value)
+                  else :
+                     value = [value]
                   yield ini_file, name, key, value
 
       @staticmethod
@@ -119,16 +122,15 @@ class STOCK_TIMESERIES :
 
       @staticmethod
       def load(filename) :
-      data = pd.read_pickle(filename)
-      target = 'Stock'
-      if target in data :
-         name = data.pop(target)
-         name = name[0]
-         return name, data
-      name = filename.split("/")[-1]
-      name = name.split(".")[0]
-      return name, data
-
+          data = pd.read_pickle(filename)
+          target = 'Stock'
+          if target in data :
+             name = data.pop(target)
+             name = name[0]
+             return name, data
+          name = filename.split("/")[-1]
+          name = name.split(".")[0]
+          return name, data
 
 if __name__ == "__main__" :
 
