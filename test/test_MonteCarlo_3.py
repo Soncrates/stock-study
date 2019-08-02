@@ -7,6 +7,10 @@ import pandas as pd
 import numpy as np
 from itertools import combinations as iter_combo
 
+pwd = os.getcwd()
+pwd = pwd.replace('test', 'bin')
+sys.path.append(pwd)
+
 from ProcessData import CompareStock
 from libCommon import INI, STOCK_TIMESERIES
 
@@ -23,8 +27,9 @@ def init(*ini_list) :
         config = None
         if name == "Stability" :
            config = stability
-        if name == "Performance" :
+        elif name == "Performance" :
            config = performers
+        else : continue
         config[key] = value
     ret = performers.get('Q1234',[])
     return ret
@@ -52,7 +57,7 @@ if __name__ == '__main__' :
    from libMonteCarlo import MonteCarlo
 
    pwd = os.getcwd()
-   pwd = pwd.replace('bin', 'local')
+   pwd = pwd.replace('test', 'local')
    ini_list = glob('{}/*.ini'.format(pwd))
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
 

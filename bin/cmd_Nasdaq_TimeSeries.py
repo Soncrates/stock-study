@@ -28,7 +28,7 @@ def main(pwd, *file_list) :
     for stock in nasdaq() :
         filename = '{}/historical_prices/{}.pkl'.format(pwd,stock)
         if filename in fresh_list : continue
-        ret = reader.extract_from_yahoo(stock,filename)
+        ret = reader.extract_from_yahoo(stock)
         STOCK_TIMESERIES.save(filename, stock, ret)
 
 if __name__ == "__main__" :

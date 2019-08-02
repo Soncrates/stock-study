@@ -1,5 +1,14 @@
 #!/usr/bin/python
 
+
+import os,sys
+import pandas as pd
+
+pwd = os.getcwd()
+pwd = pwd.replace('test','bin')
+sys.path.append(pwd)
+
+from libMonteCarlo import MonteCarlo
 from libCommon import INI, STOCK_TIMESERIES, combinations
 
 def init(*ini_list) :
@@ -56,12 +65,9 @@ def main(file_list, stock_list) :
 if __name__ == '__main__' :
 
    from glob import glob
-   import os,sys
-   import pandas as pd
-   from libMonteCarlo import MonteCarlo
 
    pwd = os.getcwd()
-   pwd = pwd.replace('bin','local')
+   pwd = pwd.replace('test','local')
    ini_list = glob('{}/*.ini'.format(pwd))
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
    main(file_list, ini_list)

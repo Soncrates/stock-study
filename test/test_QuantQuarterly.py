@@ -5,6 +5,11 @@ import datetime
 import math
 import numpy as np
 
+import os,sys
+pwd = os.getcwd()
+pwd = pwd.replace('test','bin')
+sys.path.append(pwd)
+
 from libCOMMON import STOCK_TIMESERIES
 from libProcess import CompareStock, StockTransform, Monthly_Transform
 
@@ -80,11 +85,11 @@ def main(*file_list) :
 
 if __name__ == '__main__' :
 
-   import os
    from glob import glob
 
+   import os,sys
    pwd = os.getcwd()
-   pwd = pwd.replace('bin','local')
+   pwd = pwd.replace('test','local')
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
    main(*file_list)
    print "Done"

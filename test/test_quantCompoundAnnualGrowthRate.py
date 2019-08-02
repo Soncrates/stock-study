@@ -3,6 +3,12 @@
 import datetime
 import pandas as pd
 
+import os,sys
+
+pwd = os.getcwd()
+pwd = pwd.replace('test','bin')
+sys.path.append(pwd)
+
 from libCommon import INI, STOCK_TIMERIES
 from libQuantTrial_01 import DataFrame, DateFinder, CompoundAnnualGrowthRate
 
@@ -52,7 +58,7 @@ if __name__ == '__main__' :
    import os,sys
 
    pwd = os.getcwd()
-   pwd = pwd.replace('bin','local')
+   pwd = pwd.replace('test','local')
    ini_list = glob('{}/*.ini'.format(pwd))
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
    stock_list = init(*ini_list)

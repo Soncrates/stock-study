@@ -90,7 +90,7 @@ if __name__ == '__main__' :
    ini_stable, ini_performance = main(control_by_quarter, *file_list)
 
    pwd = pw.replace('bin','local')
-   config_file = '{}/better_than_spy.ini'.format(pwd)
+   config_file = '{}/nasdaq_quarterly.ini'.format(pwd)
    config = INI.init()
    INI.write_section(config,'Stability',**ini_stable)
    INI.write_section(config,'Performance',**ini_performance)
