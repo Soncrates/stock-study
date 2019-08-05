@@ -131,6 +131,24 @@ class STOCK_TIMESERIES :
           name = filename.split("/")[-1]
           name = name.split(".")[0]
           return name, data
+      @staticmethod
+      def read(file_list, stock_list) :
+          if stock_list is None or len(stock_list) == 0 :
+             for path in file_list :
+                 name, ret = STOCK_TIMESERIES.load(path)
+                 yield name, ret
+             return
+              
+          for path in file_list :
+              flag_maybe = filter(lambda x : x in path, stock_list)
+              flag_maybe = len(flag_maybe) > 0
+              if not flag_maybe : continue
+              name, ret = STOCK_TIMESERIES.load(path)
+              if name not in stock_list :
+                 del ret
+                 continue
+              yield name, ret
+
 
 if __name__ == "__main__" :
 
