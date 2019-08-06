@@ -9,7 +9,7 @@ def getByNasdaq(*ini_list) :
     Category = {}
 
     for file_name, section, key, value in INI.loadList(*ini_list) :
-        config = None
+        if "nasdaq_background" not in file_name : continue
         if section == "Sector" :
            config = Sector
         elif section == "Industry" :
@@ -31,7 +31,6 @@ def filterByNasdaq(*ini_list) :
     Category = {}
     
     for file_name, section, key, value in INI.loadList(*ini_list) :
-        config = None
         if section == "Stability" :
            config = stability
         elif section == "Performance" :

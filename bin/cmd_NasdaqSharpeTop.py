@@ -49,17 +49,15 @@ def _filterSharpe(**ret) :
 
     if len(ret) == 0 : return [], None
     ret = pd.DataFrame(ret).T
-    # filter low performers
-    ret = ret[(ret['returns'] > 0.1)]
-    if len(ret) == 0 : return [], None
+    _len = len(ret)
+    size = int(_len*.1)
     # filter riskier
-    size = int(len(ret)*.9)
-    if size < 8 : size == 8
-    ret = ret.sort_values(['dev']).head(size)
-    if len(ret) == 0 : return [], None
+    ret = ret.sort_values(['dev']).head(_len - size)
+    # filter low performers
+    ret = ret.sort_values(['returns']).tail(_len - size - size)
     # screen top players
+    ret = ret.round(2)
     ret = ret.sort_values(['sharpe','returns']).tail(8)
-    if len(ret) == 0 : return [], None
     return list(ret.T.columns), ret
 
 if __name__ == '__main__' :

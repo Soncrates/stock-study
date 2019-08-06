@@ -75,9 +75,9 @@ def _filterMonteCarlo(**kwargs) :
         yield key, list(mean.columns)
 
 def _reduceMonteCarlo(ret) :
-    size = int(len(ret)*.9)
-    if size < 20 : size = 20
-    ret = ret.sort_values(['stdev','sharpe']).head(size)
+    #size = int(len(ret)*.9)
+    #if size < 20 : size = 20
+    #ret = ret.sort_values(['stdev','sharpe']).head(size)
     ret = ret.fillna(0)
     ret = ret.mean()
     ret = pd.DataFrame(ret)
