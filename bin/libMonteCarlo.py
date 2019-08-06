@@ -16,7 +16,7 @@ class MonteCarlo(object) :
           return ret
       def __init__(self, period) :
           self.period = period
-      def single(self, data) :
+      def findSharpe(self, data) :
           data.sort_index(inplace=True)
           if len(data) < self.period :
              return 0, 0, 0, len(data)
@@ -90,7 +90,7 @@ if __name__ == "__main__" :
        data = reader.extract_from_yahoo(stock)
        stock_data[stock] = data[target]
 
-       ret, dev, sharpe, length = annual.single(data[target])
+       ret, dev, sharpe, length = annual.findSharpe(data[target])
        print "{} return {}, dev {}, sharpe {}, length {}".format(stock,ret,dev,sharpe,length)
 
    max_sharp, min_vol = annual(stock_list,stock_data)

@@ -7,7 +7,6 @@ import ConfigParser
 from itertools import combinations as iter_combo
 
 def combinations(stock_list,size=5) :
-    print stock_list
     ret_list = iter_combo(stock_list,size)
     for ret in list(ret_list):
         yield list(ret)
