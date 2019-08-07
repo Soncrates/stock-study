@@ -42,6 +42,8 @@ def _calculateSharpe(file_list, value_list) :
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
         returns, dev, sharpe, length = annual.findSharpe(data['Adj Close']) 
+        #filter stocks that have less than a year
+        if sharpe == 0 : continue
         ret[name] = {'returns' : returns, 'dev' : dev, 'sharpe' : sharpe, 'length' : length}
     return ret
 

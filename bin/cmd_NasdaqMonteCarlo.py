@@ -32,12 +32,25 @@ def main(file_list, ini_list) :
     ret_good, ret_ok, ret_bad, dev_good, dev_ok, dev_bad = _bin_by_MonteCarlo(file_list, Industry)
     ret_ind, dev_ind = thing(ret_good, ret_ok, ret_bad, dev_good, dev_ok, dev_bad)
     
+    risky_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
+    balanced_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
+    safe_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
     for key, risky, balanced, safe in  sortMonteCarlo(ret_cat, dev_cat) :
+        risky_data['Fund'][key] = risky
+        balanced_data['Fund'][key] = balanced
+        safe_data['Fund'][key] = safe
         print "Fund {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe)
     for key, risky, balanced, safe in  sortMonteCarlo(ret_sect, dev_sect) :
+        risky_data['Sector'][key] = risky
+        balanced_data['Sector'][key] = balanced
+        safe_data['Sector'][key] = safe
         print "Sector {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe)
     for key, risky, balanced, safe in  sortMonteCarlo(ret_ind, dev_ind) :
+        risky_data['Industry'][key] = risky
+        balanced_data['Industry'][key] = balanced
+        safe_data['Industry'][key] = safe
         print "Industry {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe)
+    return risky_data, balanced_data, safe_data
 
 def thing(ret_good, ret_ok, ret_bad, dev_good, dev_ok, dev_bad) :
     ret = ret_good
@@ -140,12 +153,25 @@ if __name__ == '__main__' :
    ini_list = glob('{}/*.ini'.format(pwd))
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
 
-   main(file_list,ini_list)
-   '''
+   risky_data, balanced_data, safe_data = main(file_list,ini_list)
+
    config = INI.init()
-   INI.write_section(config,'Sector',**Sector_Top)
-   INI.write_section(config,'Industry',**Industry_Top)
-   INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/nasdaq_top.ini".format(pwd)
+   for key in risky_data.keys() :
+       values = risky_data[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_risky.ini".format(pwd)
    config.write(open(stock_ini, 'w'))
-   '''
+
+   config = INI.init()
+   for key in balanced_data.keys() :
+       values = balanced_data[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_balanced.ini".format(pwd)
+   config.write(open(stock_ini, 'w'))
+
+   config = INI.init()
+   for key in safe_data.keys() :
+       values = safe_data[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_safe.ini".format(pwd)
+   config.write(open(stock_ini, 'w'))
