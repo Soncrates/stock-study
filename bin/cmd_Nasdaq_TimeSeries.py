@@ -4,6 +4,11 @@ import datetime
 
 from libCommon import STOCK_TIMESERIES, NASDAQ
 
+'''
+   Web Scraper
+   Use RESTful interface to download stock and fund stock market prices for the past 10 years
+   Store as pkl files
+'''
 class Refresh :
       def __init__(self,end) :
              self.end = end

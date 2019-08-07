@@ -9,7 +9,7 @@ from libMonteCarlo import MonteCarlo
   There are over 6 thousand stocks on the nasdaq.
   Full analysis would take weeks
   Calculating simple sharpe ratio, 
-     filtering out returns below a certain threshold, 
+     Screen for returns below a certain threshold, 
      filtering out risk above a certain threshold
   then reduce the list to the top 8 by sharpe.
   repeat for every subset of sector, industry, fund category

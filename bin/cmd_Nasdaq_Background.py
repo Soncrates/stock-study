@@ -3,6 +3,10 @@
 from libWeb import YAHOO_PROFILE
 from libCommon import INI, NASDAQ
 
+'''
+   Web Scraper
+   Use RESTful interface to to get web pages and parse for relevant info about stocks and funds
+'''
 def main(finder,profile) :
     ini_sector = {}
     ini_industry = {}

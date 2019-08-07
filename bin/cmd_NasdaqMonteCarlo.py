@@ -5,6 +5,10 @@ from libCommon import INI, STOCK_TIMESERIES, combinations
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
+'''
+    Use MonteCarlo method to take subset of stocks and funds (by type)
+    Determine which are risky (high profit) and which are safe (low risk)
+'''
 def prep(*ini_list) :
     Sector = {}
     Industry = {}
