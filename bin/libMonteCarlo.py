@@ -31,7 +31,6 @@ class MonteCarlo(object) :
           return weighted_return, weighted_dev, sharpe, len(data)
       def __call__(self, stocks,data, num_portfolios = 25000) :
           stocks = self._filterBadSharpe(stocks,data)
-          print stocks
           data = data[stocks]
           data.sort_index(inplace=True)
           #convert daily stock prices into daily returns
@@ -81,7 +80,7 @@ class MonteCarlo(object) :
               returns = np.sum(mean * weights) * self.period
               std_dev = np.sqrt(magic_number) * np.sqrt(self.period)
               #calculate Sharpe Ratio (return / volatility) - risk free rate element excluded for simplicity
-              sharpe = 1
+              sharpe = 0 
               if std_dev != 0 : sharpe = returns / std_dev
     
               #store results in results array
@@ -102,6 +101,7 @@ if __name__ == "__main__" :
 
    # debugging
    stock_list = ['DIAL', 'IMFI', 'FISR', 'WBIN']
+   stock_list = ['EVBG', 'MDB', 'OKTA', 'SHOP']
 
    reader = STOCK_TIMESERIES.init()
    annual = MonteCarlo.YEAR()

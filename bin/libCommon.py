@@ -67,19 +67,26 @@ class INI(object) :
       def loadList(*file_list) :
           file_list = sorted(file_list)
           for ini_file in file_list :
-              config = INI._init(ini_file)
-              for name, key, value in INI.read_section(config) :
-                  if ',' in value :
-                     value = value.split(',')
-                     value = map(lambda key : key.strip(), value)
-                  else :
-                     value = [value]
+              for name, key, value in INI._loadList(ini_file) :
                   yield ini_file, name, key, value
 
       @staticmethod
+      def _loadList(path) :
+          if path.endswith('ini') == False : return
+          config = INI._init(path)
+          for name, key, value in INI.read_section(config) :
+              if ',' in value :
+                 value = value.split(',')
+                 value = map(lambda key : key.strip(), value)
+              else :
+                     value = [value]
+              yield name, key, value
+
+      @staticmethod
       def read_section(config) :
-          for name in config._sections :
+          for name in sorted(config._sections) :
               for key, value in config.items(name) :
+                  if len(value) == 0 : continue
                   yield name, key, value
 
       @staticmethod
