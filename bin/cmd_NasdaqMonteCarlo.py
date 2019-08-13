@@ -32,18 +32,18 @@ def main(file_list, ini_list) :
     risky_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
     balanced_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
     safe_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
-    target = 'Fund'
-    for key, risky, balanced, safe in  sortMonteCarlo(ret_cat, dev_cat) :
-        risky_data[target][key] = risky
-        balanced_data[target][key] = balanced
-        safe_data[target][key] = safe
-        print "Fund {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe)
     target = 'Sector'
     for key, risky, balanced, safe in  sortMonteCarlo(ret_sect, dev_sect) :
         risky_data[target][key] = risky
         balanced_data[target][key] = balanced
         safe_data[target][key] = safe
         print "Sector {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe)
+    target = 'Fund'
+    for key, risky, balanced, safe in  sortMonteCarlo(ret_cat, dev_cat) :
+        risky_data[target][key] = risky
+        balanced_data[target][key] = balanced
+        safe_data[target][key] = safe
+        print "Fund {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe)
     target = 'Industry'
     for key, risky, balanced, safe in  sortMonteCarlo(ret_ind, dev_ind) :
         risky_data[target][key] = risky
@@ -79,8 +79,6 @@ def _filterMonteCarlo(**kwargs) :
             ret = ret.append(p)
         ret = ret.drop(columns=list(meta))
         mean = _reduceMonteCarlo(ret)
-        #mean_intersection = set_meta.intersection(set(mean.columns))
-        #mean = mean.drop(columns=list(mean_intersection))
         yield key, list(mean.columns)
 
 def _reduceMonteCarlo(ret) :
@@ -107,7 +105,8 @@ def _bin_by_MonteCarlo(file_list, kwargs) :
     for key in kwargs.keys() :
         stock_list = sorted(kwargs[key])
         print key, stock_list
-        for max_sharpe, min_dev in calculateMonteCarlo(file_list, stock_list) :
+        name_list, data_list = calculateMonteCarlo(file_list, stock_list)
+        for max_sharpe, min_dev in _calculateMonteCarlo(name_list, data_list) :
             cur_sharpe = ret_min
             cur_dev = dev_min
             if max_sharpe['sharpe'] > 2.5 :
@@ -134,21 +133,32 @@ def _bin_by_MonteCarlo(file_list, kwargs) :
     devs_list = [dev_max, dev_3, dev_2, dev_min]
     returns_list = filter(lambda x : len(x) > 0, returns_list)
     devs_list = filter(lambda x : len(x) > 0, devs_list)
+    #print returns_list[0]
+    #print len(returns_list[0])
+    #print len(returns_list)
+    #print devs_list[0]
     return returns_list[0], devs_list[0], returns_list, devs_list
 
 def calculateMonteCarlo(file_list, stock_list) :
-    annual = MonteCarlo.YEAR()
-    sub_list = []
+    name_list = []
     data_list = pd.DataFrame() 
     for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
         try :
             data_list[name] = stock['Adj Close']
-            sub_list.append(name)
+            name_list.append(name)
         except : pass
         finally : pass
-    for subset in combinations(sub_list,4) : 
+    return name_list, data_list
+def _calculateMonteCarlo(stock_list,data_list) :
+    annual = MonteCarlo.YEAR()
+    for subset in combinations(stock_list,4) : 
         max_sharp, min_dev = annual(subset,data_list,1000) 
         yield max_sharp, min_dev
+def _calculateMonteCarlo(stock_list,data_list) :
+    annual = MonteCarlo.YEAR()
+    max_sharp, min_dev = annual(stock_list,data_list,25000) 
+    #print max_sharp, min_dev
+    yield max_sharp, min_dev
 
 if __name__ == '__main__' :
 

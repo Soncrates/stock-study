@@ -154,7 +154,26 @@ class STOCK_TIMESERIES :
                  del ret
                  continue
               yield name, ret
-
+      @staticmethod
+      def read_all(file_list, stock_list) :
+          name_list = []
+          data = None
+          for stock_name, stock_data in STOCK_TIMESERIES.read(file_list, stock_list) :
+             try :
+               name_list.append(stock_name)
+               stock_data.columns = pd.MultiIndex.from_product([[stock_name], stock_data.columns])
+               if data is None:
+                  data = stock_data
+               else:
+                  data = pd.concat([data, stock_data], axis=1)
+             except Exception as e : print e
+             finally : pass
+          return name_list, data
+      @staticmethod
+      def flatten(target,d) :
+          d = d.iloc[:, d.columns.get_level_values(1)==target]
+          d.columns = d.columns.droplevel(level=1)
+          return d
 
 if __name__ == "__main__" :
 
@@ -173,15 +192,21 @@ if __name__ == "__main__" :
        if stock == 'AAPL' : break
 
    ini_list = glob('{}/*ini'.format(pwd_ini))
+   file_list = glob('{}/historical_prices/*pkl'.format(pwd_ini))
+   print file_list[0]
    for path, section, key, value in INI.loadList(*ini_list) :
        if 'Industry' not in section : continue
        if 'Gas' not in key : continue
        if 'Util' not in key : continue
        break
-   print path
-   print section
-   print key
-   for stock in value :
+   stock_list = value[:2]
+   print path, section, key, stock_list
+
+   for stock in stock_list :
        ret = reader.extract_from_yahoo(stock)
        print stock
        print ret.describe()
+   a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
+   b = STOCK_TIMESERIES.flatten('Adj Close',b)
+   print b.describe()
+   print a

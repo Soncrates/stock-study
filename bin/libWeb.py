@@ -17,6 +17,13 @@ from bs4 import BeautifulSoup
 class WEB_UTIL(object) :
   @staticmethod
   def invoke_url(url,headers=None, raw=False) :
+      ret = None
+      try :
+          ret = WEB_UTIL._invoke_url(url,headers,raw)
+      except Exception as e : print e
+      return ret
+  @staticmethod
+  def _invoke_url(url,headers=None, raw=False) :
     if headers is not None :
       ret = requests.get(url, headers=headers)        
     else :
