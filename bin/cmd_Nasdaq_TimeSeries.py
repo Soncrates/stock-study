@@ -39,7 +39,8 @@ def main(pwd, *file_list) :
 
 if __name__ == "__main__" :
    from glob import glob
-   import os,sys,time
+   import os,sys
+   from libCommon import TIMER
 
    pwd = os.getcwd()
 
@@ -52,10 +53,8 @@ if __name__ == "__main__" :
    pwd = pwd.replace('bin','local')
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
 
-   start = time.time()
    logging.info("started {}".format(name))
+   elapsed = TIMER.init()
    main(pwd,*file_list)
-   end = time.time()
-   elapsed = end - start
-   logging.info("finished {} elapsed time : {} seconds".format(name,elapsed))
+   logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
 

@@ -1,9 +1,10 @@
-from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+import datetime, time
+from math import floor
 import logging
+import ConfigParser
+from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 import pandas_datareader as web
 import pandas as pd
-import datetime
-import ConfigParser
 
 from itertools import combinations as iter_combo
 
@@ -104,6 +105,40 @@ class INI(object) :
               if isinstance(value,list) :
                  value = ",".join(value)
               config.set(section,key,value)
+
+class TIMER :
+      minute = 60
+      hour = minute*60
+      day = hour*24
+      @staticmethod
+      def init(**kwargs) :
+          start = time.time()
+          return TIMER(start)
+      def __init__(self,start) :
+          self.start = start
+      def __call__(self) :
+          _time = { "days" : 0, "hours" : 0 , "minutes" : 0, "seconds" : 0 }
+          msg = ""
+          elapsed = time.time() - self.start
+          if elapsed > TIMER.day :
+             t = floor(elapsed/TIMER.day)
+             _time["days"] = t
+             msg += "days : {days}, "
+             elapsed -= t
+          if elapsed > TIMER.hour :
+             t = floor(elapsed/TIMER.hour)
+             _time["hours"] = t
+             msg += "hours : {hours}, "
+             elapsed -= t
+          if elapsed > TIMER.minute :
+             t = floor(elapsed/TIMER.minute)
+             _time["minutes"] = t
+             msg += "minutes : {minutes}, "
+             elapsed -= t
+          _time["seconds"] = t
+          msg += "seconds : {seconds}"
+          
+          return msg.format(**_time)
 
 class STOCK_TIMESERIES :
       @staticmethod

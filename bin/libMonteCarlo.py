@@ -167,7 +167,7 @@ class MonteCarlo(object) :
 if __name__ == "__main__" :
    
    from glob import glob
-   import os,sys,time
+   import os,sys
 
    from libCommon import STOCK_TIMESERIES
 

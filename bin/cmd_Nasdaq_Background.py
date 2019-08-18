@@ -81,7 +81,8 @@ def main(finder, profile) :
 
 if __name__ == '__main__' :
 
-   import os,sys,time
+   import os,sys
+   from libCommon import TIMER
 
    pwd = os.getcwd()
 
@@ -96,12 +97,10 @@ if __name__ == '__main__' :
    nasdaq = NASDAQ.init(filename=nasdaq)
    profile = YAHOO_PROFILE()
 
-   start = time.time()
    logging.info("started {}".format(name))
+   elapsed = TIMER.init()
    ini, empty_list = main(nasdaq,profile)
-   end = time.time()
-   elapsed = end - start
-   logging.info("finished {} elapsed time : {} seconds".format(name,elapsed))
+   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
 
    print empty_list
 

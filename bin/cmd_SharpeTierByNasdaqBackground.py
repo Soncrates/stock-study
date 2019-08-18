@@ -75,20 +75,20 @@ def find(file_list, **kwargs) :
         yield high_data, high_fact, balanced_data, balanced_fact, safe_data, safe_fact
 
 def _find(file_list, **kwargs) :
-    fact_mean = "mean [ sharpe : {sharpe}, returns : {returns}, risk : {risk} ]"
-    fact_stddev = "stddev [ sharpe : {sharpe}, returns : {returns}, risk : {risk} ]"
+    fact_mean = "sharpe : {sharpe}, returns : {returns}, risk : {risk}"
+    fact_stddev = "sharpe : {sharpe}, returns : {returns}, risk : {risk}"
     for key in sorted(kwargs.keys()) :
         value_list = sorted(kwargs[key])
         ret = _calculateSharpe(file_list, value_list)
         if len(ret) == 0 : continue
         ret = pd.DataFrame(ret).T
-        high, balanced, safe =  findTier(ret,20) 
+        high, balanced, safe =  findTier(ret,15) 
         high_stocks = list(high.T.columns)
         facts = high.mean().round(2)
         high_mean = fact_mean.format(**facts)
         facts = high.std().round(2)
         high_dev = fact_stddev.format(**facts)
-        high_facts = high_mean + "," + high_dev
+        high_facts = "mean { " + high_mean + " }, { stddev " + high_dev + " }"
         balanced_stocks = []
         if balanced is not None :
            balanced_stocks = list(balanced.T.columns)
@@ -96,13 +96,13 @@ def _find(file_list, **kwargs) :
            balanced_mean = fact_mean.format(**facts)
            facts = balanced.std().round(2)
            balanced_dev = fact_stddev.format(**facts)
-           balanced_facts = balanced_mean + "," + balanced_dev
+           balanced_facts = "mean { " + balanced_mean + " }, { stddev " + balanced_dev + " }"
         safe_stocks = list(safe.T.columns)
         facts = safe.mean().round(2)
         safe_mean = fact_mean.format(**facts)
         facts = safe.std().round(2)
         safe_dev = fact_stddev.format(**facts)
-        safe_facts = safe_mean + "," + safe_dev
+        safe_facts = "mean { " + safe_mean + " }, { stddev " + safe_dev + " }"
         yield key, high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts
 
 def findTier(ret,size) :
@@ -137,7 +137,7 @@ def _filterSharpe(ret,size) :
           sharpe =  desc['sharpe']['75%']
           temp = ret[ret['sharpe'] >= sharpe]
           if len(temp) == 0 : break
-          logging.debug(temp.sort_values(['returns']))
+          logging.info(temp.sort_values(['returns']))
           ret = temp
     return ret
 def _filterSafe(ret,size) :
@@ -146,7 +146,7 @@ def _filterSafe(ret,size) :
           risk =  desc['risk']['25%']
           temp = ret[ret['risk'] <= risk]
           if len(temp) == 0 : break
-          logging.debug(temp.sort_values(['risk']))
+          logging.info(temp.sort_values(['risk']))
           ret = temp
     return ret
 
@@ -165,7 +165,8 @@ def _calculateSharpe(file_list, value_list) :
 if __name__ == '__main__' :
 
    from glob import glob
-   import os,sys,time
+   import os,sys
+   from libCommon import TIMER
 
    pwd = os.getcwd()
 
@@ -179,52 +180,50 @@ if __name__ == '__main__' :
    ini_list = glob('{}/*.ini'.format(local))
    file_list = glob('{}/historical_prices/*pkl'.format(local))
 
-   start = time.time()
+   elapsed = TIMER.init()
    logging.info("started {}".format(name))
    high_data, high_fact, balanced_data, balanced_fact, safe_data, safe_fact = main(file_list,ini_list)
-   end = time.time()
-   elapsed = end - start
-   logging.info("finished {} elapsed time : {} seconds".format(name,elapsed))
+   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
  
    config = INI.init()
    for key in high_data.keys() :
        values = high_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/nasdaq_high.ini".format(local)
+   stock_ini = "{}/sharpe_nasdaq_high.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in balanced_data.keys() :
        values = balanced_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/nasdaq_balanced.ini".format(local)
+   stock_ini = "{}/sharpe_nasdaq_balanced.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in safe_data.keys() :
        values = safe_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/nasdaq_safe.ini".format(local)
+   stock_ini = "{}/sharpe_nasdaq_safe.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in high_fact.keys() :
        values = high_fact[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/nasdaq_high_fact.ini".format(local)
+   stock_ini = "{}/sharpe_nasdaq_high_fact.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in balanced_fact.keys() :
        values = balanced_fact[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/nasdaq_balanced_fact.ini".format(local)
+   stock_ini = "{}/sharpe_nasdaq_balanced_fact.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in safe_fact.keys() :
        values = safe_fact[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/nasdaq_safe_fact.ini".format(local)
+   stock_ini = "{}/sharpe_nasdaq_safe_fact.ini".format(local)
    config.write(open(stock_ini, 'w'))
 

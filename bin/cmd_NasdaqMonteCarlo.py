@@ -164,18 +164,16 @@ if __name__ == '__main__' :
 
    from glob import glob
    import os,sys
-   import time
+   from libCommon import TIMER
 
    pwd = os.getcwd()
    pwd = pwd.replace('bin','local')
    ini_list = glob('{}/*.ini'.format(pwd))
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
 
-   start = time.time()
+   elapsed = TIMER.init()
    risky_data, balanced_data, safe_data = main(file_list,ini_list)
-   end = time.time()
-   elapsed = end - start
-   print "Elapsed {} seconds".format(elapsed)
+   print "Elapsed time {} ".format(elapsed())
 
    config = INI.init()
    for key in risky_data.keys() :
