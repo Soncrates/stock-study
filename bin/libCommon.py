@@ -1,4 +1,5 @@
 from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+import logging
 import pandas_datareader as web
 import pandas as pd
 import datetime
@@ -7,8 +8,10 @@ import ConfigParser
 from itertools import combinations as iter_combo
 
 def combinations(stock_list,size=5) :
+    logging.debug(sorted(stock_list))
     ret_list = iter_combo(stock_list,size)
     for ret in list(ret_list):
+        logging.debug(sorted(list(ret)))
         yield list(ret)
 
 class NASDAQ :
@@ -67,6 +70,7 @@ class INI(object) :
       def loadList(*file_list) :
           file_list = sorted(file_list)
           for ini_file in file_list :
+              logging.debug(ini_file)
               for name, key, value in INI._loadList(ini_file) :
                   yield ini_file, name, key, value
 
@@ -86,6 +90,7 @@ class INI(object) :
       def read_section(config) :
           for name in sorted(config._sections) :
               for key, value in config.items(name) :
+                  logging.debug((name,key))
                   if len(value) == 0 : continue
                   yield name, key, value
 
@@ -93,6 +98,7 @@ class INI(object) :
       def write_section(config,section,**data) :
           config.add_section(section)
           for key in sorted(data.keys()) :
+              logging.debug((section,key))
               value = data[key]
               if isinstance(value,list) :
                  value = ",".join(value)
@@ -107,10 +113,14 @@ class STOCK_TIMESERIES :
           start = kwargs.get(target, datetime.timedelta(days=365*10))
           start = end - start
           ret = STOCK_TIMESERIES(start,end)
+          logging.debug(str(ret))
           return ret
       def __init__(self,start,end) :
           self.start = start
           self.end   = end
+      def __str__(self) :
+          ret = "{} to {}".format(self.start, self.end)
+          return ret
       def extract_from_yahoo(self, stock) :
           ret = self._extract_from(stock, 'yahoo') 
           return ret
@@ -166,7 +176,7 @@ class STOCK_TIMESERIES :
                   data = stock_data
                else:
                   data = pd.concat([data, stock_data], axis=1)
-             except Exception as e : print e
+             except Exception as e :  logging.error(e)
              finally : pass
           return name_list, data
       @staticmethod
@@ -178,9 +188,16 @@ class STOCK_TIMESERIES :
 if __name__ == "__main__" :
 
    from glob import glob
-   import os,sys
+   import os,sys,time
 
    pwd = os.getcwd()
+
+   dir = pwd.replace('bin','log')
+   name = sys.argv[0].split('.')[0]
+   log_filename = '{}/{}.log'.format(dir,name)
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+
    pwd_ini = pwd.replace('bin','local')
 
    reader = STOCK_TIMESERIES.init()

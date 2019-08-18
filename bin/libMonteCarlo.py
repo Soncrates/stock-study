@@ -7,6 +7,7 @@ class HELPER :
       key_list = ['returns', 'risk','sharpe','len']
       @staticmethod
       def find(data, **kwargs) :
+          logging.debug(kwargs)
           if not isinstance(data,pd.DataFrame) :
              warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
              data = pd.DataFrame(data)
@@ -39,18 +40,22 @@ class HELPER :
           if span > 0: 
              #weigth recent history more heavily that older history
              returns = ret.ewm(span=span).mean().iloc[-1]
+             logging.debug(returns)
           else :
              returns = ret.mean()
+             logging.debug(returns)
           risk = ret.std()
           if isinstance(returns,pd.Series) : returns = returns[0]
           if isinstance(risk,pd.Series) : risk = risk[0]
           if period > 0 :
              returns *= period
+             logging.debug(returns)
              risk *= np.sqrt(period)
+             logging.debug(returns)
           return returns, risk, _len
 
       @staticmethod
-      def findWeightedSharpe(data, risk_free_rate=0.02) :
+      def dev_findWeightedSharpe(data, risk_free_rate=0.02) :
           if not isinstance(data,pd.DataFrame) :
              warnings.warn("prices are not in a dataframe", RuntimeWarning)
              data = pd.DataFrame(data)
@@ -62,10 +67,10 @@ class HELPER :
           weights = np.array(np.random.random(size))
           #rebalance weights to sum to 1
           weights /= np.sum(weights)
-          return HELPER._findWeightedSharpe(data, weights, risk_free_rate, period, span)
+          return HELPER._dev_findWeightedSharpe(data, weights, risk_free_rate, period, span)
 
       @staticmethod
-      def _findWeightedSharpe(data, risk_free_rate=0.02, period=0, span=500) :
+      def _dev_findWeightedSharpe(data, risk_free_rate=0.02, period=0, span=500) :
               # Linear Algebra magic
               magic = np.dot(cov_matrix, weights)
               magic_number = np.dot(weights.T,magic)
@@ -137,9 +142,12 @@ class MonteCarlo(object) :
               weights = np.array(np.random.random(size))
               #rebalance weights to sum to 1
               weights /= np.sum(weights)
+              #logging.debug(weights)
               # Linear Algebra magic
               magic = np.dot(cov_matrix, weights)
+              #logging.debug(magic)
               magic_number = np.dot(weights.T,magic)
+              #logging.debug(magic_number)
 
               #calculate return and volatility
               returns = np.sum(mean * weights) * self.period
@@ -158,7 +166,18 @@ class MonteCarlo(object) :
 
 if __name__ == "__main__" :
    
+   from glob import glob
+   import os,sys,time
+
    from libCommon import STOCK_TIMESERIES
+
+   pwd = os.getcwd()
+
+   dir = pwd.replace('bin','log')
+   name = sys.argv[0].split('.')[0]
+   log_filename = '{}/{}.log'.format(dir,name)
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
    target = 'Adj Close'
    stock_list = ['AMZN','CMS','DOV','DTE','EQR','HD','LHX','MA','MMC','NKE','NOC','PYPL','QLD','SBUX','UNH','UNP','WEC']
@@ -176,14 +195,15 @@ if __name__ == "__main__" :
        data = reader.extract_from_yahoo(stock)
 
        d = annual.findSharpe(data[target])
+       print d
        ret = d.get('returns', 0)
-       dev = d.get('dev', 0)
+       risk = d.get('risk', 0)
        sharpe = d.get('sharpe', 0)
-       length = d.get('length', 0)
+       length = d.get('len', 0)
        ret = round(ret,2)
-       dev = round(dev,2)
+       risk = round(risk,2)
        sharpe = round(sharpe,2)
-       print "{} return {}, dev {}, sharpe {}, length {}".format(stock,ret,dev,sharpe,length)
+       print "{} return {}, risk {}, sharpe {}, length {}".format(stock,ret,risk,sharpe,length)
        if sharpe == 0 : 
           continue
        stock_data[stock] = data[target]

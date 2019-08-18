@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import logging
 from libCommon import INI
 
 def getByNasdaq(*ini_list) :
@@ -8,8 +9,8 @@ def getByNasdaq(*ini_list) :
     FundFamily = {}
     Category = {}
 
+    ini_list = filter(lambda file : "nasdaq_background.ini" in file, ini_list)
     for file_name, section, key, value in INI.loadList(*ini_list) :
-        if "nasdaq_background" not in file_name : continue
         if section == "Sector" :
            config = Sector
         elif section == "Industry" :
@@ -30,6 +31,7 @@ def filterByNasdaq(*ini_list) :
     FundFamily = {}
     Category = {}
     
+    ini_list = filter(lambda file : "nasdaq_quarterly.ini" in file, ini_list)
     for file_name, section, key, value in INI.loadList(*ini_list) :
         if section == "Stability" :
            config = stability
@@ -78,6 +80,13 @@ if __name__ == "__main__" :
    import pandas as pd
 
    pwd = os.getcwd()
+
+   dir = pwd.replace('bin','log')
+   name = sys.argv[0].split('.')[0]
+   log_filename = '{}/{}.log'.format(dir,name)
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+
    pwd = pwd.replace('bin','local')
    ini_list = glob('{}/*.ini'.format(pwd))
 
