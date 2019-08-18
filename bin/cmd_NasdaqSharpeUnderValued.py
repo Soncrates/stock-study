@@ -41,10 +41,11 @@ def _calculateSharpe(file_list, value_list) :
     annual = MonteCarlo.YEAR()
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        returns, dev, sharpe, length = annual.findSharpe(data['Adj Close']) 
+        data = annual.findSharpe(data['Adj Close']) 
         # filter stocks that have less than a year
+        sharpe = data.get('sharpe',0)
         if sharpe == 0 : continue
-        ret[name] = {'returns' : returns, 'dev' : dev, 'sharpe' : sharpe, 'length' : length}
+        ret[name] = data
     return ret
 
 def _filterSharpe(**ret) :

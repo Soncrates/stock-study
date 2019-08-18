@@ -1,5 +1,78 @@
 import pandas as pd
 import numpy as np
+import warnings
+import logging
+
+class HELPER :
+      key_list = ['returns', 'risk','sharpe','len']
+      @staticmethod
+      def find(data, **kwargs) :
+          if not isinstance(data,pd.DataFrame) :
+             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
+             data = pd.DataFrame(data)
+          target = "period"
+          period = kwargs.get(target,0)
+          target = "risk_free_rate"
+          risk_free_rate = kwargs.get(target,0.02)
+          target = "span`"
+          span = kwargs.get(target,500)
+          if period < 0 : 
+             warnings.warn("period must be positive", RuntimeWarning)
+          if span < 0 : 
+             warnings.warn("span must be positive", RuntimeWarning)
+          return HELPER._find(data, risk_free_rate, period, span)
+
+      @staticmethod
+      def _find(data, risk_free_rate, period, span) :
+          returns, risk, _len = HELPER._findRiskAndReturn(data,period,span)
+          sharpe = 0
+          if risk != 0 :
+             sharpe = ( returns - risk_free_rate ) / risk
+          return dict(zip(HELPER.key_list, [returns, risk, sharpe,_len]))
+
+      @staticmethod
+      def _findRiskAndReturn(data,period,span) :
+          ret = data.pct_change().dropna(how="all")
+          _len = len(ret)
+          if _len < period :
+             return 0, 0, _len
+          if span > 0: 
+             #weigth recent history more heavily that older history
+             returns = ret.ewm(span=span).mean().iloc[-1]
+          else :
+             returns = ret.mean()
+          risk = ret.std()
+          if isinstance(returns,pd.Series) : returns = returns[0]
+          if isinstance(risk,pd.Series) : risk = risk[0]
+          if period > 0 :
+             returns *= period
+             risk *= np.sqrt(period)
+          return returns, risk, _len
+
+      @staticmethod
+      def findWeightedSharpe(data, risk_free_rate=0.02) :
+          if not isinstance(data,pd.DataFrame) :
+             warnings.warn("prices are not in a dataframe", RuntimeWarning)
+             data = pd.DataFrame(data)
+          if period < 0 : 
+             warnings.warn("period must be positive", RuntimeWarning)
+          if span < 0 : 
+             warnings.warn("span must be positive", RuntimeWarning)
+          #select random weights for portfolio holdings
+          weights = np.array(np.random.random(size))
+          #rebalance weights to sum to 1
+          weights /= np.sum(weights)
+          return HELPER._findWeightedSharpe(data, weights, risk_free_rate, period, span)
+
+      @staticmethod
+      def _findWeightedSharpe(data, risk_free_rate=0.02, period=0, span=500) :
+              # Linear Algebra magic
+              magic = np.dot(cov_matrix, weights)
+              magic_number = np.dot(weights.T,magic)
+
+              #calculate return and volatility
+              returns = np.sum(mean * weights) * self.period
+              std_dev = np.sqrt(magic_number) * np.sqrt(self.period)
 
 class MonteCarlo(object) :
       @staticmethod
@@ -16,19 +89,10 @@ class MonteCarlo(object) :
           return ret
       def __init__(self, period) :
           self.period = period
-      def findSharpe(self, data) :
+      def findSharpe(self, data, risk_free_rate=0.02) :
           data.sort_index(inplace=True)
-          if len(data) < self.period :
-             return 0, 0, 0, len(data)
-          returns = data.pct_change()
-          mean = returns.mean()
-          dev = returns.std()
-          weighted_return = mean * self.period
-          weighted_dev = dev * np.sqrt(self.period)
-          sharpe = 0
-          if weighted_dev != 0 :
-             sharpe = weighted_return/weighted_dev
-          return weighted_return, weighted_dev, sharpe, len(data)
+          ret = HELPER.find(data, risk_free_rate=risk_free_rate, period=self.period, span=0)
+          return ret 
       def __call__(self, stocks,data, num_portfolios = 25000) :
           stocks = self._filterBadSharpe(stocks,data)
           data = data[stocks]
@@ -54,7 +118,8 @@ class MonteCarlo(object) :
           for stock in stock_list :
               if stock not in data : continue
               d = data[stock]
-              returns, dev, sharpe, length = self.findSharpe(d)
+              d = self.findSharpe(d)
+              sharpe = d.get('sharpe',0)
               if  sharpe == 0 : continue
               ret.append(stock)
           return sorted(ret)
@@ -110,7 +175,11 @@ if __name__ == "__main__" :
    for stock in stock_list :
        data = reader.extract_from_yahoo(stock)
 
-       ret, dev, sharpe, length = annual.findSharpe(data[target])
+       d = annual.findSharpe(data[target])
+       ret = d.get('returns', 0)
+       dev = d.get('dev', 0)
+       sharpe = d.get('sharpe', 0)
+       length = d.get('length', 0)
        ret = round(ret,2)
        dev = round(dev,2)
        sharpe = round(sharpe,2)
