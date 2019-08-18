@@ -10,6 +10,7 @@ except: # For Python 3
     import urllib.parse as urlparse
     from urllib.parse import urlencode
 
+import logging
 import requests
 import re
 from bs4 import BeautifulSoup
@@ -65,6 +66,7 @@ class PROFILE_PARSE() :
                 data = data[1:]
                 if len(data) == 0 :
                    return {}
+          logging.debug(data)
           key_list = data[0:10:2]
           value_list = data[1:10:2]
           data = dict(zip(key_list,value_list))

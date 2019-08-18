@@ -15,45 +15,97 @@ from libMonteCarlo import MonteCarlo
   then reduce the list to the top 8 by sharpe.
   repeat for every subset of sector, industry, fund category
 '''
-
 def main(file_list, ini_list) :
 
     Sector, Industry, Category, FundFamily = getByNasdaq(*ini_list)
-    Sector_Top = {}
-    Industry_Top = {}
-    Fund_Top = {}
-    Sector_Fact = {}
-    Industry_Fact = {}
-    Fund_Fact = {}
 
-    for key, stock_list, facts in find(file_list, **Sector) :
-        Sector_Top[key] = sorted(stock_list)
-        Sector_Fact[key] = facts
-        logging.info("{} {}".format(sorted(stock_list), facts))
-    for key, stock_list, facts in find(file_list, **Industry) :
-        Industry_Top[key] = sorted(stock_list)
-        Industry_Fact[key] = facts
-        logging.info("{} {}".format(sorted(stock_list), facts))
-    for key, stock_list, facts in find(file_list, **Category) :
-        Fund_Top[key] = sorted(stock_list)
-        Fund_Fact[key] = facts
-        logging.info("{} {}".format(sorted(stock_list), facts))
-    return Sector_Top, Industry_Top, Fund_Top, Sector_Fact, Industry_Fact, Fund_Fact
+    high_data = {}
+    balanced_data = {}
+    safe_data = {}
+    high_fact = {}
+    balanced_fact = {}
+    safe_fact = {}
+
+    target = "Sector"
+    for high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts in find(file_list, **Sector) :
+        high_data[target] = high_stocks
+        high_fact[target] = high_facts
+        balanced_data[target] = balanced_stocks
+        balanced_fact[target] = balanced_facts
+        safe_data[target] = safe_stocks
+        safe_fact[target] = safe_facts
+    target = "Industry"
+    for high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts in find(file_list, **Industry) :
+        high_data[target] = high_stocks
+        high_fact[target] = high_facts
+        balanced_data[target] = balanced_stocks
+        balanced_fact[target] = balanced_facts
+        safe_data[target] = safe_stocks
+        safe_fact[target] = safe_facts
+    target = "Fund"
+    for high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts in find(file_list, **Category) :
+        high_data[target] = high_stocks
+        high_fact[target] = high_facts
+        balanced_data[target] = balanced_stocks
+        balanced_fact[target] = balanced_facts
+        safe_data[target] = safe_stocks
+        safe_fact[target] = safe_facts
+    return high_data, high_fact, balanced_data, balanced_fact, safe_data, safe_fact
 
 def find(file_list, **kwargs) :
+    high_data = {}
+    balanced_data = {}
+    safe_data = {}
+    high_fact = {}
+    balanced_fact = {}
+    safe_fact = {}
+    for key, high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts in _find(file_list, **kwargs) :
+        high_data[key] = sorted(high_stocks)
+        if len(high_stocks) > 0 :
+           high_fact[key] = high_facts
+           logging.info("high {} {} {}".format(key, sorted(high_stocks), high_facts))
+        balanced_data[key] = sorted(balanced_stocks)
+        if len(balanced_stocks) > 0 :
+           balanced_fact[key] = balanced_facts
+           logging.info("balanced {} {} {}".format(key, sorted(balanced_stocks), balanced_facts))
+        safe_data[key] = sorted(safe_stocks)
+        if len(safe_stocks) > 0 :
+           safe_fact[key] = safe_facts
+           logging.info("safe {} {} {}".format(key, sorted(safe_stocks), safe_facts))
+        yield high_data, high_fact, balanced_data, balanced_fact, safe_data, safe_fact
+
+def _find(file_list, **kwargs) :
+    fact_mean = "mean [ sharpe : {sharpe}, returns : {returns}, risk : {risk} ]"
+    fact_stddev = "stddev [ sharpe : {sharpe}, returns : {returns}, risk : {risk} ]"
     for key in sorted(kwargs.keys()) :
         value_list = sorted(kwargs[key])
         ret = _calculateSharpe(file_list, value_list)
         if len(ret) == 0 : continue
         ret = pd.DataFrame(ret).T
-        high, balanced, safe =  _filter(ret,20) 
+        high, balanced, safe =  findTier(ret,20) 
+        high_stocks = list(high.T.columns)
+        facts = high.mean().round(2)
+        high_mean = fact_mean.format(**facts)
+        facts = high.std().round(2)
+        high_dev = fact_stddev.format(**facts)
+        high_facts = high_mean + "," + high_dev
+        balanced_stocks = []
+        if balanced is not None :
+           balanced_stocks = list(balanced.T.columns)
+           facts = balanced.mean().round(2)
+           balanced_mean = fact_mean.format(**facts)
+           facts = balanced.std().round(2)
+           balanced_dev = fact_stddev.format(**facts)
+           balanced_facts = balanced_mean + "," + balanced_dev
+        safe_stocks = list(safe.T.columns)
         facts = safe.mean().round(2)
-        facts = "sharpe : {sharpe}, returns : {returns}, risk : {risk}".format(**facts)
-        columns = list(safe.T.columns)
-        yield key, columns, facts
-        break
+        safe_mean = fact_mean.format(**facts)
+        facts = safe.std().round(2)
+        safe_dev = fact_stddev.format(**facts)
+        safe_facts = safe_mean + "," + safe_dev
+        yield key, high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts
 
-def _filter(ret,size) :
+def findTier(ret,size) :
     desc = ret.describe()
     _len =  desc['len']['50%']
     ret = ret[ ret['len'] >= _len ]
@@ -121,7 +173,7 @@ if __name__ == '__main__' :
    name = sys.argv[0].split('.')[0]
    log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    local = pwd.replace('bin','local')
    ini_list = glob('{}/*.ini'.format(local))
@@ -129,21 +181,50 @@ if __name__ == '__main__' :
 
    start = time.time()
    logging.info("started {}".format(name))
-   Sector_Top, Industry_Top, Fund_Top, Sector_Facts, Industry_Facts, Fund_Facts = main(file_list,ini_list)
+   high_data, high_fact, balanced_data, balanced_fact, safe_data, safe_fact = main(file_list,ini_list)
    end = time.time()
    elapsed = end - start
    logging.info("finished {} elapsed time : {} seconds".format(name,elapsed))
-
+ 
    config = INI.init()
-   INI.write_section(config,'Sector',**Sector_Top)
-   INI.write_section(config,'Industry',**Industry_Top)
-   INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/nasdaq_prototype.ini".format(pwd)
+   for key in high_data.keys() :
+       values = high_data[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_high.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
-   INI.write_section(config,'Sector',**Sector_Facts)
-   INI.write_section(config,'Industry',**Industry_Facts)
-   INI.write_section(config,'Fund',**Fund_Facts)
-   stock_ini = "{}/nasdaq_facts.ini".format(pwd)
+   for key in balanced_data.keys() :
+       values = balanced_data[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_balanced.ini".format(local)
    config.write(open(stock_ini, 'w'))
+
+   config = INI.init()
+   for key in safe_data.keys() :
+       values = safe_data[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_safe.ini".format(local)
+   config.write(open(stock_ini, 'w'))
+
+   config = INI.init()
+   for key in high_fact.keys() :
+       values = high_fact[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_high_fact.ini".format(local)
+   config.write(open(stock_ini, 'w'))
+
+   config = INI.init()
+   for key in balanced_fact.keys() :
+       values = balanced_fact[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_balanced_fact.ini".format(local)
+   config.write(open(stock_ini, 'w'))
+
+   config = INI.init()
+   for key in safe_fact.keys() :
+       values = safe_fact[key]
+       INI.write_section(config,key,**values)
+   stock_ini = "{}/nasdaq_safe_fact.ini".format(local)
+   config.write(open(stock_ini, 'w'))
+

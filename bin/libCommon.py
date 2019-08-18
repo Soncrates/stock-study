@@ -51,6 +51,7 @@ class NASDAQ :
           for index, row in results.iterrows():
               symbol_value = map(lambda x : row[x],symbol_list)
               ret = dict(zip(symbol_list,symbol_value))
+              logging.info(ret)
               yield symbol_list[1], symbol_list[0], ret
 
 class INI(object) :

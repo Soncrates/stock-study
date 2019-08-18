@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import datetime
+import logging
 
 from libCommon import STOCK_TIMESERIES, NASDAQ
 
@@ -32,15 +33,29 @@ def main(pwd, *file_list) :
 
     for stock in nasdaq() :
         filename = '{}/historical_prices/{}.pkl'.format(pwd,stock)
-        if filename in fresh_list : continue
+        #if filename in fresh_list : continue
         ret = reader.extract_from_yahoo(stock)
         STOCK_TIMESERIES.save(filename, stock, ret)
 
 if __name__ == "__main__" :
    from glob import glob
-   import os,sys
+   import os,sys,time
 
    pwd = os.getcwd()
+
+   dir = pwd.replace('bin','log')
+   name = sys.argv[0].split('.')[0]
+   log_filename = '{}/{}.log'.format(dir,name)
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+
    pwd = pwd.replace('bin','local')
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
+
+   start = time.time()
+   logging.info("started {}".format(name))
    main(pwd,*file_list)
+   end = time.time()
+   elapsed = end - start
+   logging.info("finished {} elapsed time : {} seconds".format(name,elapsed))
+

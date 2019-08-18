@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from collections import Counter
+import logging
 from libWeb import YAHOO_PROFILE
 from libCommon import INI, NASDAQ
 
@@ -11,6 +11,7 @@ from libCommon import INI, NASDAQ
 def formatting(ret) :
     if not isinstance(ret,basestring) : 
        ret = str(ret)
+    logging.info(ret)
     ret = ret.replace(' ', '_')
     ret = ret.replace('--', '-')
     ret = ret.replace('_-_', '_')
@@ -22,6 +23,7 @@ def formatting(ret) :
     ret = ret.replace('%', '_percent')
     ret = ret.replace(',_LLC', '_LLC')
     if len(ret) == 0 : ret = "Empty"
+    logging.info(ret)
     return ret
 
 def main(finder, profile) :
@@ -33,7 +35,6 @@ def main(finder, profile) :
     group_by_industry = {}
     empty_list = []
     for stock in finder() :
-        print stock
         ret = profile(stock)
         curr = None
         Sector = ret.get('Sector','Fund')
@@ -80,15 +81,28 @@ def main(finder, profile) :
 
 if __name__ == '__main__' :
 
-   import os,sys
+   import os,sys,time
 
    pwd = os.getcwd()
+
+   dir = pwd.replace('bin','log')
+   name = sys.argv[0].split('.')[0]
+   log_filename = '{}/{}.log'.format(dir,name)
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+
    pwd = pwd.replace('bin','local')
    nasdaq = '{}/{}'.format(pwd,NASDAQ.path)
    nasdaq = NASDAQ.init(filename=nasdaq)
    profile = YAHOO_PROFILE()
 
+   start = time.time()
+   logging.info("started {}".format(name))
    ini, empty_list = main(nasdaq,profile)
+   end = time.time()
+   elapsed = end - start
+   logging.info("finished {} elapsed time : {} seconds".format(name,elapsed))
+
    print empty_list
 
    stock_ini = '{}/nasdaq_background.ini'.format(pwd)
@@ -105,13 +119,13 @@ if __name__ == '__main__' :
        INI.write_section(config,key,**temp[key])
    config.write(open(stock_ini, 'w'))
 
+   '''
+   # At one time, industries contained different sectors, this is no longer the case
+
    stock_ini = '{}/nasdaq_background_industry.ini'.format(pwd)
    config = INI.init()
    temp = ini['IndustryGroupBy']
    for key in sorted(temp.keys()) :
        INI.write_section(config,key,**temp[key])
    config.write(open(stock_ini, 'w'))
-   '''
-   for name, key, value in INI.read_section(config) : 
-       print name, key, value
    '''
