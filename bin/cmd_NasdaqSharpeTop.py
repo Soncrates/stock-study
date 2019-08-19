@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import logging
 import pandas as pd
 from libCommon import INI, STOCK_TIMESERIES, combinations
 from libNasdaq import getByNasdaq
@@ -16,28 +17,33 @@ from libMonteCarlo import MonteCarlo
 '''
 
 def main(file_list, ini_list) :
+    try :
+        return _main(file_list, ini_list)
+    except Exception as e : logging.error(e)
+
+def _main(file_list, ini_list) :
 
     Sector, Industry, Category, FundFamily = getByNasdaq(*ini_list)
     Sector_Top = {}
     Industry_Top = {}
     Fund_Top = {}
 
-    for key, top_columns, top_data in filterSharpe(file_list, **Sector) :
+    for key, top_columns, top_data in find(file_list, **Sector) :
         Sector_Top[key] = sorted(top_columns)
-    for key, top_columns, top_data in filterSharpe(file_list, **Industry) :
+    for key, top_columns, top_data in find(file_list, **Industry) :
         Industry_Top[key] = sorted(top_columns)
-    for key, top_columns, top_data in filterSharpe(file_list, **Category) :
+    for key, top_columns, top_data in find(file_list, **Category) :
         Fund_Top[key] = sorted(top_columns)
     return Sector_Top, Industry_Top, Fund_Top
 
-def filterSharpe(file_list, **kwargs) :
+def find(file_list, **kwargs) :
     for key in sorted(kwargs.keys()) :
         value_list = sorted(kwargs[key])
-        ret = _calculateSharpe(file_list, value_list)
-        columns, ret = _filterSharpe(**ret)
+        ret = load(file_list, value_list)
+        columns, ret = _reduce(**ret)
         yield key, columns, ret
 
-def _calculateSharpe(file_list, value_list) :
+def load(file_list, value_list) :
     annual = MonteCarlo.YEAR()
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
@@ -48,7 +54,7 @@ def _calculateSharpe(file_list, value_list) :
         ret[name] = data
     return ret
 
-def _filterSharpe(**ret) :
+def _reduce(**ret) :
 
     if len(ret) == 0 : return [], None
     ret = pd.DataFrame(ret).T

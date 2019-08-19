@@ -13,8 +13,8 @@ def prep(*ini_list) :
     Sector = {}
     Industry = {}
     Category = {}
+    ini_list = filter(lambda x : x in 'nasdaq_sharpe_top', ini_list)
     for path, section, key, stock in INI.loadList(*ini_list) :
-        if 'nasdaq_sharpe_top' not in path : continue
         if section == 'Sector' : config = Sector
         elif section == 'Industry' : config = Industry
         elif section == 'Fund' : config = Category
@@ -70,7 +70,7 @@ def sortMonteCarlo(ret_good, dev_good) :
         yield key, list(risky), list(balanced), list(safe)
 
 def _filterMonteCarlo(**kwargs) :
-    meta = ['ret','stdev', 'sharpe']
+    meta = ['ret','risk', 'sharpe']
     set_meta = set(meta)
     for key in kwargs.keys() :
         ret = pd.DataFrame()
@@ -84,7 +84,7 @@ def _filterMonteCarlo(**kwargs) :
 def _reduceMonteCarlo(ret) :
     #size = int(len(ret)*.9)
     #if size < 20 : size = 20
-    #ret = ret.sort_values(['stdev','sharpe']).head(size)
+    #ret = ret.sort_values(['risk','sharpe']).head(size)
     ret = ret.fillna(0)
     ret = ret.mean()
     ret = pd.DataFrame(ret)
@@ -115,11 +115,11 @@ def _bin_by_MonteCarlo(file_list, kwargs) :
                cur_sharpe = ret_3
             elif max_sharpe['sharpe'] > 1 :
                cur_sharpe = ret_2
-            if min_dev['stdev'] < 0.15 :
+            if min_dev['risk'] < 0.15 :
                cur_dev = dev_max
-            elif min_dev['stdev'] < 0.25 :
+            elif min_dev['risk'] < 0.25 :
                cur_dev = dev_3
-            elif min_dev['stdev'] < 0.5 :
+            elif min_dev['risk'] < 0.5 :
                cur_dev = dev_2
 
             if key not in cur_sharpe.keys() : 
@@ -146,7 +146,7 @@ def calculateMonteCarlo(file_list, stock_list) :
         try :
             data_list[name] = stock['Adj Close']
             name_list.append(name)
-        except : pass
+        except Exception as e : logging.error(e)
         finally : pass
     return name_list, data_list
 def _calculateMonteCarlo(stock_list,data_list) :

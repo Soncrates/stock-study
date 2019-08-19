@@ -2,6 +2,7 @@
 
 import logging
 import pandas as pd
+from libSharpe import RISK, SHARPE, RETURNS
 from libCommon import INI, STOCK_TIMESERIES, combinations
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
@@ -106,23 +107,11 @@ def _find(file_list, **kwargs) :
         yield key, high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts
 
 def findTier(ret,size) :
+    ret = ret[ ret['returns'] > 0 ]
     desc = ret.describe()
     _len =  desc['len']['50%']
     ret = ret[ ret['len'] >= _len ]
-    ret = ret[ ret['returns'] > 0 ]
-    high = _filterSharpe(ret,size)
-    safe = _filterSafe(ret,size)
-    high_stock = set(high.T.columns)
-    safe_stock = set(safe.T.columns)
-    balanced_stock = safe_stock.intersection(high_stock)
-    if len(balanced_stock) == 0 :
-       return high, None, safe
-    
-    logging.info(balanced_stock)
-    drop = safe_stock - balanced_stock
-    balanced = safe.T.drop(columns=list(drop)).T
-    safe = safe.T.drop(columns=list(balanced_stock)).T
-    high = high.T.drop(columns=list(balanced_stock)).T
+    high, balanced, safe = METHOD_1.process(ret,size)
     logging.debug(high)
     logging.debug(high.describe())
     logging.debug(balanced)
@@ -130,25 +119,6 @@ def findTier(ret,size) :
     logging.debug(safe)
     logging.debug(safe.describe())
     return high, balanced, safe
-
-def _filterSharpe(ret,size) :
-    while len(ret) > size : 
-          desc = ret.describe()
-          sharpe =  desc['sharpe']['75%']
-          temp = ret[ret['sharpe'] >= sharpe]
-          if len(temp) == 0 : break
-          logging.info(temp.sort_values(['returns']))
-          ret = temp
-    return ret
-def _filterSafe(ret,size) :
-    while len(ret) > size : 
-          desc = ret.describe()
-          risk =  desc['risk']['25%']
-          temp = ret[ret['risk'] <= risk]
-          if len(temp) == 0 : break
-          logging.info(temp.sort_values(['risk']))
-          ret = temp
-    return ret
 
 def _calculateSharpe(file_list, value_list) :
     annual = MonteCarlo.YEAR()
@@ -161,6 +131,35 @@ def _calculateSharpe(file_list, value_list) :
         if sharpe == 0 : continue
         ret[name] = data
     return ret
+
+class METHOD_1 :
+      @staticmethod
+      def process(ret,size) :
+          high = METHOD_1._filterSharpe(ret,size)
+          safe = METHOD_1._filterSafe(ret,size)
+          high_stock = set(high.T.columns)
+          safe_stock = set(safe.T.columns)
+          balanced_stock = safe_stock.intersection(high_stock)
+          drop = safe_stock - balanced_stock
+          balanced = safe.T.drop(columns=list(drop)).T
+          safe = safe.T.drop(columns=list(balanced_stock)).T
+          high = high.T.drop(columns=list(balanced_stock)).T
+          return high, balanced, safe
+
+      @staticmethod
+      def _filterSharpe(ret,size) :
+          while len(ret) > size : 
+                temp = SHARPE.cut(ret)
+                if len(temp) == 0 : break
+                ret = temp
+          return ret
+      @staticmethod
+      def _filterSafe(ret,size) :
+          while len(ret) > size : 
+                temp = RISK.cut(ret)
+                if len(temp) == 0 : break
+                ret = temp
+          return ret
 
 if __name__ == '__main__' :
 

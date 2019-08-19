@@ -126,7 +126,7 @@ def calculateMonteCarlo(file_list, stock_list) :
         try :
             data_list[name] = stock['Adj Close']
             name_list.append(name)
-        except : pass
+        except Exception as e : logging.error(e) 
         finally : pass
     return name_list, data_list
 def calculateMonteCarlo(file_list, stock_list) :
@@ -161,7 +161,7 @@ if __name__ == '__main__' :
    elapsed = TIMER.init()
    ini = main(file_list,ini_list)
    for v in ini.values() : print v
-   print "Elapsed time {} ".format(elapsed{})
+   print "Elapsed time {} ".format(elapsed())
    config = INI.init()
    for key in ini.keys() :
        values = ini[key]

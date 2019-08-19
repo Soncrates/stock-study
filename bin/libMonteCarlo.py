@@ -49,9 +49,8 @@ class HELPER :
           if isinstance(risk,pd.Series) : risk = risk[0]
           if period > 0 :
              returns *= period
-             logging.debug(returns)
              risk *= np.sqrt(period)
-             logging.debug(returns)
+          logging.debug((returns,risk))
           return returns, risk, _len
 
       @staticmethod
@@ -123,7 +122,7 @@ class MonteCarlo(object) :
           for stock in stock_list :
               if stock not in data : continue
               d = data[stock]
-              d = self.findSharpe(d)
+              d = self.findSharpe(d,risk_free_rate=0)
               sharpe = d.get('sharpe',0)
               if  sharpe == 0 : continue
               ret.append(stock)

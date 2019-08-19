@@ -121,23 +121,19 @@ class TIMER :
           msg = ""
           elapsed = time.time() - self.start
           if elapsed > TIMER.day :
-             t = floor(elapsed/TIMER.day)
-             _time["days"] = t
              msg += "days : {days}, "
-             elapsed -= t
+             _time["days"] = floor(elapsed/TIMER.day)
+             elapsed %= TIMER.day
           if elapsed > TIMER.hour :
-             t = floor(elapsed/TIMER.hour)
-             _time["hours"] = t
              msg += "hours : {hours}, "
-             elapsed -= t
+             _time["hours"] =  floor(elapsed/TIMER.hour)
+             elapsed %= TIMER.hour
           if elapsed > TIMER.minute :
-             t = floor(elapsed/TIMER.minute)
-             _time["minutes"] = t
              msg += "minutes : {minutes}, "
-             elapsed -= t
-          _time["seconds"] = t
+             _time["minutes"] = floor(elapsed/TIMER.minute)
+             elapsed %= TIMER.minute
           msg += "seconds : {seconds}"
-          
+          _time["seconds"] = round(elapsed,2)
           return msg.format(**_time)
 
 class STOCK_TIMESERIES :
@@ -163,8 +159,7 @@ class STOCK_TIMESERIES :
       def _extract_from(self, stock, service) :
           try :
              return web.DataReader(stock, service, self.start, self.end) 
-          except Exception, e:
-             print e
+          except Exception as e : logging.error(e)
 
       @staticmethod
       def save(filename, stock, data) :

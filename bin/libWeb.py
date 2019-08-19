@@ -21,7 +21,7 @@ class WEB_UTIL(object) :
       ret = None
       try :
           ret = WEB_UTIL._invoke_url(url,headers,raw)
-      except Exception as e : print e
+      except Exception as e : logging.error(e)
       return ret
   @staticmethod
   def _invoke_url(url,headers=None, raw=False) :
