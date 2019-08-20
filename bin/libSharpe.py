@@ -45,7 +45,7 @@ class RETURNS :
       @staticmethod
       def shave(data, size) :
           ret = data.sort_values(['returns']).tail(size)
-          logging.info(ret.sort_values(['returns']).head(5))
+          logging.info(ret.sort_values(['returns']).tail(5))
           return ret
       @staticmethod
       def trim(data) :
@@ -61,4 +61,30 @@ class RETURNS :
           ret = data[data['returns'] >= returns]
           logging.info(ret.sort_values(['returns']).tail(5))
           return ret
+class BIN :
+      @staticmethod
+      def descending(data,target) :
+          desc = data.describe()
+          _bin1 =  desc[target]['75%']
+          _bin2 =  desc[target]['50%']
+          _bin3 =  desc[target]['25%']
+          logging.debug((_bin1,_bin2,_bin3))
+          bin1 = data[data[target] > _bin1]
+          bin2 = data[(data[target] <= _bin1) & (data[target] > _bin2)]
+          bin3 = data[(data[target] <= _bin2) & (data[target] > _bin3)]
+          bin4 = data[data[target] <= _bin3]
+          return [ bin1, bin2, bin3, bin4 ]
+
+      @staticmethod
+      def ascending(data,target) :
+          desc = data.describe()
+          _bin1 =  desc[target]['75%']
+          _bin2 =  desc[target]['50%']
+          _bin3 =  desc[target]['25%']
+          logging.debug((_bin1,_bin2,_bin3))
+          bin4 = data[data[target] < _bin3]
+          bin3 = data[(data[target] >= _bin3) & (data[target] < _bin2)] 
+          bin2 = data[(data[target] >= _bin1) & (data[target] < _bin2)] 
+          bin1 = data[data[target] >= _bin1]
+          return [ bin4, bin3, bin2, bin1 ]
 

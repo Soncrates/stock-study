@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libSharpe import RISK, SHARPE, RETURNS
+from libSharpe import RISK, SHARPE, RETURNS, BIN
 from libCommon import INI, STOCK_TIMESERIES, combinations
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
@@ -105,12 +105,15 @@ def _find(file_list, **kwargs) :
         safe_dev = fact_stddev.format(**facts)
         safe_facts = "mean { " + safe_mean + " }, { stddev " + safe_dev + " }"
         yield key, high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts
+        break
 
 def findTier(ret,size) :
     ret = ret[ ret['returns'] > 0 ]
     desc = ret.describe()
     _len =  desc['len']['50%']
     ret = ret[ ret['len'] >= _len ]
+    temp = BIN.ascending(ret,'risk')
+    logging.info(temp)
     high, balanced, safe = METHOD_1.process(ret,size)
     logging.debug(high)
     logging.debug(high.describe())
@@ -173,7 +176,7 @@ if __name__ == '__main__' :
    name = sys.argv[0].split('.')[0]
    log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
    local = pwd.replace('bin','local')
    ini_list = glob('{}/*.ini'.format(local))
