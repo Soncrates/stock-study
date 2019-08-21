@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
 import logging
-from libWeb import YAHOO_PROFILE
+from multiprocessing import Pool
+from libWeb import YAHOO_PROFILE, worker
 from libCommon import INI, NASDAQ
 
 '''
@@ -11,7 +12,6 @@ from libCommon import INI, NASDAQ
 def formatting(ret) :
     if not isinstance(ret,basestring) : 
        ret = str(ret)
-    logging.info(ret)
     ret = ret.replace(' ', '_')
     ret = ret.replace('--', '-')
     ret = ret.replace('_-_', '_')
@@ -23,10 +23,40 @@ def formatting(ret) :
     ret = ret.replace('%', '_percent')
     ret = ret.replace(',_LLC', '_LLC')
     if len(ret) == 0 : ret = "Empty"
-    logging.info(ret)
     return ret
 
+def _append(stock, main, sub, **group) :
+    if main not in group: 
+       group[main] = {}
+    if sub not in group[main] : 
+       group[main][sub] = []
+    group[main][sub].append(stock)
+    return group
+
 def main(finder, profile) :
+    try :
+        return _main(finder, profile)
+    except Exception as e :
+        logging.error(e, exc_info=True)
+
+def sync(stock):
+    return YAHOO_PROFILE.get(stock)
+
+def chunking(finder) :
+    stock_list = []
+    pool = Pool(15)
+    for stock in finder() :
+        stock_list.append(stock)
+        if len(stock_list) < 60 : continue
+        logging.info(stock_list)
+        result_list = pool.map(sync,stock_list)
+        for result in result_list :
+            yield result
+        del result_list
+        del stock_list
+        stock_list = []
+
+def _main(finder, profile) :
     ini_sector = {}
     ini_industry = {}
     ini_Category = {}
@@ -34,24 +64,17 @@ def main(finder, profile) :
     group_by_sector = {}
     group_by_industry = {}
     empty_list = []
-    for stock in finder() :
-        ret = profile(stock)
+    for ret in chunking(finder) :
         curr = None
+        stock = ret.get('Stock', None)
+        if not stock : continue
         Sector = ret.get('Sector','Fund')
         Sector = formatting(Sector)
         Industry = ret.get('Industry','Fund')
         Industry = formatting(Industry)
         if Sector != Industry :
-           if Sector not in group_by_sector : 
-              group_by_sector[Sector] = {}
-           if Industry not in group_by_sector[Sector] : 
-              group_by_sector[Sector][Industry] = []
-           if Industry not in group_by_industry : 
-              group_by_industry[Industry] = {}
-           if Sector not in group_by_industry[Industry] : 
-              group_by_industry[Industry][Sector] = []
-           group_by_industry[Industry][Sector].append(stock)
-           group_by_sector[Sector][Industry].append(stock)
+           group_by_sector = _append(stock, Sector, Industry, **group_by_sector)
+           group_by_industry = _append(stock, Industry, Sector, **group_by_industry)
         elif Sector == 'Empty' : 
              empty_list.append(stock)
         elif Sector != 'Fund' : 

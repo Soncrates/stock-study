@@ -16,6 +16,7 @@ def prep(target, *ini_list) :
     ini_list = filter(lambda x : "sharpe_nasdaq" in x , ini_list)
     ini_list = filter(lambda x : "fact" not in x , ini_list)
     ini_list = filter(lambda x : target in x , ini_list)
+    logging.debug(ini_list)
     for path, section, key, stock_list in INI.loadList(*ini_list) :
         if section == 'Sector' : config = Stock
         elif section == 'Industry' : config = Stock
@@ -135,7 +136,7 @@ def calculateMonteCarlo(file_list, stock_list) :
         try :
             data_list[name] = stock['Adj Close']
             name_list.append(name)
-        except Exception as e : logging.error(e)
+        except Exception as e : logging.error(e, exc_info=True)
         finally : pass
     return name_list, data_list
 def calculateMonteCarlo(file_list, stock_list) :

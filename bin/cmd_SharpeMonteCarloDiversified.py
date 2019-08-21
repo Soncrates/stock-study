@@ -126,7 +126,7 @@ def calculateMonteCarlo(file_list, stock_list) :
         try :
             data_list[name] = stock['Adj Close']
             name_list.append(name)
-        except Exception as e : logging.error(e) 
+        except Exception as e : logging.error(e, exc_info=True) 
         finally : pass
     return name_list, data_list
 def calculateMonteCarlo(file_list, stock_list) :

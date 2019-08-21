@@ -17,6 +17,12 @@ from libMonteCarlo import MonteCarlo
   repeat for every subset of sector, industry, fund category
 '''
 def main(file_list, ini_list) :
+    try :
+        return _main(file_list, ini_list)
+    except Exception as e : 
+        logging.error(e, exc_info=True)
+
+def _main(file_list, ini_list) :
 
     Sector, Industry, Category, FundFamily = getByNasdaq(*ini_list)
 
@@ -80,6 +86,7 @@ def _find(file_list, **kwargs) :
     fact_stddev = "sharpe : {sharpe}, returns : {returns}, risk : {risk}"
     for key in sorted(kwargs.keys()) :
         value_list = sorted(kwargs[key])
+        logging.debug(value_list)
         ret = _calculateSharpe(file_list, value_list)
         if len(ret) == 0 : continue
         ret = pd.DataFrame(ret).T
@@ -105,7 +112,6 @@ def _find(file_list, **kwargs) :
         safe_dev = fact_stddev.format(**facts)
         safe_facts = "mean { " + safe_mean + " }, { stddev " + safe_dev + " }"
         yield key, high_stocks, high_facts, balanced_stocks, balanced_facts, safe_stocks, safe_facts
-        break
 
 def findTier(ret,size) :
     ret = ret[ ret['returns'] > 0 ]
@@ -114,7 +120,7 @@ def findTier(ret,size) :
     ret = ret[ ret['len'] >= _len ]
     temp = BIN.ascending(ret,'risk')
     logging.info(temp)
-    high, balanced, safe = METHOD_1.process(ret,size)
+    high, balanced, safe = METHOD_2.process(ret,size)
     logging.debug(high)
     logging.debug(high.describe())
     logging.debug(balanced)
@@ -164,6 +170,27 @@ class METHOD_1 :
                 ret = temp
           return ret
 
+class METHOD_2 :
+      @staticmethod
+      def process(ret,size) :
+          _len = len(ret)
+          logging.debug(_len)
+          _bracket = int(_len*0.1)
+          temp = RISK.shave(ret,_len - _bracket)
+          temp = SHARPE.shave(temp,_len - _bracket - _bracket)
+          logging.debug(temp)
+          risk = BIN.ascending(temp,'risk')
+          sharpe = BIN.descending(temp,'sharpe')
+          logging.debug(risk)
+          logging.debug(sharpe)
+          high_stock = set(high.T.columns)
+          safe_stock = set(safe.T.columns)
+          balanced_stock = safe_stock.intersection(high_stock)
+          drop = safe_stock - balanced_stock
+          balanced = safe.T.drop(columns=list(drop)).T
+          safe = safe.T.drop(columns=list(balanced_stock)).T
+          high = high.T.drop(columns=list(balanced_stock)).T
+          return high, balanced, safe
 if __name__ == '__main__' :
 
    from glob import glob

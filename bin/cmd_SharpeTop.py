@@ -19,7 +19,8 @@ from libMonteCarlo import MonteCarlo
 def main(file_list, ini_list) :
     try :
         return _main(file_list, ini_list)
-    except Exception as e : logging.error(e)
+    except Exception as e : 
+        logging.error(e, exc_info=True)
 
 def _main(file_list, ini_list) :
 
@@ -61,7 +62,7 @@ def _reduce(**ret) :
     _len = len(ret)
     size = int(_len*.1)
     # filter riskier
-    ret = ret.sort_values(['dev']).head(_len - size)
+    ret = ret.sort_values(['risk']).head(_len - size)
     # filter low performers
     ret = ret.sort_values(['returns']).tail(_len - size - size)
     # screen top players
@@ -75,9 +76,16 @@ if __name__ == '__main__' :
    import os,sys
 
    pwd = os.getcwd()
-   pwd = pwd.replace('bin','local')
-   ini_list = glob('{}/*.ini'.format(pwd))
-   file_list = glob('{}/historical_prices/*pkl'.format(pwd))
+
+   dir = pwd.replace('bin','log')
+   name = sys.argv[0].split('.')[0]
+   log_filename = '{}/{}.log'.format(dir,name)
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+
+   local = pwd.replace('bin','local')
+   ini_list = glob('{}/*.ini'.format(local))
+   file_list = glob('{}/historical_prices/*pkl'.format(local))
 
    Sector_Top, Industry_Top, Fund_Top = main(file_list,ini_list)
    
@@ -85,6 +93,7 @@ if __name__ == '__main__' :
    INI.write_section(config,'Sector',**Sector_Top)
    INI.write_section(config,'Industry',**Industry_Top)
    INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/nasdaq_sharpe_top.ini".format(pwd)
+   stock_ini = "{}/nasdaq_sharpe_top.ini".format(local)
+   stock_ini = "{}/prototype.ini".format(local)
    config.write(open(stock_ini, 'w'))
 

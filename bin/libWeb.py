@@ -16,42 +16,52 @@ import re
 from bs4 import BeautifulSoup
 
 class WEB_UTIL(object) :
-  @staticmethod
-  def invoke_url(url,headers=None, raw=False) :
-      ret = None
-      try :
-          ret = WEB_UTIL._invoke_url(url,headers,raw)
-      except Exception as e : logging.error(e)
-      return ret
-  @staticmethod
-  def _invoke_url(url,headers=None, raw=False) :
-    if headers is not None :
-      ret = requests.get(url, headers=headers)        
-    else :
-      ret = requests.get(url)
-    if not raw : ret = ret.text
-    else : ret = ret.content
-    return ret
-  @staticmethod
-  def format_as_soup(url_response, raw=False) :
-    ret = BeautifulSoup(url_response,'lxml')
-    if not raw : 
-      for script in ret(["script", "style"]):
-            script.extract() # Remove these two elements from the BS4 object
-    return ret
+      @staticmethod
+      def invoke_url(url,headers=None, raw=False) :
+          ret = None
+          try :
+              ret = WEB_UTIL._invoke_url(url,headers,raw)
+          except Exception as e : logging.error(e, exc_info=True)
+          return ret
+      @staticmethod
+      def _invoke_url(url,headers=None, raw=False) :
+        if headers is not None :
+          ret = requests.get(url, headers=headers)        
+        else :
+          ret = requests.get(url)
+        if not raw : ret = ret.text
+        else : ret = ret.content
+        return ret
+      @staticmethod
+      def format_as_soup(url_response, raw=False) :
+        ret = BeautifulSoup(url_response,'lxml')
+        if not raw : 
+          for script in ret(["script", "style"]):
+                script.extract() # Remove these two elements from the BS4 object
+        return ret
 
 class YAHOO_PROFILE() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
       def __call__(self, stock) :
-          parse = PROFILE_PARSE()
+          return YAHOO_PROFILE.get(stock)
+      @staticmethod
+      def get(stock) :
           url = YAHOO_PROFILE.url.format(stock)
+          logging.debug(url)
           response = WEB_UTIL.invoke_url(url)
           soup = WEB_UTIL.format_as_soup(response)
-          ret = parse(soup)
+          ret = PROFILE_PARSE.parse(soup)
+          ret['Stock'] = stock
+          logging.debug(ret)
           return ret
 
 class PROFILE_PARSE() :
       def __call__(self, soup) :
+          return PROFILE_PARSE.parse(soup)
+      @staticmethod
+      def parse(soup) :
+          if soup is None : return {}
+          if soup.body is None : return {}
           span_list = soup.body.findAll('span')
           data = []
           for span in span_list :
@@ -69,13 +79,25 @@ class PROFILE_PARSE() :
           logging.debug(data)
           key_list = data[0:10:2]
           value_list = data[1:10:2]
-          data = dict(zip(key_list,value_list))
-          return data
+          ret = dict(zip(key_list,value_list))
+          logging.debug(ret)
+          return ret
 
 if __name__ == "__main__" :
+   from multiprocessing import Pool
+   def sync(stock):
+       return YAHOO_PROFILE.get(stock)
+
+   def worker(pool_size, *stock_list):
+       pool = Pool(pool_size)
+       logging.debug(stock_list)
+       ret = pool.map(sync,stock_list)
+       return ret
+
    reader = YAHOO_PROFILE()
 
    stock_list = ['AAPL','GOOG','SPY', 'SR-PA']
+   print worker(5,*stock_list)
    for stock in stock_list :
        print stock
        ret = reader(stock)

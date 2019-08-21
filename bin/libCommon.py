@@ -159,7 +159,7 @@ class STOCK_TIMESERIES :
       def _extract_from(self, stock, service) :
           try :
              return web.DataReader(stock, service, self.start, self.end) 
-          except Exception as e : logging.error(e)
+          except Exception as e : logging.error(e, exc_info=True)
 
       @staticmethod
       def save(filename, stock, data) :
@@ -207,7 +207,7 @@ class STOCK_TIMESERIES :
                   data = stock_data
                else:
                   data = pd.concat([data, stock_data], axis=1)
-             except Exception as e :  logging.error(e)
+             except Exception as e :  logging.error(e, exc_info=True)
              finally : pass
           return name_list, data
       @staticmethod
