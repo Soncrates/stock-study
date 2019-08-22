@@ -14,7 +14,11 @@ import logging
 import requests
 import re
 from bs4 import BeautifulSoup
+from json import load
 
+'''
+https://financialmodelingprep.com/developer/docs/
+'''
 class WEB_UTIL(object) :
       @staticmethod
       def invoke_url(url,headers=None, raw=False) :
@@ -24,13 +28,27 @@ class WEB_UTIL(object) :
           except Exception as e : logging.error(e, exc_info=True)
           return ret
       @staticmethod
+      def json(url,headers=None) :
+          ret = None
+          try :
+              ret = WEB_UTIL._base_invoke(url,headers)
+          except Exception as e : logging.error(e, exc_info=True)
+          return ret.json()
+      @staticmethod
       def _invoke_url(url,headers=None, raw=False) :
+        ret = WEB_UTIL._base_invoke(url,headers)
+        if not raw : ret = ret.text
+        else : ret = ret.content
+        return ret
+      @staticmethod
+      def _base_invoke(url,headers=None) :
         if headers is not None :
           ret = requests.get(url, headers=headers)        
         else :
           ret = requests.get(url)
-        if not raw : ret = ret.text
-        else : ret = ret.content
+        if ret.status_code != 200 :
+           msg = "{} {}".format(ret.status_code,url)
+           logging.error(msg)
         return ret
       @staticmethod
       def format_as_soup(url_response, raw=False) :
@@ -43,18 +61,52 @@ class WEB_UTIL(object) :
 class YAHOO_PROFILE() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
       def __call__(self, stock) :
-          return YAHOO_PROFILE.get(stock)
+          ret = YAHOO_PROFILE.get(stock)
+          logging.debug(ret)
+          return ret
+
       @staticmethod
       def get(stock) :
           url = YAHOO_PROFILE.url.format(stock)
-          logging.debug(url)
           response = WEB_UTIL.invoke_url(url)
           soup = WEB_UTIL.format_as_soup(response)
           ret = PROFILE_PARSE.parse(soup)
           ret['Stock'] = stock
+          logging.info(ret)
+          return ret
+
+class FINANCEMODELLING_STOCK_LIST() :
+      url = "https://financialmodelingprep.com/api/v3/company/stock/list"
+      def __call__(self, stock) :
+          ret = FINANCEMODELLING_STOCK_LIST.get(stock)
           logging.debug(ret)
           return ret
 
+      @staticmethod
+      def get() :
+          url = FINANCEMODELLING_STOCK_LIST.url
+          response = WEB_UTIL.json(url)
+          target = "symbolsList"
+          ret = response.get(target,{})
+          logging.info(ret)
+          return ret
+
+class FINANCEMODELLING_PROFILE() :
+      url = "https://financialmodelingprep.com/api/v3/company/profile/{0}"
+      def __call__(self, stock) :
+          ret = FINANCEMODELLING_PROFILE.get(stock)
+          logging.debug(ret)
+          return ret
+
+      @staticmethod
+      def get(stock) :
+          url = FINANCEMODELLING_PROFILE.url.format(stock)
+          response = WEB_UTIL.json(url)
+          target = "profile"
+          ret = response.get(target,{})
+          ret['Stock'] = stock
+          logging.info(ret)
+          return ret
 class PROFILE_PARSE() :
       def __call__(self, soup) :
           return PROFILE_PARSE.parse(soup)
@@ -95,8 +147,12 @@ if __name__ == "__main__" :
        return ret
 
    reader = YAHOO_PROFILE()
+   reader = FINANCEMODELLING_PROFILE()
 
-   stock_list = ['AAPL','GOOG','SPY', 'SR-PA']
+   ret_list = FINANCEMODELLING_STOCK_LIST.get()
+   for ret in ret_list :
+       print ret
+   stock_list = ['AAPL','GOOG','SPY', 'SRCpA','SRC-A', 'SRC$A', 'SRCA']
    print worker(5,*stock_list)
    for stock in stock_list :
        print stock

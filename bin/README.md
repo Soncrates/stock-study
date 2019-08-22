@@ -1,3 +1,8 @@
+APIS
+
+https://github.com/public-apis/public-apis
+https://financialmodelingprep.com/
+
 '''
    Monte Carlo simulations are named after the gambling hot spot in Monaco.
 

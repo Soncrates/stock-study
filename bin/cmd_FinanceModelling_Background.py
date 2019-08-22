@@ -2,15 +2,15 @@
 
 import logging
 from multiprocessing import Pool
-from libWeb import YAHOO_PROFILE, worker
-from libCommon import INI, NASDAQ
+from libWeb import FINANCEMODELLING_STOCK_LIST as STOCK_LIST, FINANCEMODELLING_PROFILE as PROFILE
+from libCommon import INI
 
 '''
    Web Scraper
    Use RESTful interface to to get web pages and parse for relevant info about stocks and funds
 '''
 def formatting(ret) :
-    if not isinstance(ret,basestring) : 
+    if not isinstance(ret,basestring) :
        ret = str(ret)
     ret = ret.replace(' ', '_')
     ret = ret.replace('--', '-')
@@ -33,19 +33,22 @@ def _append(stock, main, sub, **group) :
     group[main][sub].append(stock)
     return group
 
-def main(finder, profile) :
+def main() :
     try :
-        return _main(finder, profile)
+        return _main()
     except Exception as e :
         logging.error(e, exc_info=True)
 
 def sync(stock):
-    return YAHOO_PROFILE.get(stock)
+    return PROFILE.get(stock)
 
-def chunking(finder) :
+def chunking() :
     stock_list = []
     pool = Pool(15)
-    for stock in finder() :
+    for stock in STOCK_LIST.get() :
+        target = 'symbol'
+        stock = stock.get(target,None)
+        if not stock : continue
         stock_list.append(stock)
         if len(stock_list) < 60 : continue
         logging.info(stock_list)
@@ -56,21 +59,19 @@ def chunking(finder) :
         del stock_list
         stock_list = []
 
-def _main(finder, profile) :
+def _main() :
     ini_sector = {}
     ini_industry = {}
-    ini_Category = {}
-    ini_FundFamily = {}
     group_by_sector = {}
     group_by_industry = {}
     empty_list = []
-    for ret in chunking(finder) :
+    for ret in chunking() :
         curr = None
         stock = ret.get('Stock', None)
         if not stock : continue
-        Sector = ret.get('Sector','Fund')
+        Sector = ret.get('sector','Fund')
         Sector = formatting(Sector)
-        Industry = ret.get('Industry','Fund')
+        Industry = ret.get('industry','Fund')
         Industry = formatting(Industry)
         if Sector != Industry :
            group_by_sector = _append(stock, Sector, Industry, **group_by_sector)
@@ -80,22 +81,18 @@ def _main(finder, profile) :
         elif Sector != 'Fund' : 
              print Sector, Industry
         for key in ret.keys() :
-            if key == 'Sector' :
+            if key == 'sector' :
                curr = ini_sector
-            elif key == 'Industry' :
+            elif key == 'industry' :
                curr = ini_industry
-            elif key == 'Category' :
-               curr = ini_Category
-            elif key == 'Fund Family' :
-               curr = ini_FundFamily
             else :
                continue
             value = formatting(ret[key])
             if value not in curr :
                curr[value] = []
             curr[value].append(stock)
-    key_list = ['Sector', 'Industry', 'Category', 'Fund']
-    value_list = [ini_sector, ini_industry, ini_Category, ini_FundFamily]
+    key_list = ['Sector', 'Industry']
+    value_list = [ini_sector, ini_industry]
     ret = dict(zip(key_list,value_list))
     key_list = ['Background', 'SectorGroupBy', 'IndustryGroupBy']
     value_list = [ret, group_by_sector, group_by_industry]
@@ -116,32 +113,28 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    pwd = pwd.replace('bin','local')
-   nasdaq = '{}/{}'.format(pwd,NASDAQ.path)
-   nasdaq = NASDAQ.init(filename=nasdaq)
-   profile = YAHOO_PROFILE()
 
    logging.info("started {}".format(name))
    elapsed = TIMER.init()
-   ini, empty_list = main(nasdaq,profile)
+   ini, empty_list = main()
    logging.info("finished {} elapsed time : {}".format(name,elapsed()))
 
    print empty_list
 
-   stock_ini = '{}/nasdaq_background.ini'.format(pwd)
+   stock_ini = '{}/prototype_background.ini'.format(pwd)
    config = INI.init()
    temp = ini['Background']
    for key in sorted(temp.keys()) :
        INI.write_section(config,key,**temp[key])
    config.write(open(stock_ini, 'w'))
 
-   stock_ini = '{}/nasdaq_background_sector.ini'.format(pwd)
+   stock_ini = '{}/prototype_background_sector.ini'.format(pwd)
    config = INI.init()
    temp = ini['SectorGroupBy']
    for key in sorted(temp.keys()) :
        INI.write_section(config,key,**temp[key])
    config.write(open(stock_ini, 'w'))
 
-   '''
    # At one time, industries contained different sectors, this is no longer the case
 
    stock_ini = '{}/nasdaq_background_industry.ini'.format(pwd)
@@ -150,4 +143,3 @@ if __name__ == '__main__' :
    for key in sorted(temp.keys()) :
        INI.write_section(config,key,**temp[key])
    config.write(open(stock_ini, 'w'))
-   '''
