@@ -76,7 +76,9 @@ class BIN :
           bin2 = data[(data[target] <= _bin1) & (data[target] > _bin2)]
           bin3 = data[(data[target] <= _bin2) & (data[target] > _bin3)]
           bin4 = data[data[target] <= _bin3]
-          return [ bin1, bin2, bin3, bin4 ]
+          ret = [ bin1, bin2, bin3, bin4 ]
+          ret = filter(lambda x : len(x) > 0, ret)
+          return ret
 
       @staticmethod
       def ascending(data,target) :
@@ -87,15 +89,17 @@ class BIN :
           logging.debug((_bin1,_bin2,_bin3))
           bin4 = data[data[target] < _bin3]
           bin3 = data[(data[target] >= _bin3) & (data[target] < _bin2)] 
-          bin2 = data[(data[target] >= _bin1) & (data[target] < _bin2)] 
+          bin2 = data[(data[target] >= _bin2) & (data[target] < _bin1)] 
           bin1 = data[data[target] >= _bin1]
-          return [ bin4, bin3, bin2, bin1 ]
+          ret = [ bin4, bin3, bin2, bin1 ]
+          ret = filter(lambda x : len(x) > 0, ret)
+          return ret
 
 class HELPER :
       key_list = ['returns', 'risk','sharpe','len']
       @staticmethod
       def find(data, **kwargs) :
-          logging.debug(kwargs)
+          #logging.debug(kwargs)
           if not isinstance(data,pd.DataFrame) :
              warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
              data = pd.DataFrame(data)
@@ -117,21 +121,17 @@ class HELPER :
           ret = data.pct_change().dropna(how="all")
           _len = len(ret)
           if _len < period :
-             return 0, 0, _len
+             return dict(zip(HELPER.key_list, [0, 0, 0,_len]))
 
           if span == 0 :
-             logging.debug("No span")
              returns, risk = HELPER._findRiskAndReturn(ret)
           else :
-             logging.debug(span)
              returns, risk = HELPER._findRiskAndReturnSpan(ret,span)
           if isinstance(returns,pd.Series) : returns = returns[0]
           if isinstance(risk,pd.Series) : risk = risk[0]
           if period > 0 :
              returns *= period
              risk *= np.sqrt(period)
-          logging.debug((returns,risk))
-          logging.debug((type(returns),type(risk)))
           sharpe = 0
           if risk != 0 :
              sharpe = ( returns - risk_free_rate ) / risk
