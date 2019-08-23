@@ -91,6 +91,22 @@ class FINANCEMODELLING_STOCK_LIST() :
           logging.info(ret)
           return ret
 
+class FINANCEMODELLING_INDEX() :
+      url = "https://financialmodelingprep.com/api/v3/majors-indexes"
+      def __call__(self, stock) :
+          ret = FINANCEMODELLING_INDEX.get()
+          logging.debug(ret)
+          return ret
+
+      @staticmethod
+      def get() :
+          url = FINANCEMODELLING_INDEX.url
+          response = WEB_UTIL.json(url)
+          target = "majorIndexesList"
+          ret = response.get(target,{})
+          logging.info(ret)
+          return ret
+
 class FINANCEMODELLING_PROFILE() :
       url = "https://financialmodelingprep.com/api/v3/company/profile/{0}"
       def __call__(self, stock) :
@@ -107,6 +123,7 @@ class FINANCEMODELLING_PROFILE() :
           ret['Stock'] = stock
           logging.info(ret)
           return ret
+
 class PROFILE_PARSE() :
       def __call__(self, soup) :
           return PROFILE_PARSE.parse(soup)
@@ -158,4 +175,6 @@ if __name__ == "__main__" :
        print stock
        ret = reader(stock)
        print ret
+   for index in FINANCEMODELLING_INDEX.get() :
+       print index
 
