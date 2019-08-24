@@ -179,8 +179,15 @@ if __name__ == "__main__" :
 
    from glob import glob
    import os,sys,time
-   from libWeb import FINANCEMODELLING_INDEX as INDEX
-   from libCommon import STOCK_TIMESERIES
+   from libCommon import STOCK_TIMESERIES, INI
+
+   def prep(*ini_list) :
+       ini_list = filter(lambda x : "benchmark" in x , ini_list)
+       print ini_list
+       for path, section, key, stock_list in INI.loadList(*ini_list) :
+           if section == 'Index' : pass
+           else : continue
+           yield key, stock_list
 
    pwd = os.getcwd()
 
@@ -190,24 +197,22 @@ if __name__ == "__main__" :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
+   local = pwd.replace('bin','local')
+   ini_list = glob('{}/*.ini'.format(local))
+
    reader = STOCK_TIMESERIES.init()
-   for index in INDEX.get() :
-       target = "indexName"
-       name = index.get(target,None)
-       target = "ticker"
-       stock = index.get(target,None)
-       print (stock,name)
-       data = reader.extract_from_yahoo(stock)
-       if data is None : continue
-       ret = data[['Adj Close']]
-       ret = data[['Adj Close']]
-       print ret.head(2)
-       print ret.tail(2)
-       print ret.mean()
-       print ret.std()
-       print ret.mean()[0]
-       print ret.std()[0]
-       print HELPER.find(ret,period=252,span=0)
-       print HELPER.find(ret,period=252)
-
-
+   for name, stock_list in prep(*ini_list) :
+       for stock in stock_list :
+           print (stock,name)
+           data = reader.extract_from_yahoo(stock)
+           if data is None : continue
+           ret = data[['Adj Close']]
+           print ret.head(2)
+           print ret.tail(2)
+           print ret.mean()
+           print ret.std()
+           print ret.mean()[0]
+           print ret.std()[0]
+           print HELPER.find(ret,period=252,span=0)
+           print HELPER.find(ret,period=252)
+           print (stock,name)

@@ -3,6 +3,7 @@
 import logging
 import pandas as pd
 from libCommon import INI, STOCK_TIMESERIES, combinations
+from libSharpe import BIN, HELPER
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
@@ -41,24 +42,47 @@ def find(file_list, **kwargs) :
     for key in sorted(kwargs.keys()) :
         value_list = sorted(kwargs[key])
         ret = load(file_list, value_list)
-        columns, ret = _reduce(**ret)
-        yield key, columns, ret
+        logging.info(key)
+        if len(ret) == 0 : continue
+        ret = pd.DataFrame(ret).T
+        parition_list = make_partition(ret)
+        for partition in parition_list :
+            stock_list, ret = _reduce(partition)
+            print stock_list
+            print ret
+        yield key, stock_list, ret
 
 def load(file_list, value_list) :
     annual = MonteCarlo.YEAR()
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        data = annual.findSharpe(data['Adj Close']) 
+        data = HELPER.find(data['Adj Close'], period=annual.period) 
         #filter stocks that have less than a year
         sharpe = data.get('sharpe',0)
         if sharpe == 0 : continue
+        #filter stocks that have negative returns
+        returns = data.get('returns',0)
+        if returns <= 0 : continue
+        key_list = data.keys()
+        value_list = map(lambda x : data[x], key_list)
+        value_list = map(lambda x : round(x,2), value_list)
+        msg = dict(zip(key_list,value_list))
+        logging.info((name, msg))
         ret[name] = data
     return ret
 
-def _reduce(**ret) :
+def make_partition(ret) :
+    bin_list = BIN.ascending(ret,'len')
+    ret_list = []
+    for partition in bin_list :
+        _len =  partition.describe()['len']
+        if _len['mean'] - _len['min'] < _len['std']:
+           ret_list.append(partition)
+           continue
+        ret_list += BIN.ascending(partition,'len')
+    return ret_list
 
-    if len(ret) == 0 : return [], None
-    ret = pd.DataFrame(ret).T
+def _reduce(ret) :
     _len = len(ret)
     size = int(_len*.1)
     # filter riskier
@@ -68,12 +92,14 @@ def _reduce(**ret) :
     # screen top players
     ret = ret.round(2)
     ret = ret.sort_values(['sharpe','returns']).tail(8)
+    logging.info(ret)
     return list(ret.T.columns), ret
 
 if __name__ == '__main__' :
 
    from glob import glob
    import os,sys
+   from libCommon import TIMER
 
    pwd = os.getcwd()
 
@@ -81,13 +107,16 @@ if __name__ == '__main__' :
    name = sys.argv[0].split('.')[0]
    log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    local = pwd.replace('bin','local')
    ini_list = glob('{}/*.ini'.format(local))
    file_list = glob('{}/historical_prices/*pkl'.format(local))
 
+   logging.info("started {}".format(name))
+   elapsed = TIMER.init()
    Sector_Top, Industry_Top, Fund_Top = main(file_list,ini_list)
+   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
    
    config = INI.init()
    INI.write_section(config,'Sector',**Sector_Top)
