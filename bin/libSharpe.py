@@ -150,30 +150,104 @@ class HELPER :
           risk = data.ewm(span=span).std().iloc[-1]
           return returns, risk
 
+class PORTFOLIO :
+      key_list = ['returns', 'risk','sharpe','len']
       @staticmethod
-      def dev_findWeightedSharpe(data, risk_free_rate=0.02) :
+      def find(data, **kwargs) :
+          logging.debug(kwargs)
           if not isinstance(data,pd.DataFrame) :
              warnings.warn("prices are not in a dataframe", RuntimeWarning)
              data = pd.DataFrame(data)
+          target = "stocks"
+          stock_list = kwargs.get(target,['AAPL','GOOG'])
+          target = "portfolios"
+          portfolios = kwargs.get(target,25000)
+          target = "period"
+          period = kwargs.get(target,252)
+          target = "portfolios"
+          portfolios = kwargs.get(target,25000)
+          target = "risk_free_rate"
+          risk_free_rate = kwargs.get(target,0.02)
+          target = "span"
+          span = kwargs.get(target,500)
+          if portfolios < 0 :
+             warnings.warn("portfolios must be positive", RuntimeWarning)
+             portfolios = 0
           if period < 0 :
              warnings.warn("period must be positive", RuntimeWarning)
+             period = 0
           if span < 0 :
              warnings.warn("span must be positive", RuntimeWarning)
-          #select random weights for portfolio holdings
-          weights = np.array(np.random.random(size))
-          #rebalance weights to sum to 1
-          weights /= np.sum(weights)
-          return HELPER._dev_findWeightedSharpe(data, weights, risk_free_rate, period, span)
+             span = 0
+          return PORTFOLIO._find(data, stock_list, portfolios, risk_free_rate, period)
 
       @staticmethod
-      def _dev_findWeightedSharpe(data, risk_free_rate=0.02, period=0, span=500) :
-              # Linear Algebra magic
-              magic = np.dot(cov_matrix, weights)
-              magic_number = np.dot(weights.T,magic)
+      def _find(data, stock_list, num_portfolios, risk_free_rate, period) :
+          stocks = filter(lambda x : x in data, stock_list)
+          data = data[stocks]
+          portfolio_list = PORTFOLIO._process(data, len(stocks), num_portfolios, risk_free_rate, period)
 
-              #calculate return and volatility
-              returns = np.sum(mean * weights) * self.period
-              std_dev = np.sqrt(magic_number) * np.sqrt(self.period)
+          #convert results array to Pandas DataFrame
+          columns = ['returns','risk','sharpe']
+          columns += stocks
+          results_frame = pd.DataFrame(portfolio_list.T,columns=columns)
+
+          #locate position of portfolio with highest Sharpe Ratio
+          max_sharpe = results_frame['sharpe'].idxmax()
+          max_sharpe_port = results_frame.iloc[max_sharpe]
+
+          #locate positon of portfolio with minimum risk
+          min_vol = results_frame['risk'].idxmin()
+          min_vol_port = results_frame.iloc[min_vol]
+          return max_sharpe_port, min_vol_port
+
+      @staticmethod
+      def _weights(size, num_portfolios) :
+          for i in xrange(num_portfolios):
+              #select random weights for portfolio holdings
+              weights = np.array(np.random.random(size))
+              #rebalance weights to sum to 1
+              weights /= np.sum(weights)
+              #logging.debug(weights)
+              yield weights, i
+
+      @staticmethod
+      def _sharpe(cov_matrix, mean, period, risk_free_rate, weights) :
+          magic = np.dot(cov_matrix, weights)
+          magic_number = np.dot(weights.T,magic)
+
+          #calculate return and volatility
+          returns = np.sum(mean * weights) * period
+          risk = np.sqrt(magic_number) * np.sqrt(period)
+
+          #calculate Sharpe Ratio (return - risk free rate / volatility)
+          sharpe = 0
+          if risk != 0 : 
+             sharpe = ( returns - risk_free_rate ) / risk
+          return returns, risk, sharpe
+
+      @staticmethod
+      def _process(data, size, num_portfolios, risk_free_rate, period) :
+          data.sort_index(inplace=True)
+          #convert daily stock prices into daily returns
+          returns = data.pct_change()
+
+          #set up array to hold results
+          #We have increased the size of the array to hold the weight values for each stock
+          ret = np.zeros((3+size,num_portfolios))
+
+          #calculate mean daily return and covariance of daily returns
+          mean = returns.mean()
+          cov_matrix = returns.cov()
+          for weights, i in PORTFOLIO._weights(size, num_portfolios) :
+              returns, risk, sharpe = PORTFOLIO._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
+              #store results in results array
+              ret[0,i] = returns
+              ret[1,i] = risk
+              ret[2,i] = sharpe
+              for j in range(len(weights)):
+                  ret[j+3,i] = weights[j]
+          return ret
 
 if __name__ == "__main__" :
 

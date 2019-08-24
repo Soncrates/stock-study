@@ -3,7 +3,7 @@ import numpy as np
 import warnings
 import logging
 
-from libSharpe import HELPER
+from libSharpe import HELPER, PORTFOLIO
 
 class MonteCarlo(object) :
       @staticmethod
@@ -25,70 +25,7 @@ class MonteCarlo(object) :
           ret = HELPER.find(data, risk_free_rate=risk_free_rate, period=self.period, span=0)
           return ret 
       def __call__(self, stocks,data, num_portfolios = 25000) :
-          stocks = self._filterBadSharpe(stocks,data)
-          data = data[stocks]
-          data.sort_index(inplace=True)
-          #convert daily stock prices into daily returns
-          returns = data.pct_change()
-          portfolio_list = self._process(len(stocks), returns, num_portfolios)
-
-          #convert results array to Pandas DataFrame
-          columns = ['ret','stdev','sharpe']
-          columns += stocks
-          results_frame = pd.DataFrame(portfolio_list.T,columns=columns)
-          #locate position of portfolio with highest Sharpe Ratio
-          max_sharpe = results_frame['sharpe'].idxmax()
-          max_sharpe_port = results_frame.iloc[max_sharpe]
-          #locate positon of portfolio with minimum standard deviation
-          min_vol = results_frame['stdev'].idxmin()
-          min_vol_port = results_frame.iloc[min_vol]
-          return max_sharpe_port, min_vol_port
-
-      def _filterBadSharpe(self, stock_list, data) :
-          ret = []
-          for stock in stock_list :
-              if stock not in data : continue
-              d = data[stock]
-              d = self.findSharpe(d,risk_free_rate=0)
-              sharpe = d.get('sharpe',0)
-              if  sharpe == 0 : continue
-              ret.append(stock)
-          return sorted(ret)
-
-      def _process(self, size, returns, num_portfolios) :
-          #set up array to hold results
-          #We have increased the size of the array to hold the weight values for each stock
-          ret = np.zeros((3+size,num_portfolios))
-
-          #calculate mean daily return and covariance of daily returns
-          mean = returns.mean()
-          cov_matrix = returns.cov()
-          for i in xrange(num_portfolios):
-              #select random weights for portfolio holdings
-              weights = np.array(np.random.random(size))
-              #rebalance weights to sum to 1
-              weights /= np.sum(weights)
-              #logging.debug(weights)
-              # Linear Algebra magic
-              magic = np.dot(cov_matrix, weights)
-              #logging.debug(magic)
-              magic_number = np.dot(weights.T,magic)
-              #logging.debug(magic_number)
-
-              #calculate return and volatility
-              returns = np.sum(mean * weights) * self.period
-              std_dev = np.sqrt(magic_number) * np.sqrt(self.period)
-              #calculate Sharpe Ratio (return / volatility) - risk free rate element excluded for simplicity
-              sharpe = 0 
-              if std_dev != 0 : sharpe = returns / std_dev
-    
-              #store results in results array
-              ret[0,i] = returns
-              ret[1,i] = std_dev
-              ret[2,i] = sharpe
-              for j in range(len(weights)):
-                  ret[j+3,i] = weights[j]
-          return ret
+          return PORTFOLIO.find(data, stocks=stocks, portfolios=num_portfolios,period=self.period)
 
 if __name__ == "__main__" :
    

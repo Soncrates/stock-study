@@ -122,7 +122,6 @@ if __name__ == '__main__' :
    INI.write_section(config,'Sector',**Sector_Top)
    INI.write_section(config,'Industry',**Industry_Top)
    INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/nasdaq_sharpe_top.ini".format(local)
-   stock_ini = "{}/prototype.ini".format(local)
+   stock_ini = "{}/yahoo_sharpe_method1_step1.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
