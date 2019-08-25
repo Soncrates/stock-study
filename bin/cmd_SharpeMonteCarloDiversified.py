@@ -50,7 +50,6 @@ def main(file_list, ini_list) :
     print data_list.tail(5)
     return
 
-
     sharpe_risky, dev_risky = _main(risky_stock_list, data_list)
 
     balanced_stock_list, fund_list = prep("nasdaq_balanced", *ini_list)
@@ -93,7 +92,6 @@ def _main(stock_list, data_list) :
     for dummy, target in _calculateMonteCarlo(subset, data_list) : pass
     min_dev = target
     return max_sharpe, min_dev
-
 
 def _filterMonteCarlo(**kwargs) :
     meta = ['ret','stdev', 'sharpe']

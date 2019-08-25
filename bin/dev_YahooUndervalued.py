@@ -59,7 +59,7 @@ def _filterSharpe(**ret) :
     _len = len(ret)
     size = int(_len*.1)
     # filter riskier
-    ret = ret.sort_values(['dev']).head(_len - size)
+    ret = ret.sort_values(['risk']).head(_len - size)
     return list(ret.T.columns), ret
 
 if __name__ == '__main__' :
@@ -78,6 +78,6 @@ if __name__ == '__main__' :
    INI.write_section(config,'Sector',**Sector_Top)
    INI.write_section(config,'Industry',**Industry_Top)
    INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/nasdaq_sharpe_undervalued.ini".format(pwd)
+   stock_ini = "{}/yahoo_sharpe_undervalued.ini".format(pwd)
    config.write(open(stock_ini, 'w'))
 
