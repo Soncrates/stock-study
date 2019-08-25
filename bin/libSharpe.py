@@ -184,6 +184,8 @@ class PORTFOLIO :
       @staticmethod
       def _find(data, stock_list, num_portfolios, risk_free_rate, period) :
           stocks = filter(lambda x : x in data, stock_list)
+          if len(stocks) == 0 :
+              return pd.DataFrame(), pd.DataFrame()
           data = data[stocks]
           portfolio_list = PORTFOLIO._process(data, len(stocks), num_portfolios, risk_free_rate, period)
 

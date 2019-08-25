@@ -71,7 +71,7 @@ def _main(file_list, ini_list) :
 
     hybrid = risky_stock_list + balanced_stock_list
     name_list, data_list = calculateMonteCarlo(file_list, hybrid)
-    sharpe_hybrid, dev_hybrid = _main(hybrid, data_list)
+    sharpe_hybrid, dev_hybrid = find(hybrid, data_list)
 
     values = [sharpe_risky,dev_risky,sharpe_balanced,dev_balanced,sharpe_safe,dev_safe,sharpe_hybrid,dev_hybrid]
     keys = ["sharpe_risk","dev_risk","sharpe_balanced","dev_balanced","sharpe_safe","dev_safe", "sharpe_hybrid", "dev_hybrid"]
@@ -79,6 +79,7 @@ def _main(file_list, ini_list) :
     return ini
 
 def find(stock_list, data_list) :
+    logging.debug(sorted(stock_list))
     for max_sharpe, min_dev in _calculateMonteCarlo(stock_list, data_list) : pass
     target = max_sharpe
     ret, flag = _reduceMonteCarlo(target) 
@@ -104,7 +105,7 @@ def find(stock_list, data_list) :
     return max_sharpe, min_dev
 
 def _filterMonteCarlo(**kwargs) :
-    meta = ['ret','stdev', 'sharpe']
+    meta = ['returns','risk', 'sharpe']
     set_meta = set(meta)
     for key in kwargs.keys() :
         ret = pd.DataFrame()
@@ -155,6 +156,8 @@ def _calculateMonteCarlo(stock_list,data_list) :
         max_sharp, min_dev = annual(subset,data_list,1000) 
         yield max_sharp, min_dev
 def _calculateMonteCarlo(stock_list,data_list) :
+    meta = ['returns', 'risk', 'sharpe']
+    stock_list = filter(lambda x : x not in meta, stock_list)
     annual = MonteCarlo.YEAR()
     max_sharpe, min_dev = annual(stock_list,data_list,25000) 
     logging.debug((max_sharpe, min_dev))
@@ -188,5 +191,5 @@ if __name__ == '__main__' :
        if not isinstance(values,dict) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_sharpe_method1_portfolios.ini".format(pwd)
+   stock_ini = "{}/yahoo_sharpe_method1_portfolios.ini".format(local)
    config.write(open(stock_ini, 'w'))
