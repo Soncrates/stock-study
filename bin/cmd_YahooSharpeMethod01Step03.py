@@ -20,10 +20,14 @@ def prep(target, *ini_list) :
         elif section == 'Fund' : config = Fund
         else : continue
         config[key] = stock_list
-    Stock = reduce(lambda a, b : a + b, Stock.values())
-    Stock = list(set(Stock))
-    Fund = reduce(lambda a, b : a + b, Fund.values())
-    Fund = list(set(Fund))
+    stock_list = Stock.values()
+    if len(stock_list) > 0 :
+       Stock = reduce(lambda a, b : a + b, stock_list)
+       Stock = list(set(Stock))
+    fund_list = Fund.values()
+    if len(fund_list) > 0 :
+       Fund = reduce(lambda a, b : a + b, fund_list)
+       Fund = list(set(Fund))
     return sorted(Stock), sorted(Fund)
 
 def enrich(*ini_list) :
@@ -49,15 +53,13 @@ def _main(file_list, ini_list) :
 
     risky_stock_list, risky_fund_list = prep("risky", *ini_list)
     name_list, data_list = calculateMonteCarlo(file_list, risky_stock_list)
-    stock_list = data_list.columns
-    for stock in stock_list :
-        logging.info( (stock, local_enrich[stock]))
+    sharpe_risky, dev_risky = find(risky_stock_list, data_list)
+    #stock_list = data_list.columns
+    #for stock in stock_list :
+    #    logging.info( (stock, local_enrich[stock]))
 
     logging.info( data_list.head(5) )
     logging.info( data_list.tail(5) )
-    return
-
-    sharpe_risky, dev_risky = find(risky_stock_list, data_list)
 
     balanced_stock_list, fund_list = prep("balanced", *ini_list)
     name_list, data_list = calculateMonteCarlo(file_list, balanced_stock_list)
@@ -82,6 +84,7 @@ def find(stock_list, data_list) :
     ret, flag = _reduceMonteCarlo(target) 
     while flag :
        subset = sorted(list(ret.T.columns)) 
+       if len(subset) == 0 : break
        for target, dummy  in _calculateMonteCarlo(subset, data_list) : pass
        ret, flag = _reduceMonteCarlo(target) 
     subset = sorted(list(ret.T.columns)) 
@@ -92,6 +95,7 @@ def find(stock_list, data_list) :
     ret, flag = _reduceMonteCarlo(target) 
     while flag :
        subset = sorted(list(ret.T.columns)) 
+       if len(subset) == 0 : break
        for dummy, target in _calculateMonteCarlo(subset, data_list) : pass
        ret, flag = _reduceMonteCarlo(target) 
     subset = sorted(list(ret.T.columns)) 
@@ -112,6 +116,8 @@ def _filterMonteCarlo(**kwargs) :
         yield key, list(mean.columns)
 
 def _reduceMonteCarlo(ret) :
+    if len(ret) == 0 :
+       return ret, False
     _len = len(ret)-3
     size = int(_len*.1) + 1
     ret = pd.DataFrame(ret)
@@ -126,6 +132,9 @@ def _reduceMonteCarlo(ret) :
 def calculateMonteCarlo(file_list, stock_list) :
     name_list = []
     data_list = pd.DataFrame() 
+    if len(stock_list) == 0 :
+       return name_list, data_list
+       
     for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
         try :
             data_list[name] = stock['Adj Close']
