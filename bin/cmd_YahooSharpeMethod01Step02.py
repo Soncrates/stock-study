@@ -194,19 +194,19 @@ if __name__ == '__main__' :
    for key in risky_data.keys() :
        values = risky_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_risky.ini".format(local)
+   stock_ini = "{}/yahoo_sharpe_method1_risky.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in balanced_data.keys() :
        values = balanced_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_balanced.ini".format(local)
+   stock_ini = "{}/yahoo_sharpe_method1_balanced.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in safe_data.keys() :
        values = safe_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_safe.ini".format(local)
+   stock_ini = "{}/yahoo_sharpe_method1_safe.ini".format(local)
    config.write(open(stock_ini, 'w'))
