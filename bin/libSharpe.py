@@ -68,6 +68,7 @@ class BIN :
       @staticmethod
       def descending(data,target) :
           desc = data.describe()
+          logging.debug(desc)
           _bin1 =  desc[target]['75%']
           _bin2 =  desc[target]['50%']
           _bin3 =  desc[target]['25%']
@@ -83,6 +84,7 @@ class BIN :
       @staticmethod
       def ascending(data,target) :
           desc = data.describe()
+          logging.debug(desc)
           _bin1 =  desc[target]['75%']
           _bin2 =  desc[target]['50%']
           _bin3 =  desc[target]['25%']
