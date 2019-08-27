@@ -8,6 +8,9 @@ import numpy as np
 from libCommon import STOCK_TIMESERIES
 from libProcess import Partition
 
+'''
+WARNING : in development
+'''
 def main(control_by_quarter,*file_list) :
     stable = {}
     stable_key_list = ['label', 'mean_volume', 'mean_vol_ratio', 'std_volume', 'std_vol_ratio']

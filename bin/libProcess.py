@@ -7,6 +7,22 @@ import numpy as np
 
 from libCommon import STOCK_TIMESERIES
 
+'''
+WARNING : not currently in use
+
+Original idea : compare each stock to a benchmark (S&P or index fund)
+                Partition stock prices by fiscal quarter (ten years worth)
+                record all stocks that out performed the benchmark
+
+The idea was to buy stocks that increas the most for a given quarter. then sell and buy new stock for the next quarter
+
+This idea was abandoned when stocks were discovered that always do better than benchmark i.e.
+
+from ini file :
+
+Q1234 = AEE,AMZN,CMS,D,DHI,DHR,DOV,DTE,ED,EQR,HD,LHX,MA,MMC,MO,NKE,NOC,PYPL,QLD,SBUX,SPXL,SSO,STI,TQQQ,UNH,UNP,UPRO,WEC
+      
+'''
 class CompareStock(object) :
   @staticmethod
   def init(**kwargs) :

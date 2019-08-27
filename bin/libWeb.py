@@ -17,6 +17,10 @@ from bs4 import BeautifulSoup
 from json import load
 
 '''
+
+Web Scraping Utils
+
+
 https://financialmodelingprep.com/developer/docs/
 '''
 class WEB_UTIL(object) :
@@ -58,6 +62,13 @@ class WEB_UTIL(object) :
                 script.extract() # Remove these two elements from the BS4 object
         return ret
 
+'''
+   Downloading background profiles via yahoo api takes 90 minutes for ~8K calls
+   Implementing async calls reduces the time to 8 minutes, but after the first 100 results, 
+     the yahoo servers detect scraping and begin returning 404 for all subsequents calls.
+     The Bastards.
+
+'''
 class YAHOO_PROFILE() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
       def __call__(self, stock) :
@@ -70,9 +81,39 @@ class YAHOO_PROFILE() :
           url = YAHOO_PROFILE.url.format(stock)
           response = WEB_UTIL.invoke_url(url)
           soup = WEB_UTIL.format_as_soup(response)
-          ret = PROFILE_PARSE.parse(soup)
+          ret = YAHOO_PROFILE_PARSE.parse(soup)
           ret['Stock'] = stock
           logging.info(ret)
+          return ret
+'''
+Stocks and Funds on the nasdaq have the same api but very different content
+'''
+class YAHOO_PROFILE_PARSE() :
+      def __call__(self, soup) :
+          return YAHOO_PROFILE_PARSE.parse(soup)
+      @staticmethod
+      def parse(soup) :
+          if soup is None : return {}
+          if soup.body is None : return {}
+          span_list = soup.body.findAll('span')
+          data = []
+          for span in span_list :
+              data.append(span.text)
+          if len(data) == 0 :
+             return {}
+          while True :
+                if data[0] == 'Sector' :
+                   break
+                if data[0] == 'Category' :
+                   break
+                data = data[1:]
+                if len(data) == 0 :
+                   return {}
+          logging.debug(data)
+          key_list = data[0:10:2]
+          value_list = data[1:10:2]
+          ret = dict(zip(key_list,value_list))
+          logging.debug(ret)
           return ret
 
 class FINANCEMODELLING_STOCK_LIST() :
@@ -124,33 +165,6 @@ class FINANCEMODELLING_PROFILE() :
           logging.info(ret)
           return ret
 
-class PROFILE_PARSE() :
-      def __call__(self, soup) :
-          return PROFILE_PARSE.parse(soup)
-      @staticmethod
-      def parse(soup) :
-          if soup is None : return {}
-          if soup.body is None : return {}
-          span_list = soup.body.findAll('span')
-          data = []
-          for span in span_list :
-              data.append(span.text)
-          if len(data) == 0 :
-             return {}
-          while True :
-                if data[0] == 'Sector' :
-                   break
-                if data[0] == 'Category' :
-                   break
-                data = data[1:]
-                if len(data) == 0 :
-                   return {}
-          logging.debug(data)
-          key_list = data[0:10:2]
-          value_list = data[1:10:2]
-          ret = dict(zip(key_list,value_list))
-          logging.debug(ret)
-          return ret
 
 if __name__ == "__main__" :
    from multiprocessing import Pool

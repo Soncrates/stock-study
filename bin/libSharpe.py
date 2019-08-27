@@ -4,6 +4,26 @@ import warnings
 import numpy as np
 import pandas as pd
 
+'''
+Sharpe Ratio
+
+(Portfollio Expected Return - Risk Free Rate) / Portfolio Risk
+Expected Return a.k.a Mean
+Risk a.k.a Standard Deviation
+
+The Sharpe ratio, also known as the reward-to-variability ratio, is perhaps the most common portfolio management metric. 
+
+The excess return of the portfolio over the risk-free rate is standardized by the risk of the excess of the portfolio return. 
+
+Hypothetically, investors should always be able to invest in government bonds and obtain the risk-free rate of return. 
+
+The Sharpe ratio determines the expected realized return over that minimum. 
+
+Within the risk-reward framework of portfolio theory, higher risk investments should produce high returns. 
+
+As a result, a high Sharpe ratio indicates superior risk-adjusted performance.
+
+'''
 class RISK :
       @staticmethod
       def shave(data, size) :

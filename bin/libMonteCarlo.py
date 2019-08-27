@@ -4,7 +4,19 @@ import warnings
 import logging
 
 from libSharpe import HELPER, PORTFOLIO
+'''
+   Monte Carlo simulations are named after the gambling hot spot in Monaco.
 
+   There are two components to an asset's price movements: 
+         drift, which is a constant directional movement, 
+         random input, which represents market volatility. 
+   By analyzing historical price data, you can determine the drift, standard deviation, variance, and average price movement for a security. 
+
+   Volatility can be measured using two different methods. 
+   First is based on performing statistical calculations on the historical prices over a specific time period. 
+   This process involves computing various statistical numbers, like mean (average), variance and finally the standard deviation on the historical price data sets.
+
+'''
 class MonteCarlo(object) :
       @staticmethod
       def YEAR() :
@@ -76,4 +88,3 @@ if __name__ == "__main__" :
    min_vol = min_vol.round(2)
    print max_sharpe
    print min_vol
-

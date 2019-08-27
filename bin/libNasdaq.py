@@ -3,13 +3,19 @@
 import logging
 from libCommon import INI
 
+'''
+   Helper Functions
+   Using ini files to save states between programs
+'''
 def getByNasdaq(*ini_list) :
     Sector = {}
     Industry = {}
     FundFamily = {}
     Category = {}
 
-    ini_list = filter(lambda file : "nasdaq_background.ini" in file, ini_list)
+    ini_list = filter(lambda file : "yahoo" in file, ini_list)
+    ini_list = filter(lambda file : "background" in file, ini_list)
+    logging.debug(ini_list)
     for file_name, section, key, value in INI.loadList(*ini_list) :
         if section == "Sector" :
            config = Sector

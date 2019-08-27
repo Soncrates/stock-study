@@ -7,6 +7,7 @@ from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
 '''
+    WARNING : in development
     Use MonteCarlo method to take subset of stocks and funds (by type)
     Determine which are risky (high profit) and which are safe (low risk)
 '''

@@ -8,13 +8,13 @@ from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
 '''
-  There are over 6 thousand stocks on the nasdaq.
-  Full analysis would take weeks
-  Calculating simple sharpe ratio, 
-     filtering out returns below a certain threshold, 
-     filtering out risk above a certain threshold
-  then reduce the list to the top 8 by sharpe.
-  repeat for every subset of sector, industry, fund category
+WARNING : in development
+
+Partition stocks by Sector, Industry, and Fund Category
+Partition by High and possibly risky performance, non risky performance, and balanced performance
+balanced is set theory union of risky and not risky
+balanced is removed from risky and not risky
+montecarlo is executed on each partition
 '''
 def main(file_list, ini_list) :
     try :

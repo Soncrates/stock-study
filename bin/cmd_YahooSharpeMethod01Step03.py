@@ -7,8 +7,7 @@ from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
 '''
-    Use MonteCarlo method to take subset of stocks and funds (by type)
-    Determine which are risky (high profit) and which are safe (low risk)
+    Use MonteCarlo method to find best portfolio for risky, balanced, and not risky
 '''
 def prep(target, *ini_list) :
     Stock = {}

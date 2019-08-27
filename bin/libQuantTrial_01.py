@@ -8,6 +8,13 @@ import numpy as np
 
 from libCommon import INI, STOCK_TIMERIES
 
+'''
+    WARNING : Not currently used
+
+    Advanced financial data topics that were researched and ultimately put on the back burner.
+    Also advance pandas dataframe use
+
+'''
 def loadData(*file_list) :
     file_list = sorted(file_list)
     spy = filter(lambda stock : 'SPY' in stock, file_list)
