@@ -85,6 +85,7 @@ def findWeightedSharpe(data, weights, risk_free_rate=0.02, period=252) :
           mean = data.mean()
           cov_matrix = data.cov()
           logging.info((weights, mean,cov_matrix))
+          logging.info(data.head(2))
           returns, risk, sharpe = PORTFOLIO._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
           ret = dict(zip(['returns', 'risk', 'sharpe'],[returns,risk,sharpe]))
           logging.info(ret)
@@ -105,9 +106,6 @@ def _main(file_list, portfolio_ini, ini_list) :
     fund_name_list, fund_returns, fund_sharpe = prototype(file_list,funds)
 
     portfolio_list = prep(*portfolio_ini)
-    #portfolio_list = pd.DataFrame(portfolio_list.values())
-    #portfolio_list = pd.DataFrame(portfolio_list)
-    #portfolio_list = portfolio_list.sort_values(['risk'])
     logging.info(portfolio_list)
     ret_detail_list = []
     ret_name_return_list = []
@@ -115,27 +113,30 @@ def _main(file_list, portfolio_ini, ini_list) :
     ret_diversified_list = []
     ret_name_diversified_list = []
     ret_sharpe_list = {}
-    for weights, diversified, name_diversified, name_returns in find(local_enrich, portfolio_list) :
-        stock_list = sorted(weights.index)
+    for stock_list, weights, diversified, names in find(local_enrich, portfolio_list) :
         logging.info(weights)
         logging.info(stock_list)
         name_list, timeseries = readData(file_list,stock_list)
+        logging.debug(timeseries.head(5))
+        logging.debug(timeseries.tail(5))
         timeseries = timeseries.pct_change().dropna(how="all")
+        logging.debug(timeseries.head(5))
+        logging.debug(timeseries.tail(5))
         sharpe = findWeightedSharpe(timeseries, weights)
-        logging.info(timeseries.head(5))
-        logging.info(timeseries.tail(5))
         portfolio_return = weights.dot(timeseries.T).dropna(how="all")
-        timeseries[name_returns] = portfolio_return
+        name_portfolio = names['portfolio']
+        name_portfolio = 'legend_' + name_portfolio
+        timeseries[name_portfolio] = portfolio_return
         timeseries = 1 + timeseries
         timeseries.iloc[0] = 1  # set first day pseudo-price
         timeseries =  timeseries.cumprod()
         ret_detail_list.append(timeseries)
-        ret_summary_list[name_returns] = timeseries[name_returns]
+        ret_summary_list[name_portfolio] = timeseries[name_portfolio]
         logging.info( sharpe )
-        ret_sharpe_list[name_returns] = sharpe
+        ret_sharpe_list[name_portfolio] = sharpe
         ret_diversified_list.append(diversified)
-        ret_name_return_list.append(name_returns)
-        ret_name_diversified_list.append(name_diversified)
+        ret_name_return_list.append(names['returns'])
+        ret_name_diversified_list.append(names['diversified'])
     ret_summary_list[SNP] = snp_returns
     ret_sharpe_list[SNP] = snp_sharpe[gcps]
     for name in fund_name_list :
@@ -145,14 +146,14 @@ def _main(file_list, portfolio_ini, ini_list) :
     return ret_detail_list, ret_name_return_list, ret_summary_list, ret_diversified_list, ret_name_diversified_list, ret_sharpe_list
 
 def find(enrich, portfolio_list) :
+    name_format_1 = "portfolio_diversified_{}"
+    name_format_2 = "portfolio_returns_{}"
     key_list = sorted(portfolio_list.keys())
-    print key_list
     for curr, portfolio_name in enumerate(key_list) :
         portfolio = portfolio_list[portfolio_name]
         portfolio = pd.DataFrame(portfolio, index=['weights'])
         portfolio = portfolio.T.dropna(how='all').T
-        print curr, portfolio
-        weights, diversified = _find(enrich,portfolio)
+        stock_list, weights, diversified = _find(enrich,portfolio)
         key_list = sorted(diversified.keys())
         key_list = filter(lambda x : x is not None, key_list)
         value_list = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
@@ -160,29 +161,15 @@ def find(enrich, portfolio_list) :
         logging.info(value.format(**diversified))
         name_diversified = name_format_1.format(curr+1)
         name_returns = name_format_2.format(curr+1)
-        yield weights, diversified, name_diversified, name_returns
-    return
-    portfolio_list = portfolio_list.T.dropna(how='all').T
-    name_format_1 = "portfolio_diversified_{}"
-    name_format_2 = "portfolio_returns_{}"
-    curr = 1
-    for id, portfolio in portfolio_list.iterrows() :
-        portfolio = portfolio.T.dropna(how='all').T
-        weights, diversified = _find(enrich,portfolio)
-        key_list = sorted(diversified.keys())
-        key_list = filter(lambda x : x is not None, key_list)
-        value_list = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
-        value = "\n ".join(value_list)
-        logging.info(value.format(**diversified))
-        name_diversified = name_format_1.format(curr)
-        name_returns = name_format_2.format(curr)
-        yield weights, diversified, name_diversified, name_returns
-        curr += 1
+        names = ['portfolio', 'diversified', 'returns']
+        names = dict(zip(names,[portfolio_name, name_diversified, name_returns]))
+        yield stock_list, weights, diversified, names
 
 def _find(enrich, portfolio) :
     meta = ['returns', 'risk', 'sharpe']
     set_meta = set(meta)
     column_list = set(portfolio.T.index) - set_meta
+    logging.info(column_list)
     ret = {}
     for column in column_list :
         sector = enrich.get(column, {}).get('Sector',None)
@@ -197,7 +184,7 @@ def _find(enrich, portfolio) :
         ret[sector] = round(ret[sector],2)
     temp = filter(lambda x : x in portfolio, meta)
     weights = portfolio.drop(list(temp))
-    return weights, ret
+    return column_list, weights.T['weights'], ret
 
 def readData(file_list, stock_list) :
     name_list = []

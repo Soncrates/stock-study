@@ -25,7 +25,11 @@ class LINE :
           for data, label in LINE._xy(lines) :
               if 'portfolio' in label :
                  label = label.replace('_returns_','_')
-              logging.info(data)
+              if 'legend_' in label :
+                 label = label.replace('legend_','')
+              label = label.replace('_',' ')
+              logging.debug(data.head(3))
+              logging.debug(data.tail(3))
               logging.info(label)
               data.plot(label=label)
       @staticmethod
@@ -73,6 +77,7 @@ class BAR :
               label_list.append(value)
               data_list.append(key)
           y_pos = np.arange(len(label_list))
+          label_list = filter(lambda label : label is not None, label_list)
           label_list = map(lambda label : BAR._label(label), label_list)
           return label_list, data_list, y_pos
       @staticmethod
@@ -87,6 +92,8 @@ class POINT :
 
       @staticmethod
       def plot(points, **kwargs) :
+          logging.debug(points)
+          logging.info(type(points))
           target = 'x'
           x_column_name = kwargs.get(target,'returns')
           target = 'y'
@@ -109,8 +116,10 @@ class POINT :
           for x, y, label in POINT._xy(points,column_x,column_y) :
               #plt.scatter(x,y)
               #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
-              if 'portfolio' in label :
+              if 'portfolio' in label or 'legend_' in label :
                  label = label.replace('_returns_','_')
+                 label = label.replace('legend_','')
+                 label = label.replace('_',' ')
                  plt.plot(x,y,style, label=label)
                  continue
               plt.plot(x,y,style)
