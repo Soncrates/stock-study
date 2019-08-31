@@ -23,6 +23,8 @@ class LINE :
       @staticmethod
       def _plot(lines) :
           for data, label in LINE._xy(lines) :
+              if 'portfolio' in label :
+                 label = label.replace('_returns_','_')
               logging.info(data)
               logging.info(label)
               data.plot(label=label)
@@ -107,18 +109,31 @@ class POINT :
           for x, y, label in POINT._xy(points,column_x,column_y) :
               #plt.scatter(x,y)
               #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
-              plt.plot(x,y,style, label=label)
+              if 'portfolio' in label :
+                 label = label.replace('_returns_','_')
+                 plt.plot(x,y,style, label=label)
+                 continue
+              plt.plot(x,y,style)
+              plt.annotate(label, (x,y))
       @staticmethod
       def _xy(data,x,y) :
           for key in sorted(data.keys()) :
               pt = data[key]
               yield pt[x], pt[y], key
 
-def save(path) :
-    #from matplotlib.pyplot import figure
-    plt.legend()
-    #plt.autoscale()
-    #plt.gcf().subplots_adjust(left=0.15)
+def save(path, **kwargs) :
+    '''
+    loc=None, 
+    columnspacing=None, 
+    ncol=1, 
+    mode=None, 
+    shadow=None, 
+    title=None, 
+    title_fontsize=None, 
+    bbox_to_anchor=None, 
+    bbox_transform=None
+    '''
+    plt.legend(**kwargs)
     plt.savefig(path)
     plt.clf()
     plt.cla()

@@ -52,7 +52,6 @@ def main(file_list, portfolo_ini, ini_list) :
         logging.error(e, exc_info=True)
 
 def prototype(file_list,stock_list) :
-    print stock_list
     name_list, _ret = readData(file_list,stock_list)
     ret = _prototype(_ret)
     annual = MonteCarlo.YEAR()
@@ -77,14 +76,12 @@ def _main(file_list, portfolio_ini, ini_list) :
     SNP = 'SNP500'
     snp = bench_list[SNP]
     gcps = snp[0]
-    name_list, temp, sharpe = prototype(file_list,snp)
-    print sharpe
-    snp = temp.rename(columns={gcps:snp},inplace=True)
+    name_list, snp_returns, snp_sharpe = prototype(file_list,snp)
+    snp_returns.rename(columns={gcps:SNP},inplace=True)
 
     FUNDS = 'NASDAQMUTFUND'
     funds = bench_list[FUNDS]
-    name_list, funds, sharpe = prototype(file_list,funds)
-    print sharpe
+    fund_name_list, fund_returns, fund_sharpe = prototype(file_list,funds)
 
     portfolio_list = prep(*portfolio_ini)
     portfolio_list = pd.DataFrame(portfolio_list.values())
@@ -108,7 +105,8 @@ def _main(file_list, portfolio_ini, ini_list) :
         ret = 1 + ret
         ret.iloc[0] = 1  # set first day pseudo-price
         ret =  ret.cumprod()
-        print ret
+        print ret.head(2)
+        print ret.tail(2)
         print name_diversified, name_returns 
         ret_detail_list.append(ret)
         ret_summary_list[name_returns] = ret[name_returns]
@@ -116,6 +114,12 @@ def _main(file_list, portfolio_ini, ini_list) :
         ret_diversified_list.append(diversified)
         ret_name_return_list.append(name_returns)
         ret_name_diversified_list.append(name_diversified)
+    ret_summary_list[SNP] = snp_returns
+    ret_sharpe_list[SNP] = snp_sharpe[gcps]
+    for name in fund_name_list :
+        ret_summary_list[name] = fund_returns[name]
+        ret_sharpe_list[name] = fund_sharpe[name]
+
     return ret_detail_list, ret_name_return_list, ret_summary_list, ret_diversified_list, ret_name_diversified_list, ret_sharpe_list
 
 def find(enrich, portfolio_list) :
@@ -202,7 +206,7 @@ if __name__ == '__main__' :
        title = title.replace('_returns_','')
        LINE.plot(graph, title=title)
        path = "{}/{}.png".format(local,name)
-       save(path)
+       save(path, ncol=3)
 
    for i, name in enumerate(portfolio_name_diversified_list) :
        graph = portfolio_diversified_list[i]
@@ -213,9 +217,6 @@ if __name__ == '__main__' :
        save(path)
 
    logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
-   bench_list =  benchmark(*ini_list)
-   for bench in bench_list :
-       print bench, bench_list[bench]
    
    '''
    config = INI.init()
