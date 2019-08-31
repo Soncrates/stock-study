@@ -5,10 +5,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from libCommon import INI, STOCK_TIMESERIES, combinations
-from libNasdaq import getByNasdaq
+from libCommon import INI, STOCK_TIMESERIES
+from libGraph import LINE, BAR, POINT, save
 from libMonteCarlo import MonteCarlo
-from libSharpe import BIN
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
@@ -33,28 +32,73 @@ def enrich(*ini_list) :
             ret[stock][section] = key
     return ret
 
+def benchmark(*ini_list) :
+    ret = {}
+    ini_list = filter(lambda x : 'benchmark' in x, ini_list)
+    for path, section, key, stock_list in INI.loadList(*ini_list) :
+        if section not in ['MOTLEYFOOL', 'Index'] : continue
+        if section == 'MOTLEYFOOL' :
+           if 'NASDAQ' not in key : continue
+           if 'FUND' not in key : continue
+        if section == 'Index' :
+           if '500' not in key : continue
+        ret[key] = stock_list
+    return ret
+
 def main(file_list, portfolo_ini, ini_list) :
     try :
         return _main(file_list, portfolio_ini, ini_list)
     except Exception as e :
         logging.error(e, exc_info=True)
 
+def prototype(file_list,stock_list) :
+    print stock_list
+    name_list, _ret = readData(file_list,stock_list)
+    ret = _prototype(_ret)
+    annual = MonteCarlo.YEAR()
+    value_list = map(lambda x : _ret[x], name_list)
+    value_list = map(lambda x : annual.findSharpe(x), value_list)
+    sharpe = dict(zip(name_list,value_list))
+    return name_list, ret, sharpe
+
+def _prototype(data) :
+    ret = data.pct_change().dropna(how="all")
+    if len(ret) == 0 :
+        return ret
+    ret = 1 + ret
+    ret.iloc[0] = 1  # set first day pseudo-price
+    ret =  ret.cumprod()
+    return ret
+
 def _main(file_list, portfolio_ini, ini_list) :
     local_enrich = enrich(*ini_list)
+    bench_list = benchmark(*ini_list)
+
+    SNP = 'SNP500'
+    snp = bench_list[SNP]
+    gcps = snp[0]
+    name_list, temp, sharpe = prototype(file_list,snp)
+    print sharpe
+    snp = temp.rename(columns={gcps:snp},inplace=True)
+
+    FUNDS = 'NASDAQMUTFUND'
+    funds = bench_list[FUNDS]
+    name_list, funds, sharpe = prototype(file_list,funds)
+    print sharpe
 
     portfolio_list = prep(*portfolio_ini)
     portfolio_list = pd.DataFrame(portfolio_list.values())
     portfolio_list = portfolio_list.sort_values(['risk'])
     logging.info(portfolio_list)
-    ret_portfolio_detail_list = []
-    ret_portfolio_name_return_list = []
-    ret_portfolio_summary_list = {}
-    ret_portfolio_diversified_list = []
-    ret_portfolio_name_diversified_list = []
-    ret_portfolio_sharpe_list = {}
+    ret_detail_list = []
+    ret_name_return_list = []
+    ret_summary_list = {}
+    ret_diversified_list = []
+    ret_name_diversified_list = []
+    ret_sharpe_list = {}
     for weights, sharpe, diversified, name_diversified, name_returns in find(local_enrich, portfolio_list) :
         stock_list = sorted(weights.index)
-        name_list, ret = calculateMonteCarlo(file_list,stock_list)
+        name_list, ret = readData(file_list,stock_list)
         ret = ret.pct_change().dropna(how="all")
         logging.info(weights)
         logging.info(stock_list)
@@ -66,13 +110,13 @@ def _main(file_list, portfolio_ini, ini_list) :
         ret =  ret.cumprod()
         print ret
         print name_diversified, name_returns 
-        ret_portfolio_detail_list.append(ret)
-        ret_portfolio_summary_list[name_returns] = ret[name_returns]
-        ret_portfolio_sharpe_list[name_returns] = sharpe
-        ret_portfolio_diversified_list.append(diversified)
-        ret_portfolio_name_return_list.append(name_returns)
-        ret_portfolio_name_diversified_list.append(name_diversified)
-    return ret_portfolio_detail_list, ret_portfolio_name_return_list, ret_portfolio_summary_list, ret_portfolio_diversified_list, ret_portfolio_name_diversified_list, ret_portfolio_sharpe_list
+        ret_detail_list.append(ret)
+        ret_summary_list[name_returns] = ret[name_returns]
+        ret_sharpe_list[name_returns] = sharpe
+        ret_diversified_list.append(diversified)
+        ret_name_return_list.append(name_returns)
+        ret_name_diversified_list.append(name_diversified)
+    return ret_detail_list, ret_name_return_list, ret_summary_list, ret_diversified_list, ret_name_diversified_list, ret_sharpe_list
 
 def find(enrich, portfolio_list) :
     portfolio_list = portfolio_list.T.dropna(how='all').T
@@ -90,6 +134,7 @@ def find(enrich, portfolio_list) :
         name_returns = name_format_2.format(curr)
         yield weights, sharpe, diversified, name_diversified, name_returns
         curr += 1
+
 def _find(enrich, portfolio) :
     meta = ['returns', 'risk', 'sharpe']
     set_meta = set(meta)
@@ -108,7 +153,7 @@ def _find(enrich, portfolio) :
     sharpe = portfolio.drop(list(column_list))
     return weights, sharpe, ret
 
-def calculateMonteCarlo(file_list, stock_list) :
+def readData(file_list, stock_list) :
     name_list = []
     data_list = pd.DataFrame() 
     if len(stock_list) == 0 :
@@ -121,42 +166,6 @@ def calculateMonteCarlo(file_list, stock_list) :
         except Exception as e : logging.error(e, exc_info=True) 
         finally : pass
     return name_list, data_list
-def _calculateMonteCarlo(stock_list,data_list) :
-    annual = MonteCarlo.YEAR()
-    for subset in combinations(stock_list,4) : 
-        max_sharp, min_dev = annual(subset,data_list,1000) 
-        yield max_sharp, min_dev
-def _calculateMonteCarlo(stock_list,data_list) :
-    meta = ['returns', 'risk', 'sharpe']
-    stock_list = filter(lambda x : x not in meta, stock_list)
-    annual = MonteCarlo.YEAR()
-    max_sharpe, min_dev = annual(stock_list,data_list,25000) 
-    logging.debug((max_sharpe, min_dev))
-    yield max_sharpe, min_dev
-
-def plot_line(stocks) :
-    for key in stocks.keys() :
-        ret = stocks[key]
-        ret.plot(label=key)
-def plot_bar(stocks) :
-    label_list = stocks.keys()
-    y_pos = np.arange(len(label_list))
-    data_list = stocks.values()
-    plt.barh(y_pos, data_list, align='center', alpha=0.5)
-    plt.yticks(y_pos, label_list)
-    plt.xlabel('Percentage')
-    plt.title('Sector Distribution')
-def plot_point(label,x,y) :
-    #plt.scatter(x,y)
-    #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
-    plt.plot(x,y,'o', label=label)
-
-def save(path) :
-    plt.legend()
-    plt.savefig(path)
-    plt.clf()
-    plt.cla()
-    plt.close()
 
 if __name__ == '__main__' :
 
@@ -179,29 +188,34 @@ if __name__ == '__main__' :
    logging.info("started {}".format(name))
    elapsed = TIMER.init()
    portfolio_list, portfolio_name_list, summary, portfolio_diversified_list, portfolio_name_diversified_list, portfolio_sharpe_list = main(file_list, portfolio_ini, ini_list )
-   plot_line(summary)
+
+   LINE.plot(summary, title="Returns")
    path = "{}/portfolio_summary.png".format(local)
    save(path)
-   for key in portfolio_sharpe_list.keys() :
-       point = portfolio_sharpe_list[key]
-       plot_point(key,point['returns'],point['risk'])
+   POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
    path = "{}/portfolio_sharpe.png".format(local)
    save(path)
 
    for i, name in enumerate(portfolio_name_list) :
        graph = portfolio_list[i]
-       plot_line(graph)
+       title = 'Returns for {}'.format(name)
+       title = title.replace('_returns_','')
+       LINE.plot(graph, title=title)
        path = "{}/{}.png".format(local,name)
        save(path)
 
    for i, name in enumerate(portfolio_name_diversified_list) :
        graph = portfolio_diversified_list[i]
-       plot_bar(graph)
+       title = 'Sector Distribution for {}'.format(name)
+       title = title.replace('_diversified_','')
+       BAR.plot(graph,xlabel='Percentage',title=title)
        path = "{}/{}.png".format(local,name)
        save(path)
 
    logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
-
+   bench_list =  benchmark(*ini_list)
+   for bench in bench_list :
+       print bench, bench_list[bench]
    
    '''
    config = INI.init()
