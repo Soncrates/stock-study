@@ -31,13 +31,55 @@ def _append(stock, main, sub, **group) :
     group[main][sub].append(stock)
     return group
 
-def main(finder) :
+def main(finder, *stock_list) :
     try :
-        return _main(finder)
+        return _main(finder, *stock_list)
     except Exception as e :
         logging.error(e, exc_info=True)
 
-def _main(finder) :
+def _main(finder, *stock_list) :
+
+    if len(stock_list) > 0 :
+       stock_list = map(lambda stock : PROFILE.get(stock), stock_list)
+       ini, empty_list = find(stock_list)
+       for key in sorted(ini) :
+           print "{}.ini".format(key)
+           _1 = ini[key]
+           for key1 in sorted(_1) :
+               print "[{}]".format(key1)
+               _2 = _1[key1]
+               for key2 in sorted(_2) :
+                   value = ",".join(_2[key2])
+                   print "{} = {}".format(key2,value)
+       return empty_list
+
+    stock_list = map(lambda stock : PROFILE.get(stock), finder())
+    ini, empty_list = find(finder)
+    stock_ini = '{}/yahoo_background.ini'.format(pwd)
+    config = INI.init()
+    temp = ini['Background']
+    for key in sorted(temp.keys()) :
+        INI.write_section(config,key,**temp[key])
+    config.write(open(stock_ini, 'w'))
+
+    stock_ini = '{}/yahoo_background_sector.ini'.format(pwd)
+    config = INI.init()
+    temp = ini['SectorGroupBy']
+    for key in sorted(temp.keys()) :
+        INI.write_section(config,key,**temp[key])
+    config.write(open(stock_ini, 'w'))
+
+    # At one time, industries contained different sectors, this is no longer the case
+
+    stock_ini = '{}/yahoo_background_industry.ini'.format(pwd)
+    config = INI.init()
+    temp = ini['IndustryGroupBy']
+    for key in sorted(temp.keys()) :
+        INI.write_section(config,key,**temp[key])
+    config.write(open(stock_ini, 'w'))
+    return empty_list
+
+def find(stock_list) :
     ini_sector = {}
     ini_industry = {}
     ini_Category = {}
@@ -45,8 +87,7 @@ def _main(finder) :
     group_by_sector = {}
     group_by_industry = {}
     empty_list = []
-    for stock in finder() :
-        ret = PROFILE.get(stock)
+    for ret in stock_list :
         curr = None
         stock = ret.get('Stock', None)
         if not stock : continue
@@ -103,30 +144,7 @@ if __name__ == '__main__' :
 
    logging.info("started {}".format(name))
    elapsed = TIMER.init()
-   ini, empty_list = main(nasdaq)
+   stock_list = sys.argv[1:]
+   empty_list = main(nasdaq, *stock_list)
    logging.info("finished {} elapsed time : {}".format(name,elapsed()))
 
-   print empty_list
-
-   stock_ini = '{}/yahoo_background.ini'.format(pwd)
-   config = INI.init()
-   temp = ini['Background']
-   for key in sorted(temp.keys()) :
-       INI.write_section(config,key,**temp[key])
-   config.write(open(stock_ini, 'w'))
-
-   stock_ini = '{}/yahoo_background_sector.ini'.format(pwd)
-   config = INI.init()
-   temp = ini['SectorGroupBy']
-   for key in sorted(temp.keys()) :
-       INI.write_section(config,key,**temp[key])
-   config.write(open(stock_ini, 'w'))
-
-   # At one time, industries contained different sectors, this is no longer the case
-
-   stock_ini = '{}/yahoo_background_industry.ini'.format(pwd)
-   config = INI.init()
-   temp = ini['IndustryGroupBy']
-   for key in sorted(temp.keys()) :
-       INI.write_section(config,key,**temp[key])
-   config.write(open(stock_ini, 'w'))
