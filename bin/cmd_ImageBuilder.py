@@ -183,8 +183,8 @@ def _find(enrich, portfolio) :
         ret[sector] += weight
         ret[sector] = round(ret[sector],2)
     temp = filter(lambda x : x in portfolio, meta)
-    weights = portfolio.drop(list(temp))
-    return column_list, weights.T['weights'], ret
+    weights = portfolio.T.drop(list(temp))
+    return column_list, weights['weights'], ret
 
 def readData(file_list, stock_list) :
     name_list = []
@@ -226,21 +226,17 @@ if __name__ == '__main__' :
    elapsed = TIMER.init()
    portfolio_list, portfolio_name_list, summary, portfolio_diversified_list, portfolio_name_diversified_list, portfolio_sharpe_list = main(file_list, portfolio_ini, ini_list )
 
-   LINE.plot(summary, title="Returns")
-   path = "{}/portfolio_summary.png".format(local)
-   save(path)
+   summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
    path = "{}/portfolio_sharpe.png".format(local)
    save(path)
+   summary_path_list.append(path)
+   LINE.plot(summary, title="Returns")
+   path = "{}/portfolio_summary.png".format(local)
+   save(path)
+   summary_path_list.append(path)
 
-   for i, name in enumerate(portfolio_name_list) :
-       graph = portfolio_list[i]
-       title = 'Returns for {}'.format(name)
-       title = title.replace('_returns_','')
-       LINE.plot(graph, title=title)
-       path = "{}/{}.png".format(local,name)
-       save(path, ncol=3)
-
+   local_diversify_list = []
    for i, name in enumerate(portfolio_name_diversified_list) :
        graph = portfolio_diversified_list[i]
        title = 'Sector Distribution for {}'.format(name)
@@ -248,16 +244,33 @@ if __name__ == '__main__' :
        BAR.plot(graph,xlabel='Percentage',title=title)
        path = "{}/{}.png".format(local,name)
        save(path)
+       local_diversify_list.append(path)
+
+   local_returns_list = []
+   for i, name in enumerate(portfolio_name_list) :
+       graph = portfolio_list[i]
+       title = 'Returns for {}'.format(name)
+       title = title.replace('_returns_','')
+       LINE.plot(graph, title=title)
+       path = "{}/{}.png".format(local,name)
+       save(path, ncol=3)
+       local_returns_list.append(path)
 
    logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
-   
-   '''
+   summary = { "images" : summary_path_list , "captions" : ["Return over Risk", "portfolio returns"] }
+   portfolio = {}
+   for i, value in enumerate(local_diversify_list) :
+       images = [ local_diversify_list[i], local_returns_list[i] ]
+       captions = [ "portfolio diversity", "portfolio returns"]
+       key = "portfolio_{}".format(i)
+       portfolio[key] = { "images" : images, "captions" : captions}
+
    config = INI.init()
-   for key in ini.keys() :
-       values = ini[key]
+   INI.write_section(config,"summary",**summary)
+   for key in portfolio.keys() :
+       values = portfolio[key]
        if not isinstance(values,dict) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_sharpe_method1_portfolios.ini".format(local)
+   stock_ini = "{}/report_generator.ini".format(local)
    config.write(open(stock_ini, 'w'))
-   '''

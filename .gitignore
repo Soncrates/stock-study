@@ -1,7 +1,8 @@
-*.pyc
 *.csv
 *.log
+*.pdf
 *.png
+*.pyc
 *.gif
 *.jpg
 *.jpeg

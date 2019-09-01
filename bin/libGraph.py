@@ -5,6 +5,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+class CONSTANTS :
+      GOLDEN_RATIO = 1.62
+      LEGEND = 'legend_'
+      RETURNS = '_returns_'
 class LINE :
       @staticmethod
       def plot(lines,**kwargs) :
@@ -47,10 +51,10 @@ class BAR :
           ylabel = kwargs.get(target,None)
           target = 'title'
           title = kwargs.get(target,None)
-          target = 'width'
-          width = kwargs.get(target,11)
           target = 'height'
           height = kwargs.get(target,7)
+          target = 'width'
+          width = kwargs.get(target,height*CONSTANTS.GOLDEN_RATIO)
           plt.figure(figsize=(width, height))
           BAR._plot(bar)
           if xlabel is not None : plt.xlabel(xlabel)
