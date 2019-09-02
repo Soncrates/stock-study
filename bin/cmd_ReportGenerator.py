@@ -130,7 +130,6 @@ def addDescription(arg_list) :
                logging.info(header)
                content_list = value[header]
                header = Paragraph(header, h3)
-               #header = ListItem(header)
                yield header
                for content in addDescriptionContent(content_list) :
                    yield content
@@ -138,13 +137,15 @@ def addDescription(arg_list) :
 def addDescriptionContent(arg_list) :
     if not isinstance(arg_list,list) :
        return
-    arg_list = sorted(arg_list)
+    arg_list = sorted(arg_list, key = lambda i: i['weight']) 
+    logging.info(arg_list)
     detail = 'Not Available'
     for i, content in enumerate(arg_list) :
-        content = content.format(detail) 
+        target = 'weight'
+        content[target] = "{}%".format(content[target]).rjust(8,' ')
+        content = "{weight} {ticker}".format(**content)
         logging.info(content)
         content = Paragraph(content, bullet)
-        #content = ListItem(content, bulletcolor='black',value=i)
         yield content
 
 if __name__ == '__main__' :

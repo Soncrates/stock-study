@@ -148,6 +148,7 @@ def find(enrich, portfolio_list) :
         yield stock_list, weights, diversified_graph, diversified_data, names
 
 def _find(enrich, portfolio) :
+    stock_diverse_keys = ['weight', 'ticker']
     meta = ['returns', 'risk', 'sharpe']
     set_meta = set(meta)
     column_list = set(portfolio.T.index) - set_meta
@@ -167,7 +168,8 @@ def _find(enrich, portfolio) :
         diversified_weights[sector] = round(diversified_weights[sector],2)
         if sector not in diversified_stocks :
            diversified_stocks[sector] = []
-        value = "{} {} {}".format(round(weight_1*100,2), column, '{}')
+        #value = "{} {} {}".format(round(weight_1*100,2), column, '{}')
+        value = dict(zip(stock_diverse_keys,[round(weight_1*100,2), column]))
         diversified_stocks[sector].append(value)
     temp = filter(lambda x : x in portfolio, meta)
     weights = portfolio.T.drop(list(temp))
