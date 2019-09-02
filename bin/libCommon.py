@@ -1,3 +1,4 @@
+import csv
 import datetime, time
 from math import floor
 import logging
@@ -120,6 +121,25 @@ class INI(object) :
               if isinstance(value,list) :
                  value = ",".join(value)
               config.set(section,key,value)
+
+class CSV :
+      @staticmethod
+      def grep(path, *arg_list) :
+          ret = {}
+          with open(path, 'rb') as csvfile:
+               obj = csv.reader(csvfile)
+               for row in obj:
+                   for local_key in arg_list :
+                       flag_list = filter(lambda t : local_key == t, row)
+                       if len(flag_list) > 0 :
+                          ret[local_key] = row
+                          continue
+                       alt_key = local_key.replace('-P','-') 
+                       flag_list = filter(lambda t : alt_key == t, row)
+                       if len(flag_list) == 0 : continue
+                       ret[local_key] = row
+          return ret
+
 
 class TIMER :
       minute = 60
