@@ -93,6 +93,9 @@ class INI(object) :
           if path.endswith('ini') == False : return
           config = INI._init(path)
           for name, key, value in INI.read_section(config) :
+              if '{' in value :
+                  yield name, key, value
+                  continue
               if ',' in value :
                  value = value.split(',')
                  value = map(lambda key : key.strip(), value)

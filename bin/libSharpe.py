@@ -203,6 +203,7 @@ class PORTFOLIO :
              span = 0
           return PORTFOLIO._find(data, stock_list, portfolios, risk_free_rate, period)
 
+
       @staticmethod
       def _find(data, stock_list, num_portfolios, risk_free_rate, period) :
           stocks = filter(lambda x : x in data, stock_list)
@@ -274,6 +275,22 @@ class PORTFOLIO :
               ret[2,i] = sharpe
               for j in range(len(weights)):
                   ret[j+3,i] = weights[j]
+          return ret
+
+      @staticmethod
+      def findWeightedSharpe(data, weights, risk_free_rate=0.02, period=252) :
+          if not isinstance(data,pd.DataFrame) :
+             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
+             data = pd.DataFrame(data)
+
+          #calculate mean daily return and covariance of daily returns
+          mean = data.mean()
+          cov_matrix = data.cov()
+          logging.info((weights, mean,cov_matrix))
+          logging.info(data.head(2))
+          returns, risk, sharpe = PORTFOLIO._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
+          ret = dict(zip(['returns', 'risk', 'sharpe'],[returns,risk,sharpe]))
+          logging.info(ret)
           return ret
 
 if __name__ == "__main__" :

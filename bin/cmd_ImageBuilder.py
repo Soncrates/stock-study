@@ -72,25 +72,6 @@ def _prototype(data) :
     ret =  ret.cumprod()
     return ret
 
-def findWeightedSharpe(data, weights, risk_free_rate=0.02, period=252) :
-          if not isinstance(data,pd.DataFrame) :
-             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
-             data = pd.DataFrame(data)
-
-          #data.sort_index(inplace=True)
-          #convert daily stock prices into daily returns
-          #returns = data.pct_change()
-
-          #calculate mean daily return and covariance of daily returns
-          mean = data.mean()
-          cov_matrix = data.cov()
-          logging.info((weights, mean,cov_matrix))
-          logging.info(data.head(2))
-          returns, risk, sharpe = PORTFOLIO._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
-          ret = dict(zip(['returns', 'risk', 'sharpe'],[returns,risk,sharpe]))
-          logging.info(ret)
-          return ret
-
 def _main(file_list, portfolio_ini, ini_list) :
     local_enrich = enrich(*ini_list)
     bench_list = benchmark(*ini_list)
@@ -107,43 +88,44 @@ def _main(file_list, portfolio_ini, ini_list) :
 
     portfolio_list = prep(*portfolio_ini)
     logging.info(portfolio_list)
-    ret_detail_list = []
-    ret_name_return_list = []
-    ret_summary_list = {}
-    ret_diversified_list = []
-    ret_name_diversified_list = []
-    ret_sharpe_list = {}
-    for stock_list, weights, diversified, names in find(local_enrich, portfolio_list) :
+    returns_graph_list = []
+    returns_name_list = []
+    summary_list = {}
+    diversified_graph_list = []
+    diversified_data_list = []
+    diversified_name_list = []
+    sharpe_list = {}
+    portfolio_name_list = []
+    for stock_list, weights, diversified_graph, diversified_data, names in find(local_enrich, portfolio_list) :
         logging.info(weights)
         logging.info(stock_list)
         name_list, timeseries = readData(file_list,stock_list)
-        logging.debug(timeseries.head(5))
-        logging.debug(timeseries.tail(5))
-        timeseries = timeseries.pct_change().dropna(how="all")
-        logging.debug(timeseries.head(5))
-        logging.debug(timeseries.tail(5))
-        sharpe = findWeightedSharpe(timeseries, weights)
-        portfolio_return = weights.dot(timeseries.T).dropna(how="all")
-        name_portfolio = names['portfolio']
-        name_portfolio = 'legend_' + name_portfolio
-        timeseries[name_portfolio] = portfolio_return
-        timeseries = 1 + timeseries
-        timeseries.iloc[0] = 1  # set first day pseudo-price
-        timeseries =  timeseries.cumprod()
-        ret_detail_list.append(timeseries)
-        ret_summary_list[name_portfolio] = timeseries[name_portfolio]
-        logging.info( sharpe )
-        ret_sharpe_list[name_portfolio] = sharpe
-        ret_diversified_list.append(diversified)
-        ret_name_return_list.append(names['returns'])
-        ret_name_diversified_list.append(names['diversified'])
-    ret_summary_list[SNP] = snp_returns
-    ret_sharpe_list[SNP] = snp_sharpe[gcps]
+        data = timeseries.pct_change().dropna(how="all")
+        portfolio_sharpe = PORTFOLIO.findWeightedSharpe(data, weights)
+        portfolio_return = weights.dot(data.T).dropna(how="all")
+        portfolio_name_list.append(names['portfolio'])
+        name_portfolio = 'legend_{portfolio}'.format(**names)
+        data[name_portfolio] = portfolio_return
+        data = 1 + data
+        data.iloc[0] = 1  # set first day pseudo-price
+        data =  data.cumprod()
+        returns_graph_list.append(data)
+        summary_list[name_portfolio] = data[name_portfolio]
+        logging.info( portfolio_sharpe )
+        sharpe_list[name_portfolio] = portfolio_sharpe
+        diversified_graph_list.append(diversified_graph)
+        diversified_data_list.append(diversified_data)
+        returns_name_list.append(names['returns'])
+        diversified_name_list.append(names['diversified'])
+    summary_list[SNP] = snp_returns
+    sharpe_list[SNP] = snp_sharpe[gcps]
     for name in fund_name_list :
-        ret_summary_list[name] = fund_returns[name]
-        ret_sharpe_list[name] = fund_sharpe[name]
+        summary_list[name] = fund_returns[name]
+        sharpe_list[name] = fund_sharpe[name]
 
-    return ret_detail_list, ret_name_return_list, ret_summary_list, ret_diversified_list, ret_name_diversified_list, ret_sharpe_list
+    returns = {'graph' : returns_graph_list, 'name' : returns_name_list }
+    diversified = {'graph' : diversified_graph_list, 'name' : diversified_name_list, 'description' : diversified_data_list }
+    return returns, diversified, summary_list, sharpe_list, portfolio_name_list
 
 def find(enrich, portfolio_list) :
     name_format_1 = "portfolio_diversified_{}"
@@ -153,38 +135,43 @@ def find(enrich, portfolio_list) :
         portfolio = portfolio_list[portfolio_name]
         portfolio = pd.DataFrame(portfolio, index=['weights'])
         portfolio = portfolio.T.dropna(how='all').T
-        stock_list, weights, diversified = _find(enrich,portfolio)
-        key_list = sorted(diversified.keys())
+        stock_list, weights, diversified_graph, diversified_data = _find(enrich,portfolio)
+        key_list = sorted(diversified_graph.keys())
         key_list = filter(lambda x : x is not None, key_list)
         value_list = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
         value = "\n ".join(value_list)
-        logging.info(value.format(**diversified))
+        logging.info(value.format(**diversified_graph))
         name_diversified = name_format_1.format(curr+1)
         name_returns = name_format_2.format(curr+1)
         names = ['portfolio', 'diversified', 'returns']
         names = dict(zip(names,[portfolio_name, name_diversified, name_returns]))
-        yield stock_list, weights, diversified, names
+        yield stock_list, weights, diversified_graph, diversified_data, names
 
 def _find(enrich, portfolio) :
     meta = ['returns', 'risk', 'sharpe']
     set_meta = set(meta)
     column_list = set(portfolio.T.index) - set_meta
     logging.info(column_list)
-    ret = {}
+    diversified_weights = {}
+    diversified_stocks = {}
     for column in column_list :
         sector = enrich.get(column, {}).get('Sector',None)
         if sector is None :
            sector = enrich.get(column, {}).get('Category',None)
-        weight = portfolio[column]
-        weight = round(weight,2)
+        weight_1 = portfolio[column]
+        weight = round(weight_1,2)
         logging.debug(( column, sector, weight))
-        if sector not in ret :
-           ret[sector] = 0.0
-        ret[sector] += weight
-        ret[sector] = round(ret[sector],2)
+        if sector not in diversified_weights :
+           diversified_weights[sector] = 0.0
+        diversified_weights[sector] += weight
+        diversified_weights[sector] = round(diversified_weights[sector],2)
+        if sector not in diversified_stocks :
+           diversified_stocks[sector] = []
+        value = "{} {} {}".format(round(weight_1*100,2), column, '{}')
+        diversified_stocks[sector].append(value)
     temp = filter(lambda x : x in portfolio, meta)
     weights = portfolio.T.drop(list(temp))
-    return column_list, weights['weights'], ret
+    return column_list, weights['weights'], diversified_weights, diversified_stocks
 
 def readData(file_list, stock_list) :
     name_list = []
@@ -224,8 +211,7 @@ if __name__ == '__main__' :
 
    logging.info("started {}".format(name))
    elapsed = TIMER.init()
-   portfolio_list, portfolio_name_list, summary, portfolio_diversified_list, portfolio_name_diversified_list, portfolio_sharpe_list = main(file_list, portfolio_ini, ini_list )
-
+   returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = main(file_list, portfolio_ini, ini_list )
    summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
    path = "{}/portfolio_sharpe.png".format(local)
@@ -236,23 +222,27 @@ if __name__ == '__main__' :
    save(path)
    summary_path_list.append(path)
 
+   graph_list = diversified['graph']
+   name_list = diversified['name']
    local_diversify_list = []
-   for i, name in enumerate(portfolio_name_diversified_list) :
-       graph = portfolio_diversified_list[i]
+   for i, name in enumerate(portfolio_name_list) :
+       graph = graph_list[i]
        title = 'Sector Distribution for {}'.format(name)
        title = title.replace('_diversified_','')
        BAR.plot(graph,xlabel='Percentage',title=title)
-       path = "{}/{}.png".format(local,name)
+       path = "{}/{}.png".format(local,name_list[i])
        save(path)
        local_diversify_list.append(path)
 
+   graph_list = returns['graph']
+   name_list = returns['name']
    local_returns_list = []
    for i, name in enumerate(portfolio_name_list) :
-       graph = portfolio_list[i]
+       graph = graph_list[i]
        title = 'Returns for {}'.format(name)
        title = title.replace('_returns_','')
        LINE.plot(graph, title=title)
-       path = "{}/{}.png".format(local,name)
+       path = "{}/{}.png".format(local,name_list[i])
        save(path, ncol=3)
        local_returns_list.append(path)
 
@@ -262,8 +252,12 @@ if __name__ == '__main__' :
    for i, value in enumerate(local_diversify_list) :
        images = [ local_diversify_list[i], local_returns_list[i] ]
        captions = [ "portfolio diversity", "portfolio returns"]
+       section = { "images" : images, "captions" : captions }
+       section['description1'] = diversified['description'][i]
+       section['description2'] = 'Blank'
+       section['name'] = portfolio_name_list[i]
        key = "portfolio_{}".format(i)
-       portfolio[key] = { "images" : images, "captions" : captions}
+       portfolio[key]  = section
 
    config = INI.init()
    INI.write_section(config,"summary",**summary)
