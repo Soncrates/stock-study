@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import logging
+from copy import deepcopy
 import numpy as np
 import pandas as pd
 import warnings
@@ -9,7 +10,7 @@ import matplotlib.pyplot as plt
 from libCommon import INI, STOCK_TIMESERIES
 from libGraph import LINE, BAR, POINT, save
 from libMonteCarlo import MonteCarlo
-from libSharpe import PORTFOLIO
+from libSharpe import PORTFOLIO, HELPER
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
@@ -94,12 +95,19 @@ def _main(file_list, portfolio_ini, ini_list) :
     diversified_graph_list = []
     diversified_data_list = []
     diversified_name_list = []
+    sharpe_weights_list = []
+    sharpe_stocks_list = []
     sharpe_list = {}
     portfolio_name_list = []
     for stock_list, weights, diversified_graph, diversified_data, names in find(local_enrich, portfolio_list) :
         logging.info(weights)
         logging.info(stock_list)
         name_list, timeseries = readData(file_list,stock_list)
+        proto = map(lambda x : HELPER.find(timeseries[x], span=0,period=252),name_list)
+        proto = dict(zip(name_list,proto))
+        sharpe_weights, sharpe_stocks = _newFind(proto,local_enrich,weights)
+        logging.info(sharpe_weights)
+        logging.info(sharpe_stocks)
         data = timeseries.pct_change().dropna(how="all")
         portfolio_sharpe = PORTFOLIO.findWeightedSharpe(data, weights)
         portfolio_return = weights.dot(data.T).dropna(how="all")
@@ -113,6 +121,8 @@ def _main(file_list, portfolio_ini, ini_list) :
         summary_list[name_portfolio] = data[name_portfolio]
         logging.info( portfolio_sharpe )
         sharpe_list[name_portfolio] = portfolio_sharpe
+        sharpe_weights_list.append(sharpe_weights)
+        sharpe_stocks_list.append(sharpe_stocks)
         diversified_graph_list.append(diversified_graph)
         diversified_data_list.append(diversified_data)
         returns_name_list.append(names['returns'])
@@ -123,7 +133,8 @@ def _main(file_list, portfolio_ini, ini_list) :
         summary_list[name] = fund_returns[name]
         sharpe_list[name] = fund_sharpe[name]
 
-    returns = {'graph' : returns_graph_list, 'name' : returns_name_list }
+    returns = {'graph' : returns_graph_list, 'name' : returns_name_list
+            , 'description_summary' : sharpe_weights_list, 'description_details' : sharpe_stocks_list}
     diversified = {'graph' : diversified_graph_list, 'name' : diversified_name_list, 'description' : diversified_data_list }
     return returns, diversified, summary_list, sharpe_list, portfolio_name_list
 
@@ -135,19 +146,19 @@ def find(enrich, portfolio_list) :
         portfolio = portfolio_list[portfolio_name]
         portfolio = pd.DataFrame(portfolio, index=['weights'])
         portfolio = portfolio.T.dropna(how='all').T
-        stock_list, weights, diversified_graph, diversified_data = _find(enrich,portfolio)
+        stock_list, weights, diversified_graph, diversified_data = _findDiversified(enrich,portfolio)
         key_list = sorted(diversified_graph.keys())
         key_list = filter(lambda x : x is not None, key_list)
-        value_list = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
-        value = "\n ".join(value_list)
-        logging.info(value.format(**diversified_graph))
+        msg = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
+        msg = "\n ".join(msg)
+        logging.info(msg.format(**diversified_graph))
         name_diversified = name_format_1.format(curr+1)
         name_returns = name_format_2.format(curr+1)
         names = ['portfolio', 'diversified', 'returns']
         names = dict(zip(names,[portfolio_name, name_diversified, name_returns]))
         yield stock_list, weights, diversified_graph, diversified_data, names
 
-def _find(enrich, portfolio) :
+def _findDiversified(enrich, portfolio) :
     stock_diverse_keys = ['weight', 'ticker']
     meta = ['returns', 'risk', 'sharpe']
     set_meta = set(meta)
@@ -168,12 +179,44 @@ def _find(enrich, portfolio) :
         diversified_weights[sector] = round(diversified_weights[sector],2)
         if sector not in diversified_stocks :
            diversified_stocks[sector] = []
-        #value = "{} {} {}".format(round(weight_1*100,2), column, '{}')
         value = dict(zip(stock_diverse_keys,[round(weight_1*100,2), column]))
         diversified_stocks[sector].append(value)
     temp = filter(lambda x : x in portfolio, meta)
     weights = portfolio.T.drop(list(temp))
     return column_list, weights['weights'], diversified_weights, diversified_stocks
+
+def _newFind(data, enrich, weights) :
+    column_list = []
+    diversified_stocks = {}
+    diversified_weights = {}
+    if isinstance(data,dict) : 
+       column_list = sorted(data.keys()) 
+    meta = ['returns', 'risk', 'sharpe']
+    weighted_meta = ['weighted returns', 'weighted risk', 'weighted sharpe']
+    for column in column_list :
+        ret = deepcopy(data.get(column,{}))
+        value_list = map(lambda x : ret.get(x,0),meta)
+        value_list = map(lambda x : x*weights[column],value_list)
+        temp = dict(zip(weighted_meta,value_list))
+        ret.update(temp)
+        temp = enrich.get(column,{})
+        target = 'Sector'
+        if target not in temp :
+           target = 'Category'
+        sector = temp.get(target,'Unknown')
+        if sector not in diversified_stocks :
+           diversified_stocks[sector] = {}
+        key_list = ret.keys()
+        value_list = map(lambda x : ret[x], key_list) 
+        value_list = map(lambda x : round(float(x),2), value_list)
+        ret = dict(zip(key_list,value_list))
+        diversified_stocks[sector][column] = ret
+        if sector not in diversified_weights :
+           diversified_weights[sector] = dict(zip(weighted_meta,[0.0]*len(weighted_meta)))
+        for key in weighted_meta :
+            w = diversified_weights[sector][key] + ret[key]
+            diversified_weights[sector][key] = w
+    return diversified_weights, diversified_stocks
 
 def readData(file_list, stock_list) :
     name_list = []
@@ -229,9 +272,10 @@ if __name__ == '__main__' :
    local_diversify_list = []
    for i, name in enumerate(portfolio_name_list) :
        graph = graph_list[i]
-       title = 'Sector Distribution for {}'.format(name)
-       title = title.replace('_diversified_','')
-       BAR.plot(graph,xlabel='Percentage',title=title)
+       #title = 'Sector Distribution for {}'.format(name)
+       #title = title.replace('_diversified_','')
+       #BAR.plot(graph,xlabel='Percentage',title=title)
+       BAR.plot(graph,xlabel='Percentage')
        path = "{}/{}.png".format(local,name_list[i])
        save(path)
        local_diversify_list.append(path)
@@ -241,9 +285,10 @@ if __name__ == '__main__' :
    local_returns_list = []
    for i, name in enumerate(portfolio_name_list) :
        graph = graph_list[i]
-       title = 'Returns for {}'.format(name)
-       title = title.replace('_returns_','')
-       LINE.plot(graph, title=title)
+       #title = 'Returns for {}'.format(name)
+       #title = title.replace('_returns_','')
+       #LINE.plot(graph, title=title)
+       LINE.plot(graph)
        path = "{}/{}.png".format(local,name_list[i])
        save(path, ncol=3)
        local_returns_list.append(path)
@@ -253,10 +298,13 @@ if __name__ == '__main__' :
    portfolio = {}
    for i, value in enumerate(local_diversify_list) :
        images = [ local_diversify_list[i], local_returns_list[i] ]
-       captions = [ "portfolio diversity", "portfolio returns"]
+       captions = [ "portfolio diversity {}", "portfolio returns {}"]
+       captions = map(lambda x : x.format(portfolio_name_list[i]), captions)
+       captions = map(lambda x : x.replace('_', ' '), captions)
        section = { "images" : images, "captions" : captions }
        section['description1'] = diversified['description'][i]
-       section['description2'] = 'Blank'
+       section['description2'] = returns['description_summary'][i]
+       section['description3'] = returns['description_details'][i]
        section['name'] = portfolio_name_list[i]
        key = "portfolio_{}".format(i)
        portfolio[key]  = section

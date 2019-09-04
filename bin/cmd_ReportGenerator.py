@@ -2,7 +2,7 @@
 
 import logging
 from json import loads
-
+from copy import deepcopy
 
 from reportlab.lib import utils
 from reportlab.lib import colors
@@ -11,14 +11,14 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, Image, TableStyle
 from reportlab.platypus import ListFlowable, ListItem
-from reportlab.platypus import PageBreak
+from reportlab.platypus import PageBreak, KeepTogether, Spacer
 from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle as PS
 
 from libCommon import INI, CSV
 
 styles = getSampleStyleSheet()
-style_caption = PS(name='center', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER)
+style_caption = PS(name='caption', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, fontColor=colors.gray)
 h1 = PS(name = 'Heading1', fontSize = 12, leading = 16, leftIndent = 5 , fontName='Helvetica-Bold')
 h2 = PS(name = 'Heading2', fontSize = 10, leading = 14, leftIndent = 10, fontName='Helvetica-Bold')
 h3 = PS(name = 'Heading3', fontSize = 10, leading = 12, leftIndent = 15, fondName='Helvetica-Bold')
@@ -59,7 +59,7 @@ def _main(doc,report_ini, ini_list, csv_list) :
     image_list = map(lambda path : alter_aspect(path, 3.5 * inch), image_list)
     target = 'captions'
     captions_list = summary.get(target,[])
-    tbl = addTable(captions_list,image_list)
+    tbl = addTable(captions_list,image_list,[],[])
     ret.append(tbl)
     ret.append(PageBreak())
  
@@ -73,6 +73,7 @@ def _main(doc,report_ini, ini_list, csv_list) :
         if isinstance(name,list) :
            name = name[0]
         name = name.replace('_',' ')
+        name = "Portfolio : {}".format(name)
         ret.append(Paragraph(name, h1))
         local_target = 'images'
         image_list = summary.get(local_target,[])
@@ -80,17 +81,24 @@ def _main(doc,report_ini, ini_list, csv_list) :
         image_list[1] = alter_aspect(image_list[1], 3.5 * inch)
         local_target = 'captions'
         captions_list = summary.get(local_target,[])
+
         local_target = 'description'
-        target_list = filter(lambda key : 'description' in key, summary)
+        target_list = filter(lambda key : 'description1' in key, summary)
         target_list = sorted(target_list)
         description_list = map(lambda key : summary.get(key,None), target_list)
         description_list = _modifyDescription(description_list)
-        desc = []
-        for description in addDescription(description_list,nasdaq_enrichment) :
-            desc.append(description)
-        tbl = addTable(captions_list,image_list, desc)
+        diverse_list = DIVERSE.add(description_list,nasdaq_enrichment) 
+        target_list = filter(lambda key : 'description' in key, summary)
+        target_list = filter(lambda key : 'description1' not in key, target_list)
+        target_list = sorted(target_list)
+        description_list = map(lambda key : summary.get(key,None), target_list)
+        description_list = _modifyDescription(description_list)
+        returns_list = RETURNS.add(description_list)
+
+        tbl = addTable(captions_list,image_list, diverse_list, returns_list)
         logging.debug(tbl)
         ret.append(tbl)
+        #ret.append(KeepTogether(Spacer(4*inch, 7*inch)))
         ret.append(PageBreak())
     logging.debug(ret)
     #doc.build(ret)
@@ -104,13 +112,26 @@ def alter_aspect(path, width) :
     logging.info(aspect)
     return Image(path,width, h*aspect)
 
-def addTable(name_list, image_list,description_list = []) :
+def addTable(name_list, image_list,diverse_list, returns_list ) :
     caption_list = map(lambda caption : Paragraph(caption, style_caption), name_list)
-    logging.debug( description_list )
-    if len(description_list) :
-       description_list = [description_list]
-    logging.debug( description_list )
-    ret = [ image_list , caption_list, description_list]
+    logging.debug( diverse_list )
+    #print type(returns_list)
+    #if len(diverse_list) :
+    #   print type(diverse_list[0])
+    #   diverse_list = [diverse_list]
+    logging.debug( diverse_list )
+    print 'image', len(image_list), type(image_list), type(image_list[0])
+    print 'caption', len(caption_list), type(caption_list), type(caption_list[0])
+    if len(diverse_list) > 0 :
+       print 'diverse', len(diverse_list), type(diverse_list), type(diverse_list[0])
+    else :
+       print 'diverse', len(diverse_list), type(diverse_list)
+    if len(returns_list) > 0 :
+       print 'returns', len(returns_list), type(returns_list), type(returns_list[0])
+    else :
+       print 'returns', len(returns_list), type(returns_list)
+    ret = [ image_list , caption_list, [diverse_list, returns_list]]
+    #ret = [ image_list , caption_list, [diverse_list,[Paragraph("Blank?",bullet)]]]
     # here you add your rows and columns, these can be platypus objects
     return Table(data=ret)
 
@@ -124,58 +145,80 @@ def _modifyDescription(arg_list) :
         arg_list[i] = value
     return arg_list
 
-def addDescription(arg_list, nasdaq_enrichment) :
-    if not isinstance(arg_list,list) :
-       return
-    for i, value in enumerate(arg_list) :
-        if isinstance(value,str) :
-           value = Paragraph(value, styles["Normal"])
-           yield value
-        elif isinstance(value,dict) :
-           for header in sorted(value.keys()) :
-               content_list = value[header]
-               logging.info(header)
-               header = header.replace('_', ' ')
-               header = Paragraph(header, h2)
-               yield header
-               for content in addDescriptionContent(content_list, nasdaq_enrichment) :
-                   yield content
+class RETURNS :
+    ts = [('GRID', (0,0), (-1,-1), 0.25, colors.blue),
+          ('TOPPADDING', (0,0), (-1,-1), 1),
+          ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+         ]
+    ts = [('TOPPADDING', (0,0), (-1,-1), 0),
+          ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+          ('VALIGN',(0,0), (-1,-1), 'TOP'),
+          ]
+    tableHeaders = [ 'sharpe', 'risk', 'returns', 'weighted sharpe', 'weighted risk', 'weighted returns' ]
+    defaultValues = ['-']*len(tableHeaders)
+    defaultRow = dict(zip(tableHeaders,defaultValues))
 
-def addDescriptionContent(arg_list, nasdaq_enrichment) :
-    if not isinstance(arg_list,list) :
-       return
-    arg_list = sorted(arg_list, key = lambda i: i['weight']) 
-    logging.debug(arg_list)
-    column_A, column_B = [], []
-    for i, content in enumerate(arg_list) :
-        target = 'weight'
-        content[target] = "{}%".format(content[target]).rjust(8,' ')
-        column_A.append(content['weight'])
-        column_B.append(content['ticker'])
-    column_C = CSV.grep(nasdaq_enrichment, *column_B)
-    for key in column_C :
-        description = '({0}) {2}'.format(*column_C[key])[:85]
-        description = description.split(' - ')
-        description = '<br/>'.join(description)
-        column_C[key] = description
-    missing_detail = "({0}) No info available for {0}"
-    column_B = map(lambda key : column_C.get(key,missing_detail.format(key)),column_B)  
-    for column in column_B :
-        if 'No info' not in column : 
-            logging.info(column)
-            continue
-        logging.warn(column)
-    column_B = map(lambda x : Paragraph(x,ticker), column_B)
-    column_A = map(lambda x : Paragraph(x,bullet), column_A)
+    @staticmethod
+    def add(arg_list) :
+        row_list = []
+        for value in RETURNS._add(arg_list) :
+            row_list.append(value)
+        height = [0.01*inch] * len(row_list)
+        widths = [0.1*inch] * len(row_list[0])
+        widths[0] = 0.9*inch
+        #print widths, len(row_list)
+        ret = Table(data=row_list,colWidths=widths,rowHeights=height)
+        #debugging tables
+        ts = TableStyle(RETURNS.ts)
+        #ret.setStyle(ts)
+        return [ret]
+    @staticmethod
+    def _add(arg_list) :
+        if not isinstance(arg_list,list) :
+           return
+        if len(arg_list) < 2 :
+           return
+        
+        general = arg_list[0]
+        detail  = arg_list[1]
+        key_list = sorted(general.keys())
 
-    row_list = []
-    for i, dummy in enumerate(column_A) :
-        row = [column_A[i], column_B[i]]
-        row_list.append(row)
-    widths = [2.9*inch] * 2
-    widths[0] = 0.7*inch
-    logging.info(widths)
-    ret = Table(data=row_list,colWidths=widths)
+        header_row = ['Name'] + RETURNS.tableHeaders
+        header_row = map(lambda t : Paragraph(t,bullet ),header_row)
+        yield header_row
+
+        for key in key_list :
+            header = key.replace('_',' ')
+            row = deepcopy(RETURNS.defaultRow)
+            row.update(general[key])
+            row = RETURNS._transformRow(row)
+            summary_row = [header] + row
+            summary_row = map( lambda cell : Paragraph(cell, bullet), summary_row)
+            yield summary_row
+
+            for stock in detail[key].keys() :
+                row = deepcopy(RETURNS.defaultRow)
+                row.update(detail[key][stock])
+                row = RETURNS._transformRow(row)
+                detail_row = [stock] + row
+                detail_row = map(lambda t : Paragraph(t, bullet), detail_row)
+                yield detail_row
+
+    @staticmethod
+    def _transformRow(row) :
+        key_list = filter(lambda key : key in row, RETURNS.tableHeaders)
+        data_row = map(lambda x : row[x], key_list)
+        data_row = map(lambda cell : RETURNS._transformCell(cell), data_row)
+        return data_row
+
+    @staticmethod
+    def _transformCell(cell) :
+        if isinstance(cell, str) : return cell
+        return str(round(cell,2))
+
+
+
+class DIVERSE :
     #debugging tables
     ts = [('GRID', (0,0), (-1,-1), 0.25, colors.blue),
           ('TOPPADDING', (0,0), (-1,-1), 1),
@@ -183,11 +226,72 @@ def addDescriptionContent(arg_list, nasdaq_enrichment) :
           ]
     ts = [('TOPPADDING', (0,0), (-1,-1), 0),
           ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-          ('VALIGN',(0,0), (-1,-1), 'TOP'),]
-    ts = TableStyle(ts)
-    ret.setStyle(ts)
-    logging.debug(ret)
-    yield ret
+          ('VALIGN',(0,0), (-1,-1), 'TOP'),
+          ]
+    @staticmethod
+    def add(arg_list, nasdaq_enrichment) :
+        ret = []
+        for description in DIVERSE._add(arg_list,nasdaq_enrichment) :
+            ret.append(description)
+        return ret
+    @staticmethod
+    def _add(arg_list, nasdaq_enrichment) :
+        if not isinstance(arg_list,list) :
+           return
+        for i, value in enumerate(arg_list) :
+            if isinstance(value,str) :
+               value = Paragraph(value, styles["Normal"])
+               yield value
+            elif isinstance(value,dict) :
+               for header in sorted(value.keys()) :
+                   content_list = value[header]
+                   logging.info(header)
+                   header = header.replace('_', ' ')
+                   header = Paragraph(header, h2)
+                   yield header
+                   for content in DIVERSE._addContent(content_list, nasdaq_enrichment) :
+                       yield content
+
+    @staticmethod
+    def _addContent(arg_list, nasdaq_enrichment) :
+        if not isinstance(arg_list,list) :
+           return
+        arg_list = sorted(arg_list, key = lambda i: i['weight']) 
+        logging.debug(arg_list)
+        column_A, column_B = [], []
+        for i, content in enumerate(arg_list) :
+            target = 'weight'
+            content[target] = "{}%".format(content[target]).rjust(8,' ')
+            column_A.append(content['weight'])
+            column_B.append(content['ticker'])
+        column_C = CSV.grep(nasdaq_enrichment, *column_B)
+        for key in column_C :
+            description = '({0}) {2}'.format(*column_C[key])[:85]
+            description = description.split(' - ')
+            description = '<br/>'.join(description)
+            column_C[key] = description
+        missing_detail = "({0}) No info available for {0}"
+        column_B = map(lambda key : column_C.get(key,missing_detail.format(key)),column_B)  
+        for column in column_B :
+            if 'No info' not in column : 
+                logging.info(column)
+                continue
+            logging.warn(column)
+        column_B = map(lambda x : Paragraph(x,ticker), column_B)
+        column_A = map(lambda x : Paragraph(x,bullet), column_A)
+
+        row_list = []
+        for i, dummy in enumerate(column_A) :
+            row = [column_A[i], column_B[i]]
+            row_list.append(row)
+        widths = [2.9*inch] * 2
+        widths[0] = 0.7*inch
+        logging.info(widths)
+        ret = Table(data=row_list,colWidths=widths)
+        ts = TableStyle(DIVERSE.ts)
+        ret.setStyle(ts)
+        logging.debug(ret)
+        yield ret
 
 if __name__ == '__main__' :
 
