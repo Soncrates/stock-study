@@ -126,7 +126,7 @@ def _reduceMonteCarlo(ret) :
     flag_small = ret.sort_values(['values']).values[0][0]
     flag_small = round(flag_small,2)
     flag = len(ret) > 23 or flag_small < 0.02
-    logging.debug((len(ret), flag_small, flag))
+    logging.info((len(ret), flag_small, flag))
     return ret, flag
 
 def calculateMonteCarlo(file_list, stock_list) :
@@ -170,14 +170,14 @@ if __name__ == '__main__' :
 
    pwd = os.getcwd()
    local = pwd.replace('bin','local')
-   ini_list = glob('{}/yahoo_sharpe_method1*.ini'.format(local))
+   ini_list = glob('{}/method01_step02*.ini'.format(local))
    file_list = glob('{}/historical_prices/*pkl'.format(local))
 
    dir = pwd.replace('bin','log')
    name = sys.argv[0].split('.')[0]
    log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    logging.info("started {}".format(name))
    elapsed = TIMER.init()
@@ -190,5 +190,5 @@ if __name__ == '__main__' :
        if not isinstance(values,dict) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_sharpe_method1_portfolios.ini".format(local)
+   stock_ini = "{}/method01_step03_sharpe_portfolios.ini".format(local)
    config.write(open(stock_ini, 'w'))

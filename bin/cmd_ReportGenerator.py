@@ -25,7 +25,7 @@ h3 = PS(name = 'Heading3', fontSize = 10, leading = 12, leftIndent = 15, fontNam
 ticker = PS(name = 'Bullet1', fontSize = 8, leading = 8, alignment=TA_LEFT)
 bullet = PS(name = 'Bullet2', fontSize = 8, leading = 8, alignment=TA_RIGHT)
 _bullet = PS(name = 'Bullet3', fontSize = 8, leading = 6, alignment=TA_LEFT)
-_bulletID = PS(name = 'Bullet4', fontSize = 8, leading = 6, alignment=TA_LEFT, fontName='Helvetica-Bold')
+_bulletID = PS(name = 'Bullet4', fontSize = 7, leading = 6, alignment=TA_LEFT, fontName='Helvetica-Bold')
 
 class PREP :
     @staticmethod
@@ -147,10 +147,10 @@ class MAIN_DOC :
 
 class RETURNS :
     ts_debug = [('GRID', (0,0), (-1,-1), 0.25, colors.red),
-          ('TOPPADDING', (0,0), (-1,-1), 1),
+          ('TOPPADDING', (0,0), (-1,-1), 3),
           ('LEFTPADDING', (0,0), (-1,-1), 1),
           ('RIGHTPADDING', (0,0), (-1,-1), 1),
-          ('BOTTOMPADDING', (0,0), (-1,-1), 1),
+          ('BOTTOMPADDING', (0,0), (-1,-1), 2),
           ('VALIGN',(0,0), (-1,-1), 'TOP'),
          ]
     ts = [('TOPPADDING', (0,0), (-1,-1), 2),

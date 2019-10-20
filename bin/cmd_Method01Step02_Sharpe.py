@@ -175,15 +175,15 @@ if __name__ == '__main__' :
 
    pwd = os.getcwd()
    local = pwd.replace('bin','local')
-   ini_list = glob('{}/yahoo_sharpe_method1*.ini'.format(local))
-   ini_list = filter(lambda x : 'step1' in x, ini_list)
+   ini_list = glob('{}/method01*.ini'.format(local))
+   ini_list = filter(lambda x : 'step01' in x, ini_list)
    file_list = glob('{}/historical_prices/*pkl'.format(local))
 
    dir = pwd.replace('bin','log')
    name = sys.argv[0].split('.')[0]
    log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    logging.info("started {}".format(name))
    elapsed = TIMER.init()
@@ -194,19 +194,19 @@ if __name__ == '__main__' :
    for key in risky_data.keys() :
        values = risky_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_sharpe_method1_risky.ini".format(local)
+   stock_ini = "{}/method01_step02_sharpe_risky.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in balanced_data.keys() :
        values = balanced_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_sharpe_method1_balanced.ini".format(local)
+   stock_ini = "{}/method01_step02_sharpe_balanced.ini".format(local)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in safe_data.keys() :
        values = safe_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/yahoo_sharpe_method1_safe.ini".format(local)
+   stock_ini = "{}/method01_step02_sharpe_safe.ini".format(local)
    config.write(open(stock_ini, 'w'))

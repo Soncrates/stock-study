@@ -228,9 +228,13 @@ class PORTFOLIO :
 
       @staticmethod
       def _weights(size, num_portfolios) :
+          low = 0.1
+          high = low + low + (1/size) 
           for i in xrange(num_portfolios):
               #select random weights for portfolio holdings
-              weights = np.array(np.random.random(size))
+              #weights = np.array(np.random.random(size))
+              weights = np.random.uniform(low=low, high=high, size=size)
+              weights = np.array(weights)
               #rebalance weights to sum to 1
               weights /= np.sum(weights)
               #logging.debug(weights)
@@ -238,9 +242,9 @@ class PORTFOLIO :
 
       @staticmethod
       def _sharpe(cov_matrix, mean, period, risk_free_rate, weights) :
-          logging.info((mean, period, risk_free_rate))
-          logging.info(cov_matrix)
-          logging.info(weights)
+          logging.debug((mean, period, risk_free_rate))
+          logging.debug(cov_matrix)
+          logging.debug(weights)
           magic = np.dot(cov_matrix, weights)
           magic_number = np.dot(weights.T,magic)
 

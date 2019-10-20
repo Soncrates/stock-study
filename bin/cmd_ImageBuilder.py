@@ -6,6 +6,12 @@ import numpy as np
 import pandas as pd
 import warnings
 import matplotlib.pyplot as plt
+#plt.style.use('fivethirtyeight')
+#plt.style.use('ggplot')
+#plt.style.use('seaborn-whitegrid')
+fig, ax = plt.subplots()
+ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
+
 
 from libCommon import INI, STOCK_TIMESERIES
 from libGraph import LINE, BAR, POINT, save
@@ -169,7 +175,7 @@ def _findDiversified(enrich, portfolio) :
     for column in column_list :
         sector = enrich.get(column, {}).get('Sector',None)
         if sector is None :
-           sector = enrich.get(column, {}).get('Category',None)
+           sector = enrich.get(column, {}).get('Category','Unknown')
         weight_1 = portfolio[column]
         weight = round(weight_1,2)
         logging.debug(( column, sector, weight))

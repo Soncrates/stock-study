@@ -2,13 +2,33 @@ import csv
 import datetime, time
 from math import floor
 import logging
-import ConfigParser
-from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
-import pandas_datareader as web
-import pandas as pd
+import os
+import sys
+from glob import glob
+from time import time as now
+import inspect
+import functools
 
 from itertools import combinations as iter_combo
 
+if sys.version_info < (3, 0):
+   import ConfigParser
+else:
+    import configparser as ConfigParser
+
+if sys.version_info < (3, 0):
+   import pandas as pd
+   import pandas_datareader as web
+   from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+else :
+   '''
+       import pandas_datareader as web
+         ModuleNotFoundError: No module named 'pandas_datareader'
+   '''
+   import pandas as pd
+   import pandas_datareader as web
+   from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+   
 '''
   Kitchen Sink
   INI - Each program reads the ini file(s) produced by the previous program and produces its own.
@@ -67,6 +87,40 @@ class NASDAQ :
               ret = dict(zip(symbol_list,symbol_value))
               logging.info(ret)
               yield symbol_list[1], symbol_list[0], ret
+
+class ENVIRONMENT(object) :
+      def __init__(self, *largs, **kvargs) :
+          env = os.environ
+          self.HOME = env.get( "HOME", None)
+          self.LOGNAME = env.get( "LOGNAME", None)
+          self.OLDPWD = env.get( "OLDPWD", None)
+          self.PATH = env.get( "PATH", None)
+          self.PWD = env.get( "PWD", os.getcwd())
+          self.USER = env.get( "USER", None)
+          self.USERNAME = env.get( "USERNAME", None)
+          self.pwd = os.getcwd()
+          self.pwd_parent = os.path.dirname(self.pwd)
+          self.path = sys.path
+          self.name = sys.argv[0].split('.')[0]
+          self.argv = sys.argv
+          self.version = sys.version
+          self.version_info = sys.version_info
+      def __str__(self) :
+          key_list = self.__dict__.keys()
+          key_list = sorted(key_list)
+          ret = map(lambda key : "{} : {}".format(key,self.__dict__.get(key)), key_list)
+          ret = "\n".join(ret)
+          return ret
+      def list_filenames(self, *largs, **kvargs) :
+          target = 'extension'
+          extension = kvargs.get(target, '*.*')
+          ret = '{}/{}'.format(self.pwd_parent,extension)
+          ret = glob(ret)
+          if len(ret) == 0 :
+             ret = '{}/{}'.format(self.pwd,extension)
+             ret = glob(ret)
+          logging.debug(ret)
+          return ret
 
 class INI(object) :
       @staticmethod
@@ -140,46 +194,55 @@ class CSV :
                        ret[local_key] = row
           return ret
 
-
 class TIMER :
       minute = 60
       hour = minute*60
       day = hour*24
-      @staticmethod
-      def init(**kwargs) :
-          start = time.time()
-          return TIMER(start)
+
       def __init__(self,start) :
           self.start = start
+
       def __call__(self) :
+          return str(self)
+
+      def __str__(self) :
+          _elapsed = now() - self.start
+          return TIMER._str(_elapsed)
+
+      @classmethod
+      def init(cls, **kwargs) :
+          start = now()
+          return cls(start)
+
+      @staticmethod
+      def _str(_elapsed) :
           _time = { "days" : 0, "hours" : 0 , "minutes" : 0, "seconds" : 0 }
-          msg = ""
-          elapsed = time.time() - self.start
-          if elapsed > TIMER.day :
-             msg += "days : {days}, "
-             _time["days"] = floor(elapsed/TIMER.day)
-             elapsed %= TIMER.day
-          if elapsed > TIMER.hour :
-             msg += "hours : {hours}, "
-             _time["hours"] =  floor(elapsed/TIMER.hour)
-             elapsed %= TIMER.hour
-          if elapsed > TIMER.minute :
-             msg += "minutes : {minutes}, "
-             _time["minutes"] = floor(elapsed/TIMER.minute)
-             elapsed %= TIMER.minute
-          msg += "seconds : {seconds}"
-          _time["seconds"] = round(elapsed,2)
-          return msg.format(**_time)
+          _msg = ""
+          if _elapsed > TIMER.day :
+             _msg += "days : {days}, "
+             _time["days"] = floor(_elapsed/TIMER.day)
+             _elapsed %= TIMER.day
+          if _elapsed > TIMER.hour :
+             _msg += "hours : {hours}, "
+             _time["hours"] =  floor(_elapsed/TIMER.hour)
+             _elapsed %= TIMER.hour
+          if _elapsed > TIMER.minute :
+             _msg += "minutes : {minutes}, "
+             _time["minutes"] = floor(_elapsed/TIMER.minute)
+             _elapsed %= TIMER.minute
+          _msg += "seconds : {seconds}"
+          _time["seconds"] = round(_elapsed,2)
+          return _msg.format(**_time)
 
 class STOCK_TIMESERIES :
-      @staticmethod
-      def init(**kwargs) :
+      @classmethod
+      def init(cls, **kwargs) :
           target = 'end'
           end = kwargs.get(target, datetime.datetime.utcnow())
           target = 'start'
           start = kwargs.get(target, datetime.timedelta(days=365*10))
           start = end - start
-          ret = STOCK_TIMESERIES(start,end)
+          ret = cls(start,end)
           logging.debug(str(ret))
           return ret
       def __init__(self,start,end) :
@@ -251,6 +314,17 @@ class STOCK_TIMESERIES :
           d.columns = d.columns.droplevel(level=1)
           return d
 
+def log_exception(func):
+    def func_wrapper(*args, **kwargs):
+        try:
+           return func(*args, **kwargs)
+        except Exception as e :
+           logging.error(e, exc_info=True)
+           sys.exit(e)
+    return func_wrapper
+
+
+
 if __name__ == "__main__" :
 
    from glob import glob
@@ -258,11 +332,15 @@ if __name__ == "__main__" :
 
    pwd = os.getcwd()
 
+   '''
    dir = pwd.replace('bin','log')
    name = sys.argv[0].split('.')[0]
    log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   '''
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    pwd_ini = pwd.replace('bin','local')
 
@@ -271,25 +349,29 @@ if __name__ == "__main__" :
    nasdaq = '{}/{}'.format(pwd_ini,NASDAQ.path)
    nasdaq = NASDAQ.init(filename=nasdaq)
    for stock in nasdaq() :
-       print stock
+       print (stock)
        if stock == 'AAPL' : break
 
+   print (pwd_ini)
    ini_list = glob('{}/*ini'.format(pwd_ini))
+   print(ini_list[0])
    file_list = glob('{}/historical_prices/*pkl'.format(pwd_ini))
-   print file_list[0]
+   print (file_list[0])
    for path, section, key, value in INI.loadList(*ini_list) :
        if 'Industry' not in section : continue
        if 'Gas' not in key : continue
        if 'Util' not in key : continue
        break
    stock_list = value[:2]
-   print path, section, key, stock_list
+   print (path, section, key, stock_list)
 
    for stock in stock_list :
        ret = reader.extract_from_yahoo(stock)
-       print stock
-       print ret.describe()
+       print (stock)
+       print (ret.describe())
    a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
    b = STOCK_TIMESERIES.flatten('Adj Close',b)
-   print b.describe()
-   print a
+   print (b.describe())
+   print (a)
+
+
