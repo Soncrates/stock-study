@@ -10,12 +10,6 @@ from libDebug import trace, cpu
    Store as pkl files
 '''
 
-def dep_main(local, *stock_list) :
-    try :
-        _main(local, *stock_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
-
 @trace
 @log_exception
 def main(local, *stock_list) :
@@ -39,7 +33,7 @@ def main(local, *stock_list) :
 
 if __name__ == "__main__" :
    import logging
-   from libCommon import ENVIRONMENT, TIMER
+   from libCommon import ENVIRONMENT
 
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))

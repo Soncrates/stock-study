@@ -2,23 +2,20 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations
+from libCommon import INI, STOCK_TIMESERIES, combinations, log_exceptions
 from libSharpe import BIN, HELPER
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
+from libDebug import trace
 
 '''
 Parition stocks by Sector Industry Fund
 Filter each Partition to top 8 performers based on Sharpe and Risk
 '''
 
+@log_exception
+@trace
 def main(file_list, ini_list) :
-    try :
-        return _main(file_list, ini_list)
-    except Exception as e : 
-        logging.error(e, exc_info=True)
-
-def _main(file_list, ini_list) :
 
     Sector, Industry, Category, FundFamily = getByNasdaq(*ini_list)
     Sector_Top = {}
@@ -92,31 +89,22 @@ def _reduce(ret) :
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   import logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   local = pwd.replace('bin','local')
-   ini_list = glob('{}/*.ini'.format(local))
-   file_list = glob('{}/historical_prices/*pkl'.format(local))
-
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
+   ini_list = env.list_filenames('local/*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
    Sector_Top, Industry_Top, Fund_Top = main(file_list,ini_list)
-   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
    
    config = INI.init()
    INI.write_section(config,'Sector',**Sector_Top)
    INI.write_section(config,'Industry',**Industry_Top)
    INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/method01_step01_sharpe.ini".format(local)
+   stock_ini = "{}/local/method01_step01_sharpe.ini".format(env.pwd_parent)
    config.write(open(stock_ini, 'w'))
 

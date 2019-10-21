@@ -1,4 +1,4 @@
-from time import time as now
+from time import time as now, sleep
 import inspect
 import logging
 import sys
@@ -48,7 +48,7 @@ class WRAPPER(object) :
 
 class trace(WRAPPER):
     msg_enter = "Entering {}"
-    msg_exit = "Exitting {}"
+    msg_exit = "Exiting {}"
     msg_time = "Execution speed for {} : {}"
     msg_doc = "Docs for {} : {}"
 
@@ -79,6 +79,7 @@ class trace(WRAPPER):
         _timer = TIMER.init()
         ret = self.f(*largs, **kvargs)
         _total_time = _timer()
+        logging.debug( ret )
         _msg = _msg_time.format(_total_time)
         logging.info(_msg)
         logging.debug(_msg_exit)
@@ -112,6 +113,31 @@ class cpu(WRAPPER):
         logging.debug( _s.getvalue())
         return ret
 
+'''
+def delay(func, *largs):
+    print(locals())
+    wait =5 
+    if len(largs) > 0 :
+       wait = largs[0]
+
+    @functools.wraps(func)
+    def func_wrapper(*args, **kwargs):
+        sleep(wait)
+        return func(*args, **kwargs)
+    return func_wrapper
+
+def dep_delay(func=None, **kvargs ):
+    wait = kvargs.get('wait',5)
+    print(wait)
+    if func is None:
+        return functools.partial(sleep, seconds=wait, msg='No function')
+
+    @functools.wraps(func)
+    def delay_wrapper(*args, **kwargs):
+        sleep(wait)
+        return func(*args, **kwargs)
+    return delay_wrapper
+'''
 if __name__ == '__main__' :
 
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'

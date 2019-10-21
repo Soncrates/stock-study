@@ -15,7 +15,8 @@ from reportlab.platypus import PageBreak, KeepTogether, Spacer
 from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle as PS
 
-from libCommon import INI, CSV
+from libCommon import INI, CSV, log_exception
+from libDebug import trace
 
 styles = getSampleStyleSheet()
 style_caption = PS(name='caption', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.gray)
@@ -48,7 +49,7 @@ class PREP :
             arg_list[i] = value
         return arg_list
 
-def main(report_ini, ini_list, csv_list) :
+def dep_main(report_ini, ini_list, csv_list) :
     doc = SimpleDocTemplate("image.pdf", pagesize=letter)
     try :
         return _main(doc, report_ini, ini_list, csv_list)
@@ -56,7 +57,10 @@ def main(report_ini, ini_list, csv_list) :
         logging.error(e, exc_info=True)
         print e
 
-def _main(doc,report_ini, ini_list, csv_list) :
+@log_exception
+@trace
+def main(report_ini, ini_list, csv_list) :
+    doc = SimpleDocTemplate("image.pdf", pagesize=letter)
     nasdaq_enrichment = filter(lambda x : 'nasdaq.csv', csv_list)
     if len(nasdaq_enrichment) > 0 :
        nasdaq_enrichment = nasdaq_enrichment[0]
@@ -303,25 +307,16 @@ class DIVERSE :
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   import logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   local = pwd.replace('bin','local')
-   ini_list = glob('{}/*.ini'.format(local))
-   report_ini = glob('{}/report_generator.ini'.format(local))
-   #report_ini = sorted(report_ini)
+   ini_list = env.list_filenames('local/*.ini')
+   report_ini = env.list_filenames('local/report_generator.ini')
+   csv_list = env.list_filenames('local/*.csv')
 
-   csv_list = glob('{}/*.csv'.format(local))
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
    main(report_ini,ini_list, csv_list)
-   logging.info("finished {} elapsed time : {}".format(name,elapsed()))

@@ -112,13 +112,17 @@ class ENVIRONMENT(object) :
           ret = "\n".join(ret)
           return ret
       def list_filenames(self, *largs, **kvargs) :
-          target = 'extension'
-          extension = kvargs.get(target, '*.*')
+          if len(largs) > 0 :
+             extension = largs[0]
+          else :
+             target = 'extension'
+             extension = kvargs.get(target, '*.*')
           ret = '{}/{}'.format(self.pwd_parent,extension)
           ret = glob(ret)
           if len(ret) == 0 :
              ret = '{}/{}'.format(self.pwd,extension)
              ret = glob(ret)
+          ret = sorted(ret)
           logging.debug(ret)
           return ret
 

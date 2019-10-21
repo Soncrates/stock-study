@@ -2,6 +2,8 @@
 
 import logging
 from libWeb import YAHOO_PROFILE as PROFILE
+from libCommon import log_exception
+from libDebug import trace
 
 '''
    Web Scraper
@@ -31,30 +33,31 @@ def _append(stock, main, sub, **group) :
     group[main][sub].append(stock)
     return group
 
-def main(finder, *stock_list) :
-    try :
-        return _main(finder, *stock_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
+@log_exception
+def debug_from_cmd_line(*stock_list) :
+    stock_list = map(lambda stock : PROFILE.get(stock), stock_list)
+    ini, empty_list = find(stock_list)
+    for key in sorted(ini) :
+        print( "{}.ini".format(key))
+        _1 = ini[key]
+        for key1 in sorted(_1) :
+            print("[{}]".format(key1))
+            _2 = _1[key1]
+            for key2 in sorted(_2) :
+                value = ",".join(_2[key2])
+                print("{} = {}".format(key2,value))
+    return empty_list
 
-def _main(finder, *stock_list) :
+@log_exception
+@trace
+def main() :
 
-    if len(stock_list) > 0 :
-       stock_list = map(lambda stock : PROFILE.get(stock), stock_list)
-       ini, empty_list = find(stock_list)
-       for key in sorted(ini) :
-           print "{}.ini".format(key)
-           _1 = ini[key]
-           for key1 in sorted(_1) :
-               print "[{}]".format(key1)
-               _2 = _1[key1]
-               for key2 in sorted(_2) :
-                   value = ",".join(_2[key2])
-                   print "{} = {}".format(key2,value)
-       return empty_list
+    env = globals().get('env',None)
+    nasdaq = '{}/local/{}'.format(env.pwd_parent, NASDAQ.path)
+    finder = NASDAQ.init(filename=nasdaq)
 
     stock_list = map(lambda stock : PROFILE.get(stock), finder())
-    ini, empty_list = find(finder)
+    ini, empty_list = find(stock_list)
     stock_ini = '{}/yahoo_background.ini'.format(pwd)
     config = INI.init()
     temp = ini['Background']
@@ -62,7 +65,7 @@ def _main(finder, *stock_list) :
         INI.write_section(config,key,**temp[key])
     config.write(open(stock_ini, 'w'))
 
-    stock_ini = '{}/yahoo_background_sector.ini'.format(pwd)
+    stock_ini = '{pwd_parent}/local/yahoo_background_sector.ini'.format(**vars(env))
     config = INI.init()
     temp = ini['SectorGroupBy']
     for key in sorted(temp.keys()) :
@@ -71,7 +74,7 @@ def _main(finder, *stock_list) :
 
     # At one time, industries contained different sectors, this is no longer the case
 
-    stock_ini = '{}/yahoo_background_industry.ini'.format(pwd)
+    stock_ini = '{pwd_parent}/local/yahoo_background_industry.ini'.format(**vars(env))
     config = INI.init()
     temp = ini['IndustryGroupBy']
     for key in sorted(temp.keys()) :
@@ -79,6 +82,7 @@ def _main(finder, *stock_list) :
     config.write(open(stock_ini, 'w'))
     return empty_list
 
+@trace
 def find(stock_list) :
     ini_sector = {}
     ini_industry = {}
@@ -127,24 +131,17 @@ def find(stock_list) :
 
 if __name__ == '__main__' :
 
-   import os,sys
-   from libCommon import INI, NASDAQ, TIMER
+   import logging
+   from libCommon import ENVIRONMENT, NASDAQ
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
-   pwd = pwd.replace('bin','local')
-   nasdaq = '{}/{}'.format(pwd,NASDAQ.path)
-   nasdaq = NASDAQ.init(filename=nasdaq)
-
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
-   stock_list = sys.argv[1:]
-   empty_list = main(nasdaq, *stock_list)
-   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
+   stock_list = env.argv[1:]
+   if len(stock_list) > 0 :
+      debug_from_cmd_line(*stock_list)
+   else :
+      empty_list = main()
 

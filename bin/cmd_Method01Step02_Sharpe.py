@@ -2,10 +2,11 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations
+from libCommon import INI, STOCK_TIMESERIES, combinations, log_exceptions
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
+from libDebug import trace
 '''
     Use MonteCarlo method to take subset of stocks and funds (by type)
     Determine which are risky (high profit) and which are safe (low risk)
@@ -22,13 +23,9 @@ def prep(*ini_list) :
         config[key] = stock
     return Sector, Industry, Category
 
+@log_exceptions
+@trace
 def main(file_list, ini_list) :
-    try :
-        return _main(file_list,ini_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
-
-def _main(file_list, ini_list) :
     Sector, Industry, Category = prep(*ini_list)
 
     ret_sect, dev_sect, ret_sect_list, dev_sect_list = _bin_by_MonteCarlo(file_list, Sector)
@@ -169,44 +166,37 @@ def _calculateMonteCarlo(stock_list,data_list) :
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   import logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-   local = pwd.replace('bin','local')
-   ini_list = glob('{}/method01*.ini'.format(local))
-   ini_list = filter(lambda x : 'step01' in x, ini_list)
-   file_list = glob('{}/historical_prices/*pkl'.format(local))
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
+   ini_list = env.list_filenames('local/method01*.ini')
+   ini_list = filter(lambda x : 'step01' in x, ini_list)
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+
    risky_data, balanced_data, safe_data = main(file_list,ini_list)
-   logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
 
    config = INI.init()
    for key in risky_data.keys() :
        values = risky_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/method01_step02_sharpe_risky.ini".format(local)
+   stock_ini = "{}/local/method01_step02_sharpe_risky.ini".format(env.pwd_parent)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in balanced_data.keys() :
        values = balanced_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/method01_step02_sharpe_balanced.ini".format(local)
+   stock_ini = "{}/local/method01_step02_sharpe_balanced.ini".format(env.pwd_parent)
    config.write(open(stock_ini, 'w'))
 
    config = INI.init()
    for key in safe_data.keys() :
        values = safe_data[key]
        INI.write_section(config,key,**values)
-   stock_ini = "{}/method01_step02_sharpe_safe.ini".format(local)
+   stock_ini = "{}/local/method01_step02_sharpe_safe.ini".format(env.pwd_parent)
    config.write(open(stock_ini, 'w'))

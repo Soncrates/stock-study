@@ -2,10 +2,11 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations
+from libCommon import INI, STOCK_TIMESERIES, combinations, log_exceptions
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
+from libDebug import trace
 '''
     Use MonteCarlo method to find best portfolio for risky, balanced, and not risky
 '''
@@ -41,13 +42,9 @@ def enrich(*ini_list) :
             ret[stock][section] = key
     return ret
 
+@log_exceptions
+@trace
 def main(file_list, ini_list) :
-    try :
-        return _main(file_list,ini_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
-
-def _main(file_list, ini_list) :
     local_enrich = enrich(*ini_list)
 
     risky_stock_list, risky_fund_list = prep("risky", *ini_list)
@@ -164,25 +161,18 @@ def _calculateMonteCarlo(stock_list,data_list) :
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   from logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-   local = pwd.replace('bin','local')
-   ini_list = glob('{}/method01_step02*.ini'.format(local))
-   file_list = glob('{}/historical_prices/*pkl'.format(local))
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
+   ini_list = env.list_filenames('local/method01_step02*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+
    ini = main(file_list,ini_list)
-   logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
 
    config = INI.init()
    for key in ini.keys() :
@@ -190,5 +180,5 @@ if __name__ == '__main__' :
        if not isinstance(values,dict) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
-   stock_ini = "{}/method01_step03_sharpe_portfolios.ini".format(local)
+   stock_ini = "{}/local/method01_step03_sharpe_portfolios.ini".format(env.pwd_parent)
    config.write(open(stock_ini, 'w'))

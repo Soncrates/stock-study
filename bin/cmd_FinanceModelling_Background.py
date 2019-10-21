@@ -101,34 +101,26 @@ def _main() :
 
 if __name__ == '__main__' :
 
-   import os,sys
-   from libCommon import TIMER
+   import logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   pwd = pwd.replace('bin','local')
-
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
    ini, empty_list = main()
-   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
 
    print empty_list
 
-   stock_ini = '{}/prototype_background.ini'.format(pwd)
+   stock_ini = '{}/local/prototype_background.ini'.format(env.pwd_parent)
    config = INI.init()
    temp = ini['Background']
    for key in sorted(temp.keys()) :
        INI.write_section(config,key,**temp[key])
    config.write(open(stock_ini, 'w'))
 
-   stock_ini = '{}/prototype_background_sector.ini'.format(pwd)
+   stock_ini = '{}/local/prototype_background_sector.ini'.format(env.pwd_parent)
    config = INI.init()
    temp = ini['SectorGroupBy']
    for key in sorted(temp.keys()) :
@@ -137,7 +129,7 @@ if __name__ == '__main__' :
 
    # At one time, industries contained different sectors, this is no longer the case
 
-   stock_ini = '{}/nasdaq_background_industry.ini'.format(pwd)
+   stock_ini = '{}/local/nasdaq_background_industry.ini'.format(env.pwd_parent)
    config = INI.init()
    temp = ini['IndustryGroupBy']
    for key in sorted(temp.keys()) :

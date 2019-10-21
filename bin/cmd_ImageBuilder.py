@@ -13,7 +13,8 @@ fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
 
-from libCommon import INI, STOCK_TIMESERIES
+from libCommon import INI, STOCK_TIMESERIES, log_exception
+from libDebug import trace
 from libGraph import LINE, BAR, POINT, save
 from libMonteCarlo import MonteCarlo
 from libSharpe import PORTFOLIO, HELPER
@@ -42,6 +43,7 @@ def enrich(*ini_list) :
             ret[stock][section] = key
     return ret
 
+@trace
 def benchmark(*ini_list) :
     ret = {}
     ini_list = filter(lambda x : 'benchmark' in x, ini_list)
@@ -54,12 +56,6 @@ def benchmark(*ini_list) :
            if '500' not in key : continue
         ret[key] = stock_list
     return ret
-
-def main(file_list, portfolo_ini, ini_list) :
-    try :
-        return _main(file_list, portfolio_ini, ini_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
 
 def prototype(file_list,stock_list) :
     name_list, _ret = readData(file_list,stock_list)
@@ -79,7 +75,9 @@ def _prototype(data) :
     ret =  ret.cumprod()
     return ret
 
-def _main(file_list, portfolio_ini, ini_list) :
+@log_exception
+@trace
+def main(file_list, portfolio_ini, ini_list) :
     local_enrich = enrich(*ini_list)
     bench_list = benchmark(*ini_list)
 
@@ -240,36 +238,26 @@ def readData(file_list, stock_list) :
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   import logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-   local = pwd.replace('bin','local')
-   portfolio_ini = glob('{}/yahoo_sharpe_method1*portfolios.ini'.format(local))
-   ini_list = glob('{}/*.ini'.format(local))
-   file_list = glob('{}/historical_prices/*pkl'.format(local))
-
-   params = sys.argv[1:]
-   if len(params) >= 1 :
-      portfolio_ini = [ params[0] ]
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
+   portfolio_ini = env.list_filenames('local/method*portfolios.ini')
+   ini_list = env.list_filenames('local/*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+
    returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = main(file_list, portfolio_ini, ini_list )
    summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
-   path = "{}/portfolio_sharpe.png".format(local)
+   path = "{pwd_parent}/local/portfolio_sharpe.png".format(**vars(env))
    save(path)
    summary_path_list.append(path)
    LINE.plot(summary, title="Returns")
-   path = "{}/portfolio_summary.png".format(local)
+   path = "{pwd_parent}/local/portfolio_summary.png".format(**vars(env))
    save(path)
    summary_path_list.append(path)
 
@@ -282,7 +270,7 @@ if __name__ == '__main__' :
        #title = title.replace('_diversified_','')
        #BAR.plot(graph,xlabel='Percentage',title=title)
        BAR.plot(graph,xlabel='Percentage')
-       path = "{}/{}.png".format(local,name_list[i])
+       path = "{}/local/{}.png".format(env.pwd_parent,name_list[i])
        save(path)
        local_diversify_list.append(path)
 
@@ -295,11 +283,10 @@ if __name__ == '__main__' :
        #title = title.replace('_returns_','')
        #LINE.plot(graph, title=title)
        LINE.plot(graph)
-       path = "{}/{}.png".format(local,name_list[i])
+       path = "{}/local/{}.png".format(env.pwd_parent,name_list[i])
        save(path, ncol=3)
        local_returns_list.append(path)
 
-   logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
    summary = { "images" : summary_path_list , "captions" : ["Return over Risk", "portfolio returns"] }
    portfolio = {}
    for i, value in enumerate(local_diversify_list) :
@@ -322,5 +309,5 @@ if __name__ == '__main__' :
        if not isinstance(values,dict) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
-   stock_ini = "{}/report_generator.ini".format(local)
+   stock_ini = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
    config.write(open(stock_ini, 'w'))
