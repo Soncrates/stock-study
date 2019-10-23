@@ -2,7 +2,7 @@
 
 import logging
 from libWeb import YAHOO_PROFILE as PROFILE
-from libCommon import log_exception
+from libCommon import INI, log_exception
 from libDebug import trace
 
 '''
@@ -58,7 +58,7 @@ def main() :
 
     stock_list = map(lambda stock : PROFILE.get(stock), finder())
     ini, empty_list = find(stock_list)
-    stock_ini = '{}/yahoo_background.ini'.format(pwd)
+    stock_ini = '{pwd_parent}/local/yahoo_background.ini'.format(**vars(env))
     config = INI.init()
     temp = ini['Background']
     for key in sorted(temp.keys()) :
@@ -137,11 +137,12 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    stock_list = env.argv[1:]
    if len(stock_list) > 0 :
       debug_from_cmd_line(*stock_list)
    else :
       empty_list = main()
-
+      if len(empty_list) > 0 :
+         print("No DATA F0R {}".format(empty_list))
