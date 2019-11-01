@@ -5,9 +5,10 @@ import logging
 import os
 import sys
 from glob import glob
-from time import time as now
+from time import time as _now
 import inspect
 import functools
+from ftplib import FTP as _ftp
 
 from itertools import combinations as iter_combo
 
@@ -180,6 +181,44 @@ class INI(object) :
                  value = ",".join(value)
               config.set(section,key,value)
 
+class FTP:
+      get = 'RETR {pwd}'
+      @classmethod
+      def init(cls, **kwargs) :
+          target='server'
+          server = kwargs.get(target,'ftp.kernel.org')
+          target='user'
+          user = kwargs.get(target,None)
+          target='pass'
+          pswd = kwargs.get(target,None)
+          ret = cls(server,user,pswd)
+          return ret
+      def __init__(self, server,user,pswd):
+          self.server = server
+          if user is None or pswd is None :
+             self.ftp = _ftp(server)
+             self.ftp.login()
+          else :
+             self.ftp = _ftp(server, user, pswd)
+          self.data = []
+      def __call__(self,s):
+          self.data.append(s)
+      def __str__(self) :
+          return "\n".join(self.data)
+      @staticmethod
+      def GET(obj, **kwargs) :
+          obj.data = []
+          get = FTP.get.format(**kwargs)
+          obj.ftp.retrlines(get,obj)
+          return obj
+      @staticmethod
+      def LIST(obj, **kwargs) :
+          target = 'pwd'
+          pwd = kwargs.get(target, None)
+          if pwd is not None :
+             obj.ftp.cwd(pwd)
+          return obj.ftp.nlst()
+
 class CSV :
       @staticmethod
       def grep(path, *arg_list) :
@@ -210,12 +249,12 @@ class TIMER :
           return str(self)
 
       def __str__(self) :
-          _elapsed = now() - self.start
+          _elapsed = _now() - self.start
           return TIMER._str(_elapsed)
 
       @classmethod
       def init(cls, **kwargs) :
-          start = now()
+          start = _now()
           return cls(start)
 
       @staticmethod
@@ -377,5 +416,7 @@ if __name__ == "__main__" :
    b = STOCK_TIMESERIES.flatten('Adj Close',b)
    print (b.describe())
    print (a)
+
+
 
 

@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations, log_exceptions
+from libCommon import INI, STOCK_TIMESERIES, combinations, log_exception
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
@@ -23,7 +23,7 @@ def prep(*ini_list) :
         config[key] = stock
     return Sector, Industry, Category
 
-@log_exceptions
+@log_exception
 @trace
 def main(file_list, ini_list) :
     Sector, Industry, Category = prep(*ini_list)

@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations, log_exceptions
+from libCommon import INI, STOCK_TIMESERIES, combinations, log_exception
 from libSharpe import BIN, HELPER
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo

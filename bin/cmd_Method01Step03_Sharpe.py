@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations, log_exceptions
+from libCommon import INI, STOCK_TIMESERIES, combinations, log_exception
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 
@@ -42,7 +42,7 @@ def enrich(*ini_list) :
             ret[stock][section] = key
     return ret
 
-@log_exceptions
+@log_exception
 @trace
 def main(file_list, ini_list) :
     local_enrich = enrich(*ini_list)
@@ -161,7 +161,7 @@ def _calculateMonteCarlo(stock_list,data_list) :
 
 if __name__ == '__main__' :
 
-   from logging
+   import logging
    from libCommon import ENVIRONMENT
 
    env = ENVIRONMENT()
