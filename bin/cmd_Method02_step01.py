@@ -2,15 +2,34 @@
 
 import math
 import logging
-import sys
 import pandas as pd
 
 from libCommon import INI, STOCK_TIMESERIES, log_exception
-from libSharpe import RISK, HELPER
+from libSharpe import HELPER
 from libMonteCarlo import MonteCarlo
 
 from libDebug import trace
 
+'''
+Method 02 - Divide and Conquer
+
+1) Partition stocks by Sector (enumerated)
+2) Partition stocks by Risk into 3 (scaled)
+3) Partition stocks by Sharpe into 3 (scaled)
+
+Each sector is now divided into 9 groups :
+0_0 : low risk, low sharpe
+0_1 : low risk, medium sharpe
+0_2 : low risk, high sharpe
+1_0 : medium risk, low sharpe
+1_1 : medium risk, medium sharpe
+1_2 : medium risk, high sharpe
+2_0 : high risk, low sharpe
+2_1 : high risk, medium sharpe
+2_2 : high risk, high sharpe
+
+Write results and basic statistics data about each sub section into ini file
+'''
 def prep(*ini_list) :
     background_list = filter(lambda x : 'background.ini' in x, ini_list)
     for path, section, key, stock in INI.loadList(*background_list) :
@@ -60,11 +79,11 @@ def partition(data) :
     middle_risk = partitionBySharpe(risk.get(1,None))
     high_risk = partitionBySharpe(risk.get(2,None))
     ret = dict(zip([0,1,2],[low_risk,middle_risk,high_risk]))
-    for _key_risk in sorted(ret) :
-        _ret = ret[_key_risk]
-        for _key_sharpe in sorted(_ret) :
-            key = '{}_{}'.format(_key_risk,_key_sharpe)
-            _d = _ret[_key_sharpe]
+    for _risk in sorted(ret) :
+        _ret = ret[_risk]
+        for _sharpe in sorted(_ret) :
+            key = '{}_{}'.format(_risk,_sharpe)
+            _d = _ret[_sharpe]
             yield key, _d
 
 def transform(key, data) :
@@ -114,6 +133,7 @@ def main(file_list, ini_list) :
     ret.write(open(stock_ini, 'w'))
 
 if __name__ == '__main__' :
+   import sys
    import logging
    from libCommon import ENVIRONMENT
 
