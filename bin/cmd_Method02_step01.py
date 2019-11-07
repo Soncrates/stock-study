@@ -11,7 +11,7 @@ from libMonteCarlo import MonteCarlo
 from libDebug import trace
 
 '''
-Method 02 - Divide and Conquer
+Method 02 step 01 - Divide and Conquer
 
 1) Partition stocks by Sector (enumerated)
 2) Partition stocks by Risk into 3 (scaled)

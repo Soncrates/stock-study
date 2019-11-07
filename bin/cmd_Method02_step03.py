@@ -5,72 +5,63 @@ import logging
 import sys
 import pandas as pd
 
-from libCommon import ENVIRONMENT, INI, STOCK_TIMESERIES, log_exception
+from libCommon import ENVIRONMENT, INI, STOCK_TIMESERIES, combinations, log_exception
 from libSharpe import HELPER
 from libMonteCarlo import MonteCarlo
 
 from libDebug import trace
 
 '''
-Method02 Step 2 - Reduction
+Method02 Step 3 - Monte Carlo
 
-Analysis from step 01 revealed most promising is 0_2 for each sector.
 
-1) load results from step 01 (ini file)
-2) filter results to 0_2 for each sector
-3) If the stock count is less than 20 return
-4) Else, filter by risk, then filter by sharpe until the stock count is 20 or less
+1) load results from step 02 (ini file)
+2) Calculate Monte Carlo per sector
 
 Write results and basic statistics data about each section into ini file
 '''
 def prep(*ini_list) :
-    target_sector = 'target_sector'
-    target_sector = globals().get(target_sector,'_')
     risk = {}
     sharpe = {}
     stock_list = {}
     for path, section, key, value in INI.loadList(*ini_list) :
-        if target_sector in key : pass
-        else : continue
         if section not in risk :
            risk[section] = {}
            sharpe[section] = {}
-        if key.endswith(target_sector) :
-           key = key.replace(section,'')
-           key = key.replace(target_sector,'')
-           stock_list[section] = value
-        else :
-           key = key.replace(section,'')
-           key = key.replace(target_sector,'')
-           if 'risk' in key :
-              key = key.replace('risk_','')
-              key = key.replace('_','')
-              risk[section][key] = value[0]
-           if 'sharpe' in key :
-              key = key.replace('sharpe_','')
-              key = key.replace('_','')
-              sharpe[section][key] = value[0]
+        if section == key :
+           stock_list[key] = value
+        key = key.replace(section,'')
+        if 'risk' in key :
+           key = key.replace('risk_','')
+           key = key.replace('_','')
+           risk[section][key] = value[0]
+        elif 'sharpe' in key :
+           key = key.replace('sharpe_','')
+           key = key.replace('_','')
+           sharpe[section][key] = value[0]
     for key in risk :
         yield key, stock_list[key], risk[key], sharpe[key]
 
-def load(file_list, value_list) :
-    annual = MonteCarlo.YEAR()
-    ret = {}
-    for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        data = HELPER.find(data['Adj Close'], period=annual.period)
-        #filter stocks that have less than a year
-        sharpe = data.get('sharpe',0)
-        if sharpe == 0 : continue
-        #filter stocks that have negative returns
-        returns = data.get('returns',0)
-        if returns <= 0 : continue
-        key_list = data.keys()
-        value_list = map(lambda x : data[x], key_list)
-        value_list = map(lambda x : round(x,2), value_list)
-        msg = dict(zip(key_list,value_list))
-        logging.info((name, msg))
-        ret[name] = data
-    return ret
+def load(file_list, stock_list) :
+    name_list = []
+    data_list = pd.DataFrame()
+    if len(stock_list) == 0 :
+       return name_list, data_list
+
+    for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
+        try :
+            data_list[name] = stock['Adj Close']
+            name_list.append(name)
+        except Exception as e : logging.error(e, exc_info=True)
+        finally : pass
+    return name_list, data_list
+
+def process(d) :
+    #locate position of portfolio with highest Sharpe Ratio
+    _sharpe = d['sharpe'].idxmax()
+    #locate positon of portfolio with minimum risk
+    _risk = d['risk'].idxmin()
+    return d.iloc[_sharpe], d.iloc[_risk]
 
 def filterByRisk(data,risk) :
     size = len(data)
@@ -142,17 +133,49 @@ def transform(key, data) :
     ret.update(temp)
     return ret
 
+def calculateMonteCarlo(stock_list,data_list) :
+    meta = ['returns', 'risk', 'sharpe']
+    stock_list = filter(lambda x : x not in meta, stock_list)
+    annual = MonteCarlo.YEAR()
+    max_sharpe, min_dev = annual(stock_list,data_list,5)
+    logging.debug((max_sharpe, min_dev))
+    yield max_sharpe, min_dev
+def calculateMonteCarlo(stock_list,data_list) :
+    annual = MonteCarlo.YEAR()
+    ret = pd.DataFrame()
+    for subset in combinations(stock_list,10) :
+        max_sharpe, min_dev = annual(subset,data_list,5000)
+        ret = ret.append(max_sharpe)
+        ret = ret.append(min_dev)
+        size = len(ret)
+        if size > 10000 :
+           min_risk = ret.sort_values(['risk']).head(100)
+           max_sharpe = ret.sort_values(['sharpe']).tail(100)
+           ret = pd.DataFrame()
+           ret = ret.append(min_risk)
+           ret = ret.append(max_sharpe)
+    min_risk = ret.sort_values(['risk']).head(50)
+    max_sharpe = ret.sort_values(['sharpe']).tail(50)
+    ret = pd.DataFrame()
+    ret = ret.append(min_risk)
+    ret = ret.append(max_sharpe)
+    yield ret
+
 def action(file_list, ini_list) : 
     for sector, _stock_list, risk, sharpe in prep(*ini_list) :
         logging.debug(sector)
         logging.debug(_stock_list)
         logging.debug(risk)
         logging.debug(sharpe)
-        stock_list = load(file_list,_stock_list)
-        stock_list = pd.DataFrame(stock_list)
-        stock_list = filterStock(stock_list,risk,sharpe,cap=20)
-        results = transform(sector,stock_list)
-        yield sector, results
+        stock_list, data_list = load(file_list,_stock_list)
+        for results in calculateMonteCarlo(stock_list,data_list) :
+            columns = results.columns.values
+            _i = 0
+            for index, row in results.iterrows() :
+                row = row.dropna(axis = 0, how ='any') 
+                row = row.to_dict()
+                yield "{}_{}".format(sector,_i), row
+                _i += 1
 
 @log_exception
 def main(file_list, ini_list,save_file) : 
@@ -169,13 +192,12 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
-   save_file = "{}/local/method02_step02.ini".format(env.pwd_parent)
-   target_sector = '_0_2'
-   ini_list = filter(lambda x : "method02_step01" in x, ini_list)
+   save_file = "{}/local/method02_step03.ini".format(env.pwd_parent)
+   ini_list = filter(lambda x : "method02_step02" in x, ini_list)
 
    main(file_list,ini_list,save_file)
