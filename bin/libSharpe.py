@@ -243,7 +243,7 @@ class PORTFOLIO :
       @staticmethod
       def _sharpe(cov_matrix, mean, period, risk_free_rate, weights) :
           logging.debug((mean, period, risk_free_rate))
-          logging.debug(cov_matrix)
+          #logging.debug(cov_matrix)
           logging.debug(weights)
           magic = np.dot(cov_matrix, weights)
           magic_number = np.dot(weights.T,magic)

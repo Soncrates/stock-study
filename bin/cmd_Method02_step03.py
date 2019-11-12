@@ -140,11 +140,26 @@ def calculateMonteCarlo(stock_list,data_list) :
     max_sharpe, min_dev = annual(stock_list,data_list,5)
     logging.debug((max_sharpe, min_dev))
     yield max_sharpe, min_dev
+
 def calculateMonteCarlo(stock_list,data_list) :
+    _size = len(stock_list)
+    default_combo = 10
+    default_montecarlo = 5000
+    if _size < default_combo :
+       default_combo = _size - 1
+    elif _size >= 18  :
+       default_combo = 14
+       default_montecarlo = 500
+    elif _size >= 15  :
+       default_combo = 12
+       default_montecarlo = 1000
+    elif _size > 12  :
+       default_montecarlo = 2000
+
     annual = MonteCarlo.YEAR()
     ret = pd.DataFrame()
-    for subset in combinations(stock_list,10) :
-        max_sharpe, min_dev = annual(subset,data_list,5000)
+    for subset in combinations(stock_list,default_combo) :
+        max_sharpe, min_dev = annual(subset,data_list,default_montecarlo)
         ret = ret.append(max_sharpe)
         ret = ret.append(min_dev)
         size = len(ret)
@@ -154,17 +169,18 @@ def calculateMonteCarlo(stock_list,data_list) :
            ret = pd.DataFrame()
            ret = ret.append(min_risk)
            ret = ret.append(max_sharpe)
-    min_risk = ret.sort_values(['risk']).head(50)
-    max_sharpe = ret.sort_values(['sharpe']).tail(50)
-    ret = pd.DataFrame()
-    ret = ret.append(min_risk)
-    ret = ret.append(max_sharpe)
+    if len(ret) > 100 :
+       min_risk = ret.sort_values(['risk']).head(50)
+       max_sharpe = ret.sort_values(['sharpe']).tail(50)
+       ret = pd.DataFrame()
+       ret = ret.append(min_risk)
+       ret = ret.append(max_sharpe)
     yield ret
 
 def action(file_list, ini_list) : 
     for sector, _stock_list, risk, sharpe in prep(*ini_list) :
-        logging.debug(sector)
-        logging.debug(_stock_list)
+        logging.info(sector)
+        logging.info(_stock_list)
         logging.debug(risk)
         logging.debug(sharpe)
         stock_list, data_list = load(file_list,_stock_list)
@@ -192,8 +208,8 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
