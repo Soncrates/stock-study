@@ -41,18 +41,12 @@ class MonteCarlo(object) :
 
 if __name__ == "__main__" :
    
-   from glob import glob
-   import os,sys
+   import sys
 
-   from libCommon import STOCK_TIMESERIES
+   from libFinance import STOCK_TIMESERIES
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    target = 'Adj Close'
    stock_list = ['AMZN','CMS','DOV','DTE','EQR','HD','LHX','MA','MMC','NKE','NOC','PYPL','QLD','SBUX','UNH','UNP','WEC']

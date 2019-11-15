@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import logging
 from libWeb import YAHOO_PROFILE as PROFILE

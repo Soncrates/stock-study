@@ -1,7 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import logging
-from libCommon import STOCK_TIMESERIES, NASDAQ, log_exception
+from libCommon import log_exception
+from libFinance import STOCK_TIMESERIES, NASDAQ
 from libDebug import trace, cpu
 
 '''

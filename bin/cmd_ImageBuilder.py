@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import logging
 from copy import deepcopy
@@ -13,7 +13,8 @@ fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
 
-from libCommon import INI, STOCK_TIMESERIES, log_exception
+from libCommon import INI, log_exception
+from libFinance import STOCK_TIMESERIES
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save
 from libMonteCarlo import MonteCarlo
@@ -21,6 +22,7 @@ from libSharpe import PORTFOLIO, HELPER
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
+@trace
 def prep(*ini_list) :
     ret = {}
     for path, section, key, weight in INI.loadList(*ini_list) :

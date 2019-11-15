@@ -5,7 +5,7 @@ import datetime
 import math
 import numpy as np
 
-from libCommon import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES
 
 '''
 WARNING : not currently in use

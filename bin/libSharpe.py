@@ -299,9 +299,15 @@ class PORTFOLIO :
 
 if __name__ == "__main__" :
 
-   from glob import glob
-   import os,sys,time
-   from libCommon import STOCK_TIMESERIES, INI
+   import sys
+   import logging
+
+   from libCommon import ENVIRONMENT, INI
+   from libFinance import STOCK_TIMESERIES
+
+   env = ENVIRONMENT()
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+   ini_list = env.list_filenames('local/*.ini')
 
    def prep(*ini_list) :
        ini_list = filter(lambda x : "benchmark" in x , ini_list)
@@ -311,16 +317,8 @@ if __name__ == "__main__" :
            else : continue
            yield key, stock_list
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
-
-   local = pwd.replace('bin','local')
-   ini_list = glob('{}/*.ini'.format(local))
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    reader = STOCK_TIMESERIES.init()
    for name, stock_list in prep(*ini_list) :

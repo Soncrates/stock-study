@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 import logging
 from libCommon import INI
 
@@ -81,20 +79,14 @@ def findCategoriesOfInterest(**Category) :
 
 if __name__ == "__main__" :
    
-   from glob import glob
-   import os,sys
+   import sys
    import pandas as pd
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
-
-   pwd = pwd.replace('bin','local')
-   ini_list = glob('{}/*.ini'.format(pwd))
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   ini_list = env.list_filenames('local/*.ini')
 
    Sector, Industry, Category, FundFamily = getByNasdaq(*ini_list)
    for key in Sector.keys() :

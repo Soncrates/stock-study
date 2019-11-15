@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations
-from libNasdaq import getByNasdaq
+from libCommon import INI, combinations
+from libFinance import STOCK_TIMESERIES
 from libMonteCarlo import MonteCarlo
 
 '''

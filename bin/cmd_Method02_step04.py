@@ -1,10 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import math
 import logging
 import pandas as pd
 
-from libCommon import INI, STOCK_TIMESERIES, log_exception
+from libCommon import INI, log_exception
+from libFinance import STOCK_TIMESERIES
 from libSharpe import HELPER
 from libMonteCarlo import MonteCarlo
 

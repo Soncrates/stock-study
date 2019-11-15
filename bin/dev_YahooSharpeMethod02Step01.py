@@ -3,7 +3,8 @@
 import logging
 import pandas as pd
 from libSharpe import RISK, SHARPE, RETURNS, BIN
-from libCommon import INI, STOCK_TIMESERIES, combinations
+from libCommon import INI, combinations
+from libFinance import STOCK_TIMESERIES
 from libNasdaq import getByNasdaq
 from libMonteCarlo import MonteCarlo
 

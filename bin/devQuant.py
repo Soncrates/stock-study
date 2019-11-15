@@ -6,7 +6,8 @@ import ConfigParser
 import pandas as pd
 import numpy as np
 
-from libCommon import INI, STOCK_TIMERIES
+from libCommon import INI
+from libFinance import STOCK_TIMERIES
 
 '''
     WARNING : Not currently used

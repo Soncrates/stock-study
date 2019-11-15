@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import logging
 import pandas as pd
-from libCommon import INI, STOCK_TIMESERIES, combinations, log_exception
-from libNasdaq import getByNasdaq
+from libCommon import INI, combinations, log_exception
+from libFinance import STOCK_TIMESERIES
 from libMonteCarlo import MonteCarlo
 
 from libDebug import trace
