@@ -76,9 +76,9 @@ class YAHOO_PROFILE() :
           logging.debug(ret)
           return ret
 
-      @staticmethod
-      def get(stock) :
-          url = YAHOO_PROFILE.url.format(stock)
+      @classmethod
+      def get(cls, stock) :
+          url = cls.url.format(stock)
           response = WEB_UTIL.invoke_url(url)
           soup = WEB_UTIL.format_as_soup(response)
           ret = YAHOO_PROFILE_PARSE.parse(soup)
@@ -123,10 +123,9 @@ class FINANCEMODELLING_STOCK_LIST() :
           logging.debug(ret)
           return ret
 
-      @staticmethod
-      def get() :
-          url = FINANCEMODELLING_STOCK_LIST.url
-          response = WEB_UTIL.json(url)
+      @classmethod
+      def get(cls) :
+          response = WEB_UTIL.json(cls.url)
           target = "symbolsList"
           ret = response.get(target,{})
           logging.info(ret)
@@ -139,10 +138,9 @@ class FINANCEMODELLING_INDEX() :
           logging.debug(ret)
           return ret
 
-      @staticmethod
-      def get() :
-          url = FINANCEMODELLING_INDEX.url
-          response = WEB_UTIL.json(url)
+      @classmethod
+      def get(cls) :
+          response = WEB_UTIL.json(cls.url)
           target = "majorIndexesList"
           ret = response.get(target,{})
           logging.info(ret)
@@ -155,9 +153,9 @@ class FINANCEMODELLING_PROFILE() :
           logging.debug(ret)
           return ret
 
-      @staticmethod
-      def get(stock) :
-          url = FINANCEMODELLING_PROFILE.url.format(stock)
+      @classmethod
+      def get(cls, stock) :
+          url = cls.url.format(stock)
           response = WEB_UTIL.json(url)
           target = "profile"
           ret = response.get(target,{})
