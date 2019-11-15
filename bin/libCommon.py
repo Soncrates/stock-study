@@ -107,9 +107,9 @@ class ENVIRONMENT(object) :
           self.version = sys.version
           self.version_info = sys.version_info
       def __str__(self) :
-          key_list = self.__dict__.keys()
-          key_list = sorted(key_list)
-          ret = map(lambda key : "{} : {}".format(key,self.__dict__.get(key)), key_list)
+          ret = self.__dict__
+          key_list = sorted(ret.keys())
+          ret = map(lambda key : "{} : {}".format(key,ret.get(key)), key_list)
           ret = "\n".join(ret)
           return ret
       def list_filenames(self, *largs, **kvargs) :
@@ -205,10 +205,10 @@ class FTP:
           self.data.append(s)
       def __str__(self) :
           return "\n".join(self.data)
-      @staticmethod
-      def GET(obj, **kwargs) :
+      @classmethod
+      def GET(cls, obj, **kwargs) :
           obj.data = []
-          get = FTP.get.format(**kwargs)
+          get = cls.get.format(**kwargs)
           obj.ftp.retrlines(get,obj)
           return obj
       @staticmethod
@@ -241,41 +241,35 @@ class TIMER :
       minute = 60
       hour = minute*60
       day = hour*24
-
+      order = [ "days", "hours", "minutes" ]
+      
       def __init__(self,start) :
           self.start = start
-
       def __call__(self) :
           return str(self)
-
       def __str__(self) :
-          _elapsed = _now() - self.start
-          return TIMER._str(_elapsed)
-
+          ret = _now() - self.start
+          ret = TIMER.enumerate(ret)
+          return TIMER._str(**ret)
       @classmethod
       def init(cls, **kwargs) :
           start = _now()
           return cls(start)
-
-      @staticmethod
-      def _str(_elapsed) :
-          _time = { "days" : 0, "hours" : 0 , "minutes" : 0, "seconds" : 0 }
-          _msg = ""
-          if _elapsed > TIMER.day :
-             _msg += "days : {days}, "
-             _time["days"] = floor(_elapsed/TIMER.day)
-             _elapsed %= TIMER.day
-          if _elapsed > TIMER.hour :
-             _msg += "hours : {hours}, "
-             _time["hours"] =  floor(_elapsed/TIMER.hour)
-             _elapsed %= TIMER.hour
-          if _elapsed > TIMER.minute :
-             _msg += "minutes : {minutes}, "
-             _time["minutes"] = floor(_elapsed/TIMER.minute)
-             _elapsed %= TIMER.minute
-          _msg += "seconds : {seconds}"
-          _time["seconds"] = round(_elapsed,2)
-          return _msg.format(**_time)
+      @classmethod
+      def enumerate(cls, elapsed) :
+          ret = {}
+          ret["days"], elapsed = divmod(elapsed, cls.day)
+          ret["hours"], elapsed = divmod(elapsed, cls.hour)
+          ret["minutes"], elapsed = divmod(elapsed, cls.minute)
+          ret["seconds"] = round(elapsed,2)
+          return ret
+      @classmethod
+      def _str(cls, **units) :
+          ret = filter(lambda k : units[k] > 0, cls.order)
+          ret = map(lambda k : k + ' : {' + k + '}', ret )
+          ret = ', '.join(ret)
+          ret += ", seconds : {seconds}"
+          return ret.format(**units)
 
 class STOCK_TIMESERIES :
       @classmethod
@@ -358,47 +352,35 @@ class STOCK_TIMESERIES :
           return d
 
 def log_exception(func):
-    def func_wrapper(*args, **kwargs):
+    def exception_guard(*args, **kwargs):
         try:
            return func(*args, **kwargs)
         except Exception as e :
            logging.error(e, exc_info=True)
            sys.exit(e)
-    return func_wrapper
-
-
+    return exception_guard
 
 if __name__ == "__main__" :
 
-   from glob import glob
-   import os,sys,time
+   import sys
+   import logging
 
-   pwd = os.getcwd()
+   env = ENVIRONMENT()
 
-   '''
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
-   '''
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   pwd_ini = pwd.replace('bin','local')
-
    reader = STOCK_TIMESERIES.init()
 
-   nasdaq = '{}/{}'.format(pwd_ini,NASDAQ.path)
+   nasdaq = env.list_filenames('local/'+NASDAQ.path)[0]
    nasdaq = NASDAQ.init(filename=nasdaq)
    for stock in nasdaq() :
        print (stock)
        if stock == 'AAPL' : break
 
-   print (pwd_ini)
-   ini_list = glob('{}/*ini'.format(pwd_ini))
+   ini_list = env.list_filenames('local/*.ini')
    print(ini_list[0])
-   file_list = glob('{}/historical_prices/*pkl'.format(pwd_ini))
+   file_list = env.list_filenames('local/historical_prices/*pkl')
    print (file_list[0])
    for path, section, key, value in INI.loadList(*ini_list) :
        if 'Industry' not in section : continue
@@ -417,6 +399,12 @@ if __name__ == "__main__" :
    print (b.describe())
    print (a)
 
-
+   t1 = TIMER.enumerate(313969)
+   t2 = TIMER.enumerate(3600)
+   print t1
+   print t2
+   print TIMER._str(**t1)
+   print TIMER._str(**t2)
+   print(env)
 
 

@@ -147,6 +147,9 @@ def calculateMonteCarlo(stock_list,data_list) :
     default_montecarlo = 5000
     if _size < default_combo :
        default_combo = _size - 1
+    elif _size >= 20  :
+       default_combo = 16
+       default_montecarlo = 100
     elif _size >= 18  :
        default_combo = 14
        default_montecarlo = 500
