@@ -18,26 +18,26 @@ from libSharpe import HELPER, PORTFOLIO
 
 '''
 class MonteCarlo(object) :
-      @staticmethod
-      def YEAR() :
-          ret = MonteCarlo(252) 
-          return ret
-      @staticmethod
-      def QUARTER() :
-          ret = MonteCarlo(63) 
-          return ret
-      @staticmethod
-      def MONTH() :
-          ret = MonteCarlo(21) 
-          return ret
       def __init__(self, period) :
           self.period = period
+      def __call__(self, stocks,data, num_portfolios = 25000) :
+          return PORTFOLIO.find(data, stocks=stocks, portfolios=num_portfolios,period=self.period)
       def findSharpe(self, data, risk_free_rate=0.02) :
           data.sort_index(inplace=True)
           ret = HELPER.find(data, risk_free_rate=risk_free_rate, period=self.period, span=0)
           return ret 
-      def __call__(self, stocks,data, num_portfolios = 25000) :
-          return PORTFOLIO.find(data, stocks=stocks, portfolios=num_portfolios,period=self.period)
+      @classmethod
+      def YEAR(cls) :
+          ret = cls(252) 
+          return ret
+      @classmethod
+      def QUARTER(cls) :
+          ret = cls(63) 
+          return ret
+      @classmethod
+      def MONTH(cls) :
+          ret = cls(21) 
+          return ret
 
 if __name__ == "__main__" :
    

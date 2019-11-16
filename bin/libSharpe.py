@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from libFinance import HELPER as FINANCE
 '''
 Sharpe Ratio
 
@@ -118,133 +119,59 @@ class BIN :
           return ret
 
 class HELPER :
+      '''
+        Computes sharpe calculation for a single stock
+      '''
       key_list = ['returns', 'risk','sharpe','len']
-      @staticmethod
-      def find(data, **kwargs) :
-          #logging.debug(kwargs)
-          if not isinstance(data,pd.DataFrame) :
-             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
-             data = pd.DataFrame(data)
+      @classmethod
+      def find(cls, data, **kwargs) :
           target = "period"
           period = kwargs.get(target,0)
           target = "risk_free_rate"
           risk_free_rate = kwargs.get(target,0.02)
           target = "span"
           span = kwargs.get(target,500)
-          if period < 0 :
-             warnings.warn("period must be positive", RuntimeWarning)
-          if span < 0 :
-             warnings.warn("span must be positive", RuntimeWarning)
-             span = 0
-          return HELPER._find(data, risk_free_rate, period, span)
 
-      @staticmethod
-      def _find(data, risk_free_rate, period, span) :
-          ret = data.pct_change().dropna(how="all")
-          _len = len(ret)
-          if _len < period :
-             return dict(zip(HELPER.key_list, [0, 0, 0,_len]))
-
-          if span == 0 :
-             returns, risk = HELPER._findRiskAndReturn(ret)
-          else :
-             returns, risk = HELPER._findRiskAndReturnSpan(ret,span)
-          if isinstance(returns,pd.Series) : returns = returns[0]
-          if isinstance(risk,pd.Series) : risk = risk[0]
-          if period > 0 :
-             returns *= period
-             risk *= np.sqrt(period)
+          data, risk_free_rate, period, span = cls.validate(data, risk_free_rate, period, span)
+          data = FINANCE.findDailyReturns(data, period)
+          if data is None :
+             return dict(zip(cls.key_list, [0, 0, 0, 0]))
+          returns, risk = FINANCE.findRiskAndReturn(data, span)
           sharpe = 0
           if risk != 0 :
              sharpe = ( returns - risk_free_rate ) / risk
-          return dict(zip(HELPER.key_list, [returns, risk, sharpe,_len]))
+          return dict(zip(cls.key_list, [returns, risk, sharpe, len(data)]))
 
-      @staticmethod
-      def _findRiskAndReturn(data) :
-          returns = data.mean()
-          risk = data.std()
-          return returns, risk
-
-      @staticmethod
-      def _findRiskAndReturnSpan(data,span) :
-          #weigth recent history more heavily that older history
-          returns = data.ewm(span=span).mean().iloc[-1]
-          risk = data.ewm(span=span).std().iloc[-1]
-          return returns, risk
-
-class PORTFOLIO :
-      key_list = ['returns', 'risk','sharpe','len']
-      @staticmethod
-      def find(data, **kwargs) :
-          logging.debug(kwargs)
-          if not isinstance(data,pd.DataFrame) :
-             warnings.warn("prices are not in a dataframe", RuntimeWarning)
-             data = pd.DataFrame(data)
-          target = "stocks"
-          stock_list = kwargs.get(target,['AAPL','GOOG'])
-          target = "portfolios"
-          portfolios = kwargs.get(target,25000)
-          target = "period"
-          period = kwargs.get(target,252)
-          target = "portfolios"
-          portfolios = kwargs.get(target,25000)
-          target = "risk_free_rate"
-          risk_free_rate = kwargs.get(target,0.02)
-          target = "span"
-          span = kwargs.get(target,500)
-          if portfolios < 0 :
-             warnings.warn("portfolios must be positive", RuntimeWarning)
-             portfolios = 0
+      @classmethod
+      def validate(cls, data, risk_free_rate, period, span) :
           if period < 0 :
              warnings.warn("period must be positive", RuntimeWarning)
              period = 0
           if span < 0 :
              warnings.warn("span must be positive", RuntimeWarning)
              span = 0
-          return PORTFOLIO._find(data, stock_list, portfolios, risk_free_rate, period)
+          if not isinstance(data,pd.DataFrame) :
+             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
+             data = pd.DataFrame(data)
+          return data, risk_free_rate, period, span
 
+class PORTFOLIO :
+      columns = ['returns','risk','sharpe']
 
-      @staticmethod
-      def _find(data, stock_list, num_portfolios, risk_free_rate, period) :
-          stocks = filter(lambda x : x in data, stock_list)
-          if len(stocks) == 0 :
-              return pd.DataFrame(), pd.DataFrame()
-          data = data[stocks]
-          portfolio_list = PORTFOLIO._process(data, len(stocks), num_portfolios, risk_free_rate, period)
-
-          #convert results array to Pandas DataFrame
-          columns = ['returns','risk','sharpe']
-          columns += stocks
-          results_frame = pd.DataFrame(portfolio_list.T,columns=columns)
-
-          #locate position of portfolio with highest Sharpe Ratio
-          max_sharpe = results_frame['sharpe'].idxmax()
-          max_sharpe_port = results_frame.iloc[max_sharpe]
-
-          #locate positon of portfolio with minimum risk
-          min_vol = results_frame['risk'].idxmin()
-          min_vol_port = results_frame.iloc[min_vol]
-          return max_sharpe_port, min_vol_port
-
-      @staticmethod
-      def _weights(size, num_portfolios) :
+      @classmethod
+      def _weights(cls, size, num_portfolios) :
           low = 0.1
           high = low + low + (1/size) 
           for i in xrange(num_portfolios):
               #select random weights for portfolio holdings
-              #weights = np.array(np.random.random(size))
               weights = np.random.uniform(low=low, high=high, size=size)
               weights = np.array(weights)
               #rebalance weights to sum to 1
               weights /= np.sum(weights)
-              #logging.debug(weights)
               yield weights, i
 
-      @staticmethod
-      def _sharpe(cov_matrix, mean, period, risk_free_rate, weights) :
-          logging.debug((mean, period, risk_free_rate))
-          #logging.debug(cov_matrix)
-          logging.debug(weights)
+      @classmethod
+      def _sharpe(cls, cov_matrix, mean, period, risk_free_rate, weights) :
           magic = np.dot(cov_matrix, weights)
           magic_number = np.dot(weights.T,magic)
 
@@ -258,8 +185,9 @@ class PORTFOLIO :
              sharpe = ( returns - risk_free_rate ) / risk
           return returns, risk, sharpe
 
-      @staticmethod
-      def _process(data, size, num_portfolios, risk_free_rate, period) :
+      @classmethod
+      def _find(cls, data, stocks, num_portfolios, risk_free_rate, period) :
+          size = len(stocks)
           data.sort_index(inplace=True)
           #convert daily stock prices into daily returns
           returns = data.pct_change()
@@ -271,18 +199,22 @@ class PORTFOLIO :
           #calculate mean daily return and covariance of daily returns
           mean = returns.mean()
           cov_matrix = returns.cov()
-          for weights, i in PORTFOLIO._weights(size, num_portfolios) :
-              returns, risk, sharpe = PORTFOLIO._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
+          for weights, i in cls._weights(size, num_portfolios) :
+              returns, risk, sharpe = cls._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
               #store results in results array
               ret[0,i] = returns
               ret[1,i] = risk
               ret[2,i] = sharpe
               for j in range(len(weights)):
                   ret[j+3,i] = weights[j]
+
+          #convert results array to Pandas DataFrame
+          columns = cls.columns + stocks
+          ret = pd.DataFrame(ret.T,columns=columns)
           return ret
 
-      @staticmethod
-      def findWeightedSharpe(data, weights, risk_free_rate=0.02, period=252) :
+      @classmethod
+      def findWeightedSharpe(cls, data, weights, risk_free_rate=0.02, period=252) :
           if not isinstance(data,pd.DataFrame) :
              warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
              data = pd.DataFrame(data)
@@ -290,12 +222,57 @@ class PORTFOLIO :
           #calculate mean daily return and covariance of daily returns
           mean = data.mean()
           cov_matrix = data.cov()
-          logging.info((weights, mean,cov_matrix))
-          logging.info(data.head(2))
-          returns, risk, sharpe = PORTFOLIO._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
+          returns, risk, sharpe = cls._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
           ret = dict(zip(['returns', 'risk', 'sharpe'],[returns,risk,sharpe]))
           logging.info(ret)
           return ret
+
+      @classmethod
+      def validate(cls, data, stocks, portfolios, risk_free_rate, period) :
+          if portfolios < 0 :
+             warnings.warn("portfolios must be positive", RuntimeWarning)
+             portfolios = 0
+          if period < 0 :
+             warnings.warn("period must be positive", RuntimeWarning)
+             period = 0
+          if risk_free_rate < 0 :
+             warnings.warn("risk_free_rate must be positive", RuntimeWarning)
+             risk_free_rate = 0
+          if not isinstance(data,pd.DataFrame) :
+             warnings.warn("prices are not in a dataframe", RuntimeWarning)
+             data = pd.DataFrame(data)
+          stocks = filter(lambda x : x in data, stocks)
+          flag = len(stocks) == 0
+          if flag :
+             data = None 
+          else :
+             data = data[stocks]
+          return data, stocks, portfolios, risk_free_rate, period
+
+      @classmethod
+      def find(cls, data, **kwargs) :
+          target = "stocks"
+          stocks = kwargs.get(target,['AAPL','GOOG'])
+          target = "portfolios"
+          num_portfolios = kwargs.get(target,25000)
+          target = "period"
+          period = kwargs.get(target,252)
+          target = "risk_free_rate"
+          risk_free_rate = kwargs.get(target,0.02)
+          data, stocks, num_portfolios, risk_free_rate, period = cls.validate(data, stocks, num_portfolios, risk_free_rate, period)
+          if data is None :
+              return pd.DataFrame(), pd.DataFrame()
+
+          ret = cls._find(data, stocks, num_portfolios, risk_free_rate, period)
+
+          #locate position of portfolio with highest Sharpe Ratio
+          max_sharpe = ret['sharpe'].idxmax()
+          max_sharpe_port = ret.iloc[max_sharpe]
+
+          #locate positon of portfolio with minimum risk
+          min_vol = ret['risk'].idxmin()
+          min_vol_port = ret.iloc[min_vol]
+          return max_sharpe_port, min_vol_port
 
 if __name__ == "__main__" :
 

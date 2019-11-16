@@ -1,6 +1,7 @@
 import sys
 import datetime
 import logging
+import numpy as np
 
 if sys.version_info < (3, 0):
    import pandas as pd
@@ -25,8 +26,25 @@ else :
 
 class NASDAQ :
       path = 'nasdaq.csv'
-      @staticmethod
-      def init(**kwargs) :
+      def __init__(self, results) :
+          self.results = results
+      def __call__(self) :
+          if self.results is None : return
+          for name, alt_name, row in NASDAQ.extract(self.results) :
+              stock = row.get(name)
+              if not isinstance(stock,str) :
+                 stock = row.get(alt_name)
+              stock = NASDAQ.transform(stock)
+              yield stock
+      @classmethod
+      def transform(cls, stock) :
+          if '-' not in stock :
+             return stock
+          stock = stock.split('-')
+          stock = '-P'.join(stock)
+          return stock
+      @classmethod
+      def init(cls, **kwargs) :
           target = 'filename'
           filename = kwargs.get(target, None)
           target = 'retry_count'
@@ -37,25 +55,10 @@ class NASDAQ :
           results = get_nasdaq_symbols(retry_count, timeout)
           if filename is not None :
              results.to_csv(filename)
-          ret = NASDAQ(results)
+          ret = cls(results)
           return ret
-
-      def __init__(self, results) :
-          self.results = results
-
-      def __call__(self) :
-          if self.results is None : return
-          for name, alt_name, row in self._extract() :
-              stock = row.get(name)
-              if not isinstance(stock,str) :
-                 stock = row.get(alt_name)
-              if '-' in stock :
-                 stock = stock.split('-')
-                 stock = '-P'.join(stock)
-              yield stock
-
-      def _extract(self) :
-          results = self.results
+      @classmethod
+      def extract(cls, results) :
           symbol_list = filter(lambda x : 'Symbol' in x, results.columns)
           for index, row in results.iterrows():
               symbol_value = map(lambda x : row[x],symbol_list)
@@ -143,6 +146,38 @@ class STOCK_TIMESERIES :
           d.columns = d.columns.droplevel(level=1)
           return d
 
+class HELPER :
+      YEAR = 252
+      QUARTER = 63
+      MONTH = 21
+      WEEK = 5
+      @classmethod
+      def findDailyReturns(cls, data, period=0) :
+          ret = data.pct_change().dropna(how="all")
+          _len = len(ret)
+          if _len < period :
+             return None
+          return ret
+      @classmethod
+      def findRiskAndReturn(cls, data, period=0, span=0) :
+          returns, risk = cls._findRiskAndReturn(data, span)
+          if isinstance(returns,pd.Series) : returns = returns[0]
+          if isinstance(risk,pd.Series) : risk = risk[0]
+          if period > 0 :
+             returns *= period
+             risk *= np.sqrt(period)
+          return returns, risk
+      @classmethod
+      def _findRiskAndReturn(cls, data, span=0) :
+          if span == 0 :
+             returns = data.mean()
+             risk = data.std()
+             return returns, risk
+          #weigth recent history more heavily that older history
+          returns = data.ewm(span=span).mean().iloc[-1]
+          risk = data.ewm(span=span).std().iloc[-1]
+          return returns, risk
+
 if __name__ == "__main__" :
 
    import sys
@@ -172,9 +207,14 @@ if __name__ == "__main__" :
    reader = STOCK_TIMESERIES.init()
    for stock in stock_list :
        ret = reader.extract_from_yahoo(stock)
-       print (stock)
-       print (ret.describe())
-   a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
-   b = STOCK_TIMESERIES.flatten('Adj Close',b)
-   print (b.describe())
-   print (a)
+       logging.debug (stock)
+       logging.debug (ret.describe())
+       returns = HELPER.findDailyReturns(ret)
+       logging.debug (returns.describe())
+       logging.debug (HELPER.findRiskAndReturn(returns))
+       logging.debug (HELPER.findRiskAndReturn(returns, span=252))
+
+   #a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
+   #b = STOCK_TIMESERIES.flatten('Adj Close',b)
+   #print (b.describe())
+   #print (a)
