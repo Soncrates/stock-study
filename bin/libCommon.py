@@ -65,6 +65,7 @@ class ENVIRONMENT(object) :
           self.LOGNAME = env.get( "LOGNAME", None)
           self.OLDPWD = env.get( "OLDPWD", None)
           self.PATH = env.get( "PATH", None)
+          self.PATH = self.PATH.split(':')
           self.PWD = env.get( "PWD", os.getcwd())
           self.USER = env.get( "USER", None)
           self.USERNAME = env.get( "USERNAME", None)

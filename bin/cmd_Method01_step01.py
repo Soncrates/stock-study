@@ -3,8 +3,8 @@
 import logging
 import pandas as pd
 from libCommon import INI, combinations, log_exception
-from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libSharpe import BIN, HELPER as MONTECARLO
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE, BIN
+from libSharpe import HELPER as MONTECARLO
 from libNasdaq import getByNasdaq
 from libDebug import trace
 

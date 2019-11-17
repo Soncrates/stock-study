@@ -25,97 +25,26 @@ Within the risk-reward framework of portfolio theory, higher risk investments sh
 As a result, a high Sharpe ratio indicates superior risk-adjusted performance.
 
 '''
-class RISK :
-      @classmethod
-      def shave(cls, data, size) :
-          ret = data.sort_values(['risk']).head(size)
-          logging.info(ret.sort_values(['risk']).head(5))
-          return ret
-      @classmethod
-      def trim(cls, data) :
-          desc = data.describe()
-          risk =  desc['risk']['75%']
-          ret = data[data['risk'] <= risk]
-          logging.info(ret.sort_values(['risk']).head(5))
-          return ret
-      @classmethod
-      def cut(cls, data) :
-          desc = data.describe()
-          risk =  desc['risk']['25%']
-          ret = data[data['risk'] <= risk]
-          logging.info(ret.sort_values(['risk']).head(5))
-          return ret
 class SHARPE :
+      column = 'sharpe'
       @classmethod
       def shave(cls, data, size) :
-          ret = data.sort_values(['sharpe']).tail(size)
-          logging.info(ret.sort_values(['sharpe']).head(5))
+          ret = data.sort_values([cls.column]).tail(size)
+          logging.info(ret.sort_values([cls.column]).head(5))
           return ret
       @classmethod
       def trim(cls, data) :
           desc = data.describe()
-          sharpe =  desc['sharpe']['25%']
-          ret = data[data['sharpe'] >= sharpe]
-          logging.info(ret.sort_values(['sharpe']).tail(5))
+          sharpe =  desc[cls.column]['25%']
+          ret = data[data[cls.column] >= sharpe]
+          logging.info(ret.sort_values([cls.column]).tail(5))
           return ret
       @classmethod
       def cut(cls, data) :
           desc = data.describe()
-          sharpe =  desc['sharpe']['75%']
-          ret = data[data['sharpe'] >= sharpe]
-          logging.info(ret.sort_values(['sharpe']).tail(5))
-          return ret
-class RETURNS :
-      @classmethod
-      def shave(cls, data, size) :
-          ret = data.sort_values(['returns']).tail(size)
-          logging.info(ret.sort_values(['returns']).tail(5))
-          return ret
-      @classmethod
-      def trim(cls, data) :
-          desc = data.describe()
-          returns =  desc['returns']['25%']
-          ret = data[data['returns'] >= returns]
-          logging.info(ret.sort_values(['returns']).tail(5))
-          return ret
-      @classmethod
-      def cut(cls, data) :
-          desc = data.describe()
-          returns =  desc['returns']['75%']
-          ret = data[data['returns'] >= returns]
-          logging.info(ret.sort_values(['returns']).tail(5))
-          return ret
-class BIN :
-      @classmethod
-      def descending(cls, data,target) :
-          desc = data.describe()
-          logging.debug(desc)
-          _bin1 =  desc[target]['75%']
-          _bin2 =  desc[target]['50%']
-          _bin3 =  desc[target]['25%']
-          logging.debug((_bin1,_bin2,_bin3))
-          bin1 = data[data[target] > _bin1]
-          bin2 = data[(data[target] <= _bin1) & (data[target] > _bin2)]
-          bin3 = data[(data[target] <= _bin2) & (data[target] > _bin3)]
-          bin4 = data[data[target] <= _bin3]
-          ret = [ bin1, bin2, bin3, bin4 ]
-          ret = filter(lambda x : len(x) > 0, ret)
-          return ret
-
-      @classmethod
-      def ascending(cls, data,target) :
-          desc = data.describe()
-          logging.debug(desc)
-          _bin1 =  desc[target]['75%']
-          _bin2 =  desc[target]['50%']
-          _bin3 =  desc[target]['25%']
-          logging.debug((_bin1,_bin2,_bin3))
-          bin4 = data[data[target] < _bin3]
-          bin3 = data[(data[target] >= _bin3) & (data[target] < _bin2)] 
-          bin2 = data[(data[target] >= _bin2) & (data[target] < _bin1)] 
-          bin1 = data[data[target] >= _bin1]
-          ret = [ bin4, bin3, bin2, bin1 ]
-          ret = filter(lambda x : len(x) > 0, ret)
+          sharpe =  desc[cls.column]['75%']
+          ret = data[data[cls.column] >= sharpe]
+          logging.info(ret.sort_values([cls.column]).tail(5))
           return ret
 
 class HELPER :
