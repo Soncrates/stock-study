@@ -24,8 +24,8 @@ Q1234 = AEE,AMZN,CMS,D,DHI,DHR,DOV,DTE,ED,EQR,HD,LHX,MA,MMC,MO,NKE,NOC,PYPL,QLD,
       
 '''
 class CompareStock(object) :
-  @staticmethod
-  def init(**kwargs) :
+  @classmethod
+  def init(cls, **kwargs) :
       target = 'baseline_name'
       baseline_name = kwargs.get(target,'SPY')
       target = 'baseline_data'
@@ -65,10 +65,10 @@ class CompareStock(object) :
       return self.contender, data
 
 class StockTransform(object) :
-      @staticmethod
-      def by_quarter(data):
+      @classmethod
+      def by_quarter(cls, data):
           year_to_year = {}
-          for month, year, dataSeries in StockTransform.group_by_month(data) :
+          for month, year, dataSeries in cls.group_by_month(data) :
               quarter = 1
               if month in [4,5,6] : quarter = 2
               elif month in [7,8,9] : quarter = 3
@@ -88,11 +88,11 @@ class StockTransform(object) :
                  if init == len(year_to_year[quarter]) :
                     raise ValueError("dataframe did not append")
           return year_to_year
-      @staticmethod
-      def by_month(name, data):
+      @classmethod
+      def by_month(cls, name, data):
           year_to_year = {}
           many_years = {}
-          for month, year, dataSeries in StockTransform.group_by_month(data) :
+          for month, year, dataSeries in cls.group_by_month(data) :
               percent = dataSeries.pct_change()
               percent = percent.replace([np.inf, -np.inf], np.nan)
               percent = percent.dropna(how='all')
@@ -107,24 +107,24 @@ class StockTransform(object) :
                  if init == len(year_to_year[month]) :
                     raise ValueError("dataframe did not append")
               label = '{},{}-{}'.format(month, year, name)
-              many_years[label] = StockTransform.many_years(month, year, percent)
+              many_years[label] = cls.many_years(month, year, percent)
           return year_to_year, many_years 
-      @staticmethod
-      def group_by_month(data):
+      @classmethod
+      def group_by_month(cls, data):
           ret = df.groupby(data,by=[data.index.month,data.index.year])
           for key in ret.groups :
               month, year = key[0],key[1]        
               yield month, year, ret.get_group(key)
-      @staticmethod
-      def many_years(month, year, data):
-          lastday = StockTransform.getLastDay(month, year)
+      @classmethod
+      def many_years(cls, month, year, data):
+          lastday = cls.getLastDay(month, year)
           days = range(1,lastday+1)
           ret =  dict.fromkeys(days,None)
           for x in data.index :
               ret[x.day]=data[data.index.day==x.day]
           return ret
-      @staticmethod
-      def getLastDay(month,year) :
+      @classmethod
+      def getLastDay(cls, month,year) :
           if month != 12 :
              month += 1
           else :
@@ -134,8 +134,8 @@ class StockTransform(object) :
           return ret.day
 
 class Monthly_Transform(object) :
-      @staticmethod
-      def init(**kwargs) :
+      @classmethod
+      def init(cls, **kwargs) :
           target = 'spy_name'
           baseline_name = kwargs.get(target, "")
           target = 'contender_name'
@@ -144,7 +144,7 @@ class Monthly_Transform(object) :
           baseline = kwargs.get(target, {})
           target = 'contender'
           contender = kwargs.get(target, {})
-          ret = Monthly_Transform(baseline_name, baseline, contender_name, contender)
+          ret = cls(baseline_name, baseline, contender_name, contender)
           return ret
       def __init__(self, baseline_name, baseline, contender_name, contender) :
           self.baseline_name = baseline_name
@@ -161,22 +161,22 @@ class Monthly_Transform(object) :
             
           #month_list=[11]
           #percent = percent.iloc[percent.index.month==month_list]
-          #a,b = StockTransform.by_month(self.baseline_name,self.baseline)
-          c,d = StockTransform.by_month(self.contender_name,self.contender)
+          #a,b = cls.by_month(self.baseline_name,self.baseline)
+          c,d = cls.by_month(self.contender_name,self.contender)
           return c,d
       def gen_normalize_by_month(self, data) :
-          for month, year, dataSeries in StockTransform.group_by_month(data) :
+          for month, year, dataSeries in cls.group_by_month(data) :
               ret = (dataSeries + 1).cumprod()
               ret['normalized']=(ret[self.contender]-ret[self.baseline]) + 1
               label = '{},{}-{}'.format(month, year,self.contender)
-              data_2 = StockTransform.many_years(month, year,ret['normalized'])
+              data_2 = cls.many_years(month, year,ret['normalized'])
               yield month, year, dataSeries, label, data_2 
 
 class Partition(object) :
-      @staticmethod
-      def by_quarter(test):
+      @classmethod
+      def by_quarter(cls, test):
           ret = {}
-          for month, year, dataSeries in Partition.group_by_month(test) :
+          for month, year, dataSeries in cls.group_by_month(test) :
               if len(dataSeries) == 0 : continue
               dataSeries = Normalize._t01(dataSeries)
               if len(dataSeries) == 0 : continue
@@ -192,41 +192,41 @@ class Partition(object) :
                  if init == len(ret[quarter]) :
                     raise ValueError("dataframe did not append")
           return ret
-      @staticmethod
-      def group_by_month(data):
+      @classmethod
+      def group_by_month(cls, data):
           ret = df.groupby(data,by=[data.index.month,data.index.year])
           for key in ret.groups :
               month, year = key[0],key[1]
               yield month, year, ret.get_group(key)
-      @staticmethod
-      def sample_by_quarter(data):
+      @classmethod
+      def sample_by_quarter(cls, data):
           return data.resample('4M')
 
 class FindStable(object) :
-      @staticmethod
-      def byVolume(test, threshold=1.5) :
+      @classmethod
+      def byVolume(cls, test, threshold=1.5) :
           target = 'Volume'
           ret = test[target].std()
           return ret < threshold
-      @staticmethod
-      def byAdjClose(test, threshold=1.5) :
+      @classmethod
+      def byAdjClose(cls, test, threshold=1.5) :
           target = 'Adj Close'
           ret = test[target].std()
           return ret < threshold
 
 class Normalize(object) :
-      @staticmethod
-      def t01(baseline,test) :
+      @classmethod
+      def t01(cls, baseline,test) :
           baseline = baseline.reindex(test.index)
           baseline = Normalize._t01(baseline)
-          test = Normalize._t01(test)
+          test = cls._t01(test)
           ret = test / baseline
           ret = ret.replace([np.inf, -np.inf], np.nan)
           ret = ret.fillna(0)
           ret = ret.dropna(how='all')
           return ret
-      @staticmethod
-      def _t01(df) :
+      @classmethod
+      def _t01(cls, df) :
           ret = df.pct_change()
           # clean up data
           ret = ret.replace([np.inf, -np.inf], np.nan)

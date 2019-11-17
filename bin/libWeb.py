@@ -24,28 +24,28 @@ Web Scraping Utils
 https://financialmodelingprep.com/developer/docs/
 '''
 class WEB_UTIL(object) :
-      @staticmethod
-      def invoke_url(url,headers=None, raw=False) :
+      @classmethod
+      def invoke_url(cls, url,headers=None, raw=False) :
           ret = None
           try :
-              ret = WEB_UTIL._invoke_url(url,headers,raw)
+              ret = cls._invoke_url(url,headers,raw)
           except Exception as e : logging.error(e, exc_info=True)
           return ret
-      @staticmethod
-      def json(url,headers=None) :
+      @classmethod
+      def json(cls, url,headers=None) :
           ret = None
           try :
-              ret = WEB_UTIL._base_invoke(url,headers)
+              ret = cls._base_invoke(url,headers)
           except Exception as e : logging.error(e, exc_info=True)
           return ret.json()
-      @staticmethod
-      def _invoke_url(url,headers=None, raw=False) :
-        ret = WEB_UTIL._base_invoke(url,headers)
+      @classmethod
+      def _invoke_url(cls, url,headers=None, raw=False) :
+        ret = cls._base_invoke(url,headers)
         if not raw : ret = ret.text
         else : ret = ret.content
         return ret
-      @staticmethod
-      def _base_invoke(url,headers=None) :
+      @classmethod
+      def _base_invoke(cls, url,headers=None) :
         if headers is not None :
           ret = requests.get(url, headers=headers)        
         else :
@@ -54,8 +54,8 @@ class WEB_UTIL(object) :
            msg = "{} {}".format(ret.status_code,url)
            logging.error(msg)
         return ret
-      @staticmethod
-      def format_as_soup(url_response, raw=False) :
+      @classmethod
+      def format_as_soup(cls, url_response, raw=False) :
         ret = BeautifulSoup(url_response,'lxml')
         if not raw : 
           for script in ret(["script", "style"]):
@@ -91,8 +91,8 @@ Stocks and Funds on the nasdaq have the same api but very different content
 class YAHOO_PROFILE_PARSE() :
       def __call__(self, soup) :
           return YAHOO_PROFILE_PARSE.parse(soup)
-      @staticmethod
-      def parse(soup) :
+      @classmethod
+      def parse(cls, soup) :
           if soup is None : return {}
           if soup.body is None : return {}
           span_list = soup.body.findAll('span')

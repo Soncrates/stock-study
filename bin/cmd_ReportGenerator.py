@@ -29,8 +29,8 @@ _bullet = PS(name = 'Bullet3', fontSize = 8, leading = 6, alignment=TA_LEFT)
 _bulletID = PS(name = 'Bullet4', fontSize = 7, leading = 6, alignment=TA_LEFT, fontName='Helvetica-Bold')
 
 class PREP :
-    @staticmethod
-    def prep(*ini_list) :
+    @classmethod
+    def prep(cls, *ini_list) :
         ret = {}
         for path, section, key, value_list in INI.loadList(*ini_list) :
             if section not in ret :
@@ -38,8 +38,8 @@ class PREP :
             ret[section][key] = value_list
         return ret
 
-    @staticmethod
-    def _modifyDescription(arg_list) :
+    @classmethod
+    def _modifyDescription(cls, arg_list) :
         if len(arg_list) == 0 :
              return arg_list
         for i, value in enumerate(arg_list) : 
@@ -138,8 +138,8 @@ class MAIN_DOC :
           ('VALIGN',(0,0), (-1,-1), 'TOP'),
           ]
     ts = TableStyle(local_ts)
-    @staticmethod
-    def addTable(name_list, image_list,diverse_list, returns_list ) :
+    @classmethod
+    def addTable(cls, name_list, image_list,diverse_list, returns_list ) :
         caption_list = map(lambda caption : Paragraph(caption, style_caption), name_list)
         logging.debug( diverse_list )
         ret = [ image_list , caption_list, [diverse_list, returns_list]]
@@ -168,10 +168,10 @@ class RETURNS :
     defaultValues = ['-']*len(tableHeaders)
     defaultRow = dict(zip(tableHeaders,defaultValues))
 
-    @staticmethod
-    def add(arg_list) :
+    @classmethod
+    def add(cls, arg_list) :
         row_list = []
-        for value in RETURNS._add(arg_list) :
+        for value in cls._add(arg_list) :
             row_list.append(value)
         #height = [0.1*inch] * len(row_list)
         widths = [0.5*inch] * len(row_list[0])
@@ -182,10 +182,10 @@ class RETURNS :
         #print widths, len(row_list)
         ret = Table(data=row_list,colWidths=widths)
         #debugging tables
-        ret.setStyle(RETURNS.ts)
+        ret.setStyle(cls.ts)
         return [ret]
-    @staticmethod
-    def _add(arg_list) :
+    @classmethod
+    def _add(cls, arg_list) :
         if not isinstance(arg_list,list) :
            return
         if len(arg_list) < 2 :
@@ -195,40 +195,38 @@ class RETURNS :
         detail  = arg_list[1]
         key_list = sorted(general.keys())
 
-        header_row = ['Name'] + RETURNS.tableHeaders
+        header_row = ['Name'] + cls.tableHeaders
         header_row = map(lambda t : Paragraph(t,_bullet),header_row)
         yield header_row
 
         for key in key_list :
             header = key.replace('_','<br/>')
-            row = deepcopy(RETURNS.defaultRow)
+            row = deepcopy(cls.defaultRow)
             row.update(general[key])
-            row = RETURNS._transformRow(row)
+            row = cls._transformRow(row)
             summary_row = [header] + row
             summary_row = map( lambda cell : Paragraph(cell, _bulletID), summary_row)
             yield summary_row
 
             for stock in detail[key].keys() :
-                row = deepcopy(RETURNS.defaultRow)
+                row = deepcopy(cls.defaultRow)
                 row.update(detail[key][stock])
-                row = RETURNS._transformRow(row)
+                row = cls._transformRow(row)
                 detail_row = [stock] + row
                 detail_row = map(lambda t : Paragraph(t, _bullet), detail_row)
                 yield detail_row
 
-    @staticmethod
-    def _transformRow(row) :
-        key_list = filter(lambda key : key in row, RETURNS.tableHeaders)
+    @classmethod
+    def _transformRow(cls, row) :
+        key_list = filter(lambda key : key in row, cls.tableHeaders)
         data_row = map(lambda x : row[x], key_list)
-        data_row = map(lambda cell : RETURNS._transformCell(cell), data_row)
+        data_row = map(lambda cell : cls._transformCell(cell), data_row)
         return data_row
 
-    @staticmethod
-    def _transformCell(cell) :
+    @classmethod
+    def _transformCell(cls, cell) :
         if isinstance(cell, str) : return cell
         return str(round(cell,2))
-
-
 
 class DIVERSE :
     #debugging tables
@@ -240,14 +238,14 @@ class DIVERSE :
           ('BOTTOMPADDING', (0,0), (-1,-1), 0),
           ('VALIGN',(0,0), (-1,-1), 'TOP'),
           ]
-    @staticmethod
-    def add(arg_list, nasdaq_enrichment) :
+    @classmethod
+    def add(cls, arg_list, nasdaq_enrichment) :
         ret = []
-        for description in DIVERSE._add(arg_list,nasdaq_enrichment) :
+        for description in cls._add(arg_list,nasdaq_enrichment) :
             ret.append(description)
         return ret
-    @staticmethod
-    def _add(arg_list, nasdaq_enrichment) :
+    @classmethod
+    def _add(cls, arg_list, nasdaq_enrichment) :
         if not isinstance(arg_list,list) :
            return
         for i, value in enumerate(arg_list) :
@@ -261,11 +259,11 @@ class DIVERSE :
                    header = header.replace('_', ' ')
                    header = Paragraph(header, h2)
                    yield header
-                   for content in DIVERSE._addContent(content_list, nasdaq_enrichment) :
+                   for content in cls._addContent(content_list, nasdaq_enrichment) :
                        yield content
 
-    @staticmethod
-    def _addContent(arg_list, nasdaq_enrichment) :
+    @classmethod
+    def _addContent(cls, arg_list, nasdaq_enrichment) :
         if not isinstance(arg_list,list) :
            return
         arg_list = sorted(arg_list, key = lambda i: i['weight']) 
@@ -300,7 +298,7 @@ class DIVERSE :
         widths[0] = 0.7*inch
         logging.info(widths)
         ret = Table(data=row_list,colWidths=widths)
-        ts = TableStyle(DIVERSE.ts)
+        ts = TableStyle(cls.ts)
         ret.setStyle(ts)
         logging.debug(ret)
         yield ret

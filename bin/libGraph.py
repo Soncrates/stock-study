@@ -8,8 +8,8 @@ class CONSTANTS :
       LEGEND = 'legend_'
       RETURNS = '_returns_'
 class LINE :
-      @staticmethod
-      def plot(lines,**kwargs) :
+      @classmethod
+      def plot(cls, lines,**kwargs) :
           target = 'style'
           style = kwargs.get(target,'o')
           target = 'xlabel'
@@ -18,13 +18,13 @@ class LINE :
           ylabel = kwargs.get(target,None)
           target = 'title'
           title = kwargs.get(target,None)
-          LINE._plot(lines)
+          cls._plot(lines)
           if xlabel is not None : plt.xlabel(xlabel)
           if ylabel is not None : plt.ylabel(ylabel)
           if title is not None : plt.title(title)
-      @staticmethod
-      def _plot(lines) :
-          for data, label in LINE._xy(lines) :
+      @classmethod
+      def _plot(cls, lines) :
+          for data, label in cls._xy(lines) :
               if 'portfolio' in label :
                  label = label.replace('_returns_','_')
               if 'legend_' in label :
@@ -34,13 +34,13 @@ class LINE :
               logging.debug(data.tail(3))
               logging.info(label)
               data.plot(label=label)
-      @staticmethod
-      def _xy(data) :
+      @classmethod
+      def _xy(cls, data) :
           for key in sorted(data.keys()) :
               yield data[key], key
 class BAR :
-      @staticmethod
-      def plot(bar, **kwargs) :
+      @classmethod
+      def plot(cls, bar, **kwargs) :
           target = 'style'
           style = kwargs.get(target,'o')
           target = 'xlabel'
@@ -54,17 +54,17 @@ class BAR :
           target = 'width'
           width = kwargs.get(target,height*CONSTANTS.GOLDEN_RATIO)
           plt.figure(figsize=(width, height))
-          BAR._plot(bar)
+          cls._plot(bar)
           if xlabel is not None : plt.xlabel(xlabel)
           if ylabel is not None : plt.ylabel(ylabel)
           if title is not None : plt.title(title)
-      @staticmethod
-      def _plot(bar) :
-          label, data, pos = BAR._xy(bar)
+      @classmethod
+      def _plot(cls, bar) :
+          label, data, pos = cls._xy(bar)
           plt.barh(pos, data, align='center', alpha=0.5)
           plt.yticks(pos, label)
-      @staticmethod
-      def _xy(data) :
+      @classmethod
+      def _xy(cls, data) :
           label_list = []
           data_list = []
           if len(data) == 0 :
@@ -80,10 +80,10 @@ class BAR :
               data_list.append(key)
           y_pos = np.arange(len(label_list))
           label_list = filter(lambda label : label is not None, label_list)
-          label_list = map(lambda label : BAR._label(label), label_list)
+          label_list = map(lambda label : cls._label(label), label_list)
           return label_list, data_list, y_pos
-      @staticmethod
-      def _label(ret) :
+      @classmethod
+      def _label(cls, ret) :
           from textwrap import wrap
           if '_' not in ret : return ret
           ret =  ret.replace('_',' ')
@@ -92,8 +92,8 @@ class BAR :
 
 class POINT :
 
-      @staticmethod
-      def plot(points, **kwargs) :
+      @classmethod
+      def plot(cls, points, **kwargs) :
           logging.debug(points)
           logging.info(type(points))
           target = 'x'
@@ -108,14 +108,14 @@ class POINT :
           ylabel = kwargs.get(target,None)
           target = 'title'
           title = kwargs.get(target,None)
-          POINT._plot(points, x_column_name, y_column_name, style)
+          cls._plot(points, x_column_name, y_column_name, style)
           if xlabel is not None : plt.xlabel(xlabel)
           if title is not None : plt.title(title)
           if ylabel is not None : plt.ylabel(ylabel)
 
-      @staticmethod
-      def _plot(points, column_x, column_y, style) :
-          for x, y, label in POINT._xy(points,column_x,column_y) :
+      @classmethod
+      def _plot(cls, points, column_x, column_y, style) :
+          for x, y, label in cls._xy(points,column_x,column_y) :
               #plt.scatter(x,y)
               #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
               if 'portfolio' in label or 'legend_' in label :
@@ -126,8 +126,8 @@ class POINT :
                  continue
               plt.plot(x,y,style)
               plt.annotate(label, (x,y))
-      @staticmethod
-      def _xy(data,x,y) :
+      @classmethod
+      def _xy(cls, data,x,y) :
           for key in sorted(data.keys()) :
               pt = data[key]
               yield pt[x], pt[y], key

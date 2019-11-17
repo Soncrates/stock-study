@@ -91,14 +91,14 @@ class STOCK_TIMESERIES :
              return web.DataReader(stock, service, self.start, self.end) 
           except Exception as e : logging.error(e, exc_info=True)
 
-      @staticmethod
-      def save(filename, stock, data) :
+      @classmethod
+      def save(cls, filename, stock, data) :
           if data is None : return
           data['Stock'] = stock
           data.to_pickle(filename)
 
-      @staticmethod
-      def load(filename) :
+      @classmethod
+      def load(cls, filename) :
           data = pd.read_pickle(filename)
           target = 'Stock'
           if target in data :
@@ -108,8 +108,8 @@ class STOCK_TIMESERIES :
           name = filename.split("/")[-1]
           name = name.split(".")[0]
           return name, data
-      @staticmethod
-      def read(file_list, stock_list) :
+      @classmethod
+      def read(cls, file_list, stock_list) :
           if stock_list is None or len(stock_list) == 0 :
              for path in file_list :
                  name, ret = STOCK_TIMESERIES.load(path)
@@ -125,8 +125,8 @@ class STOCK_TIMESERIES :
                  del ret
                  continue
               yield name, ret
-      @staticmethod
-      def read_all(file_list, stock_list) :
+      @classmethod
+      def read_all(cls, file_list, stock_list) :
           name_list = []
           data = None
           for stock_name, stock_data in STOCK_TIMESERIES.read(file_list, stock_list) :
@@ -140,8 +140,8 @@ class STOCK_TIMESERIES :
              except Exception as e :  logging.error(e, exc_info=True)
              finally : pass
           return name_list, data
-      @staticmethod
-      def flatten(target,d) :
+      @classmethod
+      def flatten(cls, target,d) :
           d = d.iloc[:, d.columns.get_level_values(1)==target]
           d.columns = d.columns.droplevel(level=1)
           return d

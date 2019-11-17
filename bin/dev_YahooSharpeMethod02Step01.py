@@ -144,10 +144,10 @@ def _calculateSharpe(file_list, value_list) :
     return ret
 
 class METHOD_1 :
-      @staticmethod
-      def process(ret,size) :
-          high = METHOD_1._filterSharpe(ret,size)
-          safe = METHOD_1._filterSafe(ret,size)
+      @classmethod
+      def process(cls,ret,size) :
+          high = cls._filterSharpe(ret,size)
+          safe = cls._filterSafe(ret,size)
           high_stock = set(high.T.columns)
           safe_stock = set(safe.T.columns)
           balanced_stock = safe_stock.intersection(high_stock)
@@ -157,15 +157,15 @@ class METHOD_1 :
           high = high.T.drop(columns=list(balanced_stock)).T
           return high, balanced, safe
 
-      @staticmethod
-      def _filterSharpe(ret,size) :
+      @classmethod
+      def _filterSharpe(cls,ret,size) :
           while len(ret) > size : 
                 temp = SHARPE.cut(ret)
                 if len(temp) == 0 : break
                 ret = temp
           return ret
-      @staticmethod
-      def _filterSafe(ret,size) :
+      @classmethod
+      def _filterSafe(cls,ret,size) :
           while len(ret) > size : 
                 temp = RISK.cut(ret)
                 if len(temp) == 0 : break
@@ -173,8 +173,8 @@ class METHOD_1 :
           return ret
 
 class METHOD_2 :
-      @staticmethod
-      def process(ret,size) :
+      @classmethod
+      def process(cls,ret,size) :
           _len = len(ret)
           logging.debug(_len)
           _bracket = int(_len*0.1)

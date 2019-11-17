@@ -51,21 +51,10 @@ class trace(WRAPPER):
     msg_exit = "Exiting {}"
     msg_time = "Execution speed for {} : {}"
     msg_doc = "Docs for {} : {}"
-
-    @classmethod
-    def init(cls, *largs, **kwargs) :
-        name = largs[0] 
-        msg_enter = cls.msg_enter.format(name)
-        msg_exit = cls.msg_exit.format(name)
-        msg_time = cls.msg_time.format(name, "{}")
-        msg_doc = cls.msg_doc.format(name, "{}")
-        return msg_enter, msg_exit, msg_time, msg_doc
-
     def __init__(self, f):
         self.__name__ = 'trace'
         WRAPPER.__init__(self,f)
         self.__doc__ = inspect.getdoc(f)
-
     def __call__(self, *largs, **kvargs):
         _locals = locals()
         _locals = trace._trim(**_locals)
@@ -84,9 +73,16 @@ class trace(WRAPPER):
         logging.info(_msg)
         logging.debug(_msg_exit)
         return ret
-
-    @staticmethod
-    def _trim(**ret) :
+    @classmethod
+    def init(cls, *largs, **kwargs) :
+        name = largs[0] 
+        msg_enter = cls.msg_enter.format(name)
+        msg_exit = cls.msg_exit.format(name)
+        msg_time = cls.msg_time.format(name, "{}")
+        msg_doc = cls.msg_doc.format(name, "{}")
+        return msg_enter, msg_exit, msg_time, msg_doc
+    @classmethod
+    def _trim(cls, **ret) :
         target = "self"
         ret.pop(target,None)
         return ret

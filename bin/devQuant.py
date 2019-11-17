@@ -31,15 +31,15 @@ def loadData(*file_list) :
 class DateFinder(object): 
     key_list = ["Years 10", "Years 5", "Year 1", "Months 6", "Months 3", "now"]
     value_list = [365*10, 365*5, 365, 180, 90, 30, 0]
-    @staticmethod
-    def getDates(**kwargs) :
+    @classmethod
+    def getDates(cls, **kwargs) :
         target = 'now'
         end = kwargs.get(target, datetime.datetime.utcnow())
-        value_list = map(lambda d : end - datetime.timedelta(days=d), DateFinder.value_list)
-        ret = dict(zip(DateFinder.key_list,value_list))
+        value_list = map(lambda d : end - datetime.timedelta(days=d), cls.value_list)
+        ret = dict(zip(cls.key_list,value_list))
         return ret
-    @staticmethod
-    def getRange(arg) :
+    @classmethod
+    def getRange(cls, arg) :
         day_list=range(arg.day-2,arg.day+2)
         day_list = filter(lambda x : x>0 and x<31, day_list)
         start = datetime.date(year=arg.year,month=arg.month,day=day_list[0])
@@ -47,44 +47,44 @@ class DateFinder(object):
         return start, end
 
 class DataFrameDateTime(object) :
-    @staticmethod
-    def _get(df, arg) :
+    @classmethod
+    def _get(cls, df, arg) :
         ret = df[df.index.year == arg.year]
         ret = ret[ret.index.month == arg.month]
         ret = ret.head(n=1)
         return ret
 
-    @staticmethod
-    def get(df, date_arg) :
+    @classmethod
+    def get(cls, df, date_arg) :
         start, end = DateFinder.getRange(date_arg)
         ret = df.loc[start:end]
         ret = ret.tail(n=1)
         if len(ret) == 0 :
-           ret = DataFrameDateTime._get(df, date_arg)
+           ret = cls._get(df, date_arg)
         return ret
 
 class DataFrameDateTime(object) :
-    @staticmethod
-    def _get(df, arg) :
+    @classmethod
+    def _get(cls, df, arg) :
         ret = df[df.index.year == arg.year]
         ret = ret[ret.index.month == arg.month]
         ret = ret.head(n=1)
         return ret
 
-    @staticmethod
-    def get(df, date_arg) :
+    @classmethod
+    def get(cls, df, date_arg) :
         start, end = DateFinder.getRange(date_arg)
         ret = df.loc[start:]
         #ret = ret.pct_change()
         #ret = (ret +1).cumprod()
         #print ret.head(n=1)
         if len(ret) == 0 :
-           ret = DataFrameDateTime._get(df, date_arg)
+           ret = cls._get(df, date_arg)
         return ret
 
 class DataFrame(object) :
-    @staticmethod
-    def getLastDateTime(data) :
+    @classmethod
+    def getLastDateTime(cls, data) :
         ret = data.tail(n=1)
         ret = ret.index
         ret = pd.to_datetime(ret)
@@ -92,8 +92,8 @@ class DataFrame(object) :
         if isinstance(ret,np.ndarray) :
            ret = ret[0] 
         return ret
-    @staticmethod
-    def getFirstDateTime(data) :
+    @classmethod
+    def getFirstDateTime(cls, data) :
         ret = data.head(n=1)
         ret = ret.index
         ret = pd.to_datetime(ret)
@@ -102,21 +102,21 @@ class DataFrame(object) :
            ret = ret[0] 
         return ret
 class xxx(object) :
-    @staticmethod
-    def get(df) :
+    @classmethod
+    def get(cls, df) :
         ret = df.apply(lambda x: x / x[0])
         ret = ret - 1
         return ret
 
 class Signals :
-    @staticmethod
-    def get(df) :
+    @classmethod
+    def get(cls, df) :
         short_window = 40
         long_window = 100
-        return Signals._get(df,short_window,long_window)
+        return cls._get(df,short_window,long_window)
 
-    @staticmethod
-    def _get(df,short_window,long_window) :
+    @classmethod
+    def _get(cls, df,short_window,long_window) :
         _short = 'short_mavg'
         _long = 'long_mavg'
         target = 'Close'
@@ -140,13 +140,13 @@ class Signals :
         return ret
 
 class Portfolio :
-    @staticmethod
-    def get(name, df, signals) :
+    @classmethod
+    def get(cls, name, df, signals) :
         # Set the initial capital
         initial_capital= float(100000.0)
         shares = 100
-        positions = Portfolio.init(name, shares, signals)
-        portfolio = Portfolio._get(df,positions,initial_capital)
+        positions = cls.init(name, shares, signals)
+        portfolio = cls._get(df,positions,initial_capital)
 
         # Isolate the returns of your strategy
         returns = portfolio['returns']
@@ -155,14 +155,14 @@ class Portfolio :
         sharpe_ratio = np.sqrt(252) * (returns.mean() / returns.std())
         return portfolio, returns, sharpe_ratio
 
-    @staticmethod
-    def init(name, shares, signals) :
+    @classmethod
+    def init(cls, name, shares, signals) :
         ret = pd.DataFrame(index=signals.index).fillna(0.0)
         ret[name] = shares*signals['signal']
         return ret
 
-    @staticmethod
-    def _get(df,positions,initial_capital) :
+    @classmethod
+    def _get(cls, df,positions,initial_capital) :
         target = 'Adj Close'
 
         # Initialize the portfolio with value owned
@@ -177,8 +177,8 @@ class Portfolio :
         return ret
 
 class CompoundAnnualGrowthRate :
-    @staticmethod
-    def get(df) :
+    @classmethod
+    def get(cls, df) :
         if len(df) < 2 :
             return 0
         target = 'Adj Close'
@@ -194,8 +194,8 @@ class CompoundAnnualGrowthRate :
         return ret
 
 class ReturnDeviation(object) :
-    @staticmethod
-    def get(df) :
+    @classmethod
+    def get(cls, df) :
         target = 'Adj Close'
         ret = df[target]
         ret = ret / ret.shift(1) - 1
