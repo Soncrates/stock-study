@@ -2,11 +2,10 @@
 
 import logging
 import pandas as pd
-from libSharpe import RISK, SHARPE, RETURNS, BIN
+from libSharpe import RISK, SHARPE, RETURNS, BIN, HELPER as MONTECARLO
 from libCommon import INI, combinations
-from libFinance import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libNasdaq import getByNasdaq
-from libMonteCarlo import MonteCarlo
 
 '''
 WARNING : in development
@@ -131,11 +130,13 @@ def findTier(ret,size) :
     return high, balanced, safe
 
 def _calculateSharpe(file_list, value_list) :
-    annual = MonteCarlo.YEAR()
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
         logging.debug(name)
-        data = annual.findSharpe(data['Adj Close'], risk_free_rate=0) 
+        data.sort_index(inplace=True)
+        data = data['Adj Close']
+        data = MONTECARLO.find(data, risk_free_rate=0.02, period=FINANCE.YEAR, span=0)
+
         #filter stocks that have less than a year
         sharpe = data.get('sharpe', 0)
         if sharpe == 0 : continue

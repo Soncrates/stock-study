@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from libCommon import INI, STOCK_TIMESERIES
+from libCommon import INI
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+from libSharpe import HELPER as MONTECARLO
 from libGraph import LINE, BAR, POINT, save
-from libMonteCarlo import MonteCarlo
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
@@ -54,9 +55,9 @@ def main(file_list, portfolo_ini, ini_list) :
 def prototype(file_list,stock_list) :
     name_list, _ret = readData(file_list,stock_list)
     ret = _prototype(_ret)
-    annual = MonteCarlo.YEAR()
     value_list = map(lambda x : _ret[x], name_list)
-    value_list = map(lambda x : annual.findSharpe(x), value_list)
+    value_list = map(lambda data : data.sort_index(inplace=True), value_list)
+    value_list = map(lambda data : MONTECARLO.find(data, risk_free_rate=0.02, period=FINANCE.YEAR, span=0), value_list)
     sharpe = dict(zip(name_list,value_list))
     return name_list, ret, sharpe
 

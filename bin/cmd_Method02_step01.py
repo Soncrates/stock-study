@@ -6,7 +6,7 @@ import pandas as pd
 
 from libCommon import INI, log_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libSharpe import HELPER
+from libSharpe import HELPER as MONTECARLO
 
 from libDebug import trace
 
@@ -40,7 +40,7 @@ def prep(*ini_list) :
 def load(file_list, value_list) :
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        data = HELPER.find(data['Adj Close'], period=FINANCE.YEAR)
+        data = MONTECARLO.find(data['Adj Close'], period=FINANCE.YEAR)
         #filter stocks that have less than a year
         sharpe = data.get('sharpe',0)
         if sharpe == 0 : continue

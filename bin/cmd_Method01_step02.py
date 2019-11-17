@@ -3,8 +3,8 @@
 import logging
 import pandas as pd
 from libCommon import INI, combinations, log_exception
-from libFinance import STOCK_TIMESERIES
-from libMonteCarlo import MonteCarlo
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+from libSharpe import PORTFOLIO
 
 from libDebug import trace
 '''
@@ -28,39 +28,39 @@ def prep(*ini_list) :
 def main(file_list, ini_list) :
     Sector, Industry, Category = prep(*ini_list)
 
-    ret_sect, dev_sect, ret_sect_list, dev_sect_list = _bin_by_MonteCarlo(file_list, Sector)
-    ret_ind, dev_ind, ret_ind_list, dev_int_list = _bin_by_MonteCarlo(file_list, Industry)
-    ret_cat, dev_cat, ret_cat_list, dev_cat_list = _bin_by_MonteCarlo(file_list, Category)
+    ret_sect, dev_sect, ret_sect_list, dev_sect_list = lambdaBin(file_list, Sector)
+    ret_ind, dev_ind, ret_ind_list, dev_int_list = lambdaBin(file_list, Industry)
+    ret_cat, dev_cat, ret_cat_list, dev_cat_list = lambdaBin(file_list, Category)
     
     risky_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
     balanced_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
     safe_data = { 'Sector' : {}, 'Industry' : {}, 'Fund' : {} }
     target = 'Sector'
-    for key, risky, balanced, safe in  sortMonteCarlo(ret_sect, dev_sect) :
+    for key, risky, balanced, safe in  lambdaSort(ret_sect, dev_sect) :
         risky_data[target][key] = risky
         balanced_data[target][key] = balanced
         safe_data[target][key] = safe
         logging.info( "Sector {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe))
     target = 'Fund'
-    for key, risky, balanced, safe in  sortMonteCarlo(ret_cat, dev_cat) :
+    for key, risky, balanced, safe in  lambdaSort(ret_cat, dev_cat) :
         risky_data[target][key] = risky
         balanced_data[target][key] = balanced
         safe_data[target][key] = safe
         logging.info("Fund {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe))
     target = 'Industry'
-    for key, risky, balanced, safe in  sortMonteCarlo(ret_ind, dev_ind) :
+    for key, risky, balanced, safe in  lambdaSort(ret_ind, dev_ind) :
         risky_data[target][key] = risky
         balanced_data[target][key] = balanced
         safe_data[target][key] = safe
         logging.info("Industry {} risky : {} balanced : {} safe : {}".format(key,risky,balanced,safe))
     return risky_data, balanced_data, safe_data
 
-def sortMonteCarlo(ret_good, dev_good) :
+def lambdaSort(ret_good, dev_good) :
     risky_data = {}
-    for key, stock_list in _filterMonteCarlo(**ret_good) :
+    for key, stock_list in lambdaFilter(**ret_good) :
         risky_data[key] = stock_list
     safe_data = {}
-    for key, stock_list in _filterMonteCarlo(**dev_good) :
+    for key, stock_list in lambdaFilter(**dev_good) :
         safe_data[key] = stock_list
     key_list = risky_data.keys() + safe_data.keys()
     key_list = list(set(key_list))
@@ -72,7 +72,7 @@ def sortMonteCarlo(ret_good, dev_good) :
         safe = safe - balanced
         yield key, list(risky), list(balanced), list(safe)
 
-def _filterMonteCarlo(**kwargs) :
+def lambdaFilter(**kwargs) :
     meta = ['returns','risk', 'sharpe']
     set_meta = set(meta)
     for key in kwargs.keys() :
@@ -81,10 +81,10 @@ def _filterMonteCarlo(**kwargs) :
             p = pd.DataFrame(value).T
             ret = ret.append(p)
         ret = ret.drop(columns=list(meta))
-        mean = _reduceMonteCarlo(ret)
+        mean = lambdaReduce(ret)
         yield key, list(mean.columns)
 
-def _reduceMonteCarlo(ret) :
+def lambdaReduce(ret) :
     #size = int(len(ret)*.9)
     #if size < 20 : size = 20
     #ret = ret.sort_values(['risk','sharpe']).head(size)
@@ -96,7 +96,7 @@ def _reduceMonteCarlo(ret) :
     ret = ret.T
     return ret
 
-def _bin_by_MonteCarlo(file_list, kwargs) :
+def lambdaBin(file_list, kwargs) :
     logging.debug(kwargs)
     ret_max = {}
     ret_3 = {}
@@ -109,8 +109,8 @@ def _bin_by_MonteCarlo(file_list, kwargs) :
     for key in kwargs.keys() :
         stock_list = sorted(kwargs[key])
         logging.info((key, stock_list))
-        name_list, data_list = calculateMonteCarlo(file_list, stock_list)
-        for max_sharpe, min_dev in _calculateMonteCarlo(name_list, data_list) :
+        name_list, data_list = load(file_list, stock_list)
+        for max_sharpe, min_dev in process(name_list, data_list) :
             cur_sharpe = ret_min
             cur_dev = dev_min
             if max_sharpe['sharpe'] > 2.5 :
@@ -143,7 +143,7 @@ def _bin_by_MonteCarlo(file_list, kwargs) :
     logging.info(devs_list[0])
     return returns_list[0], devs_list[0], returns_list, devs_list
 
-def calculateMonteCarlo(file_list, stock_list) :
+def load(file_list, stock_list) :
     name_list = []
     data_list = pd.DataFrame() 
     for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
@@ -153,14 +153,12 @@ def calculateMonteCarlo(file_list, stock_list) :
         except Exception as e : logging.error(e, exc_info=True)
         finally : pass
     return name_list, data_list
-def _calculateMonteCarlo(stock_list,data_list) :
-    annual = MonteCarlo.YEAR()
+def process(stock_list,data_list) :
     for subset in combinations(stock_list,4) : 
-        max_sharp, min_dev = annual(subset,data_list,1000) 
+        max_sharp, min_dev = PORTFOLIO.find(data_list, stocks=stock_list, portfolios=1000, period=FINANCE.YEAR)
         yield max_sharp, min_dev
-def _calculateMonteCarlo(stock_list,data_list) :
-    annual = MonteCarlo.YEAR()
-    max_sharp, min_dev = annual(stock_list,data_list,25000) 
+def process(stock_list,data_list) :
+    max_sharp, min_dev = PORTFOLIO.find(data_list, stocks=stock_list, portfolios=25000, period=FINANCE.YEAR)
     logging.debug((max_sharp, min_dev))
     yield max_sharp, min_dev
 

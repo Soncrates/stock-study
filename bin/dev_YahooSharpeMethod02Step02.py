@@ -3,8 +3,8 @@
 import logging
 import pandas as pd
 from libCommon import INI, combinations
-from libFinance import STOCK_TIMESERIES
-from libMonteCarlo import MonteCarlo
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+from libSharpe as PORTFOLIO
 
 '''
     WARNING : in development
@@ -48,7 +48,7 @@ def main(file_list, ini_list) :
     local_enrich = enrich(*ini_list)
 
     high_stock_list, high_fund_list = prep("high", *ini_list)
-    name_list, data_list = calculateMonteCarlo(file_list, high_stock_list)
+    name_list, data_list = load(file_list, high_stock_list)
     stock_list = data_list.columns
     for stock in stock_list :
         msg = "{}, {}".format(stock, local_enrich[stock])
@@ -60,19 +60,19 @@ def main(file_list, ini_list) :
     sharpe_high, dev_high = _main(high_stock_list, data_list)
 
     balanced_stock_list, fund_list = prep("balanced", *ini_list)
-    name_list, data_list = calculateMonteCarlo(file_list, balanced_stock_list)
+    name_list, data_list = load(file_list, balanced_stock_list)
     sharpe_balanced, dev_balanced = _main(balanced_stock_list, data_list)
 
     safe_stock_list, fund_list = prep("safe", *ini_list)
-    name_list, data_list = calculateMonteCarlo(file_list, safe_stock_list)
+    name_list, data_list = load(file_list, safe_stock_list)
     sharpe_safe, dev_safe = _main(safe_stock_list, data_list)
 
     hybrid = high_stock_list + balanced_stock_list
-    name_list, data_list = calculateMonteCarlo(file_list, hybrid)
+    name_list, data_list = load(file_list, hybrid)
     sharpe_high_hybrid, dev_high_hybrid = _main(hybrid, data_list)
 
     hybrid = safe_stock_list + balanced_stock_list
-    name_list, data_list = calculateMonteCarlo(file_list, hybrid)
+    name_list, data_list = load(file_list, hybrid)
     sharpe_safe_hybrid, dev_safe_hybrid = _main(hybrid, data_list)
 
     values = [sharpe_high,dev_high,sharpe_balanced,dev_balanced,sharpe_safe,dev_safe,sharpe_high_hybrid,dev_high_hybrid,sharpe_safe_hybrid, dev_safe_hybrid]
@@ -81,31 +81,31 @@ def main(file_list, ini_list) :
     return ini
 
 def _main(stock_list, data_list) :
-    for max_sharpe, min_dev in _calculateMonteCarlo(stock_list, data_list) : pass
+    for max_sharpe, min_dev in process(stock_list, data_list) : pass
     target = max_sharpe
-    ret, flag = _reduceMonteCarlo(target) 
+    ret, flag = lambdaReduce(target) 
     while flag :
        subset = sorted(list(ret.T.columns)) 
-       for target, dummy  in _calculateMonteCarlo(subset, data_list) : pass
-       ret, flag = _reduceMonteCarlo(target) 
+       for target, dummy  in process(subset, data_list) : pass
+       ret, flag = lambdaReduce(target) 
     subset = sorted(list(ret.T.columns)) 
     logging.info(subset)
-    for target, dummy  in _calculateMonteCarlo(subset, data_list) : pass
+    for target, dummy  in process(subset, data_list) : pass
     max_sharpe = target
 
     target = min_dev
-    ret, flag = _reduceMonteCarlo(target) 
+    ret, flag = lambdaReduce(target) 
     while flag :
        subset = sorted(list(ret.T.columns)) 
-       for dummy, target in _calculateMonteCarlo(subset, data_list) : pass
-       ret, flag = _reduceMonteCarlo(target) 
+       for dummy, target in process(subset, data_list) : pass
+       ret, flag = lambdaReduce(target) 
     subset = sorted(list(ret.T.columns)) 
     logging.info(subset)
-    for dummy, target in _calculateMonteCarlo(subset, data_list) : pass
+    for dummy, target in process(subset, data_list) : pass
     min_dev = target
     return max_sharpe, min_dev
 
-def _filterMonteCarlo(**kwargs) :
+def lambdaFilter(**kwargs) :
     meta = ['ret','stdev', 'sharpe']
     set_meta = set(meta)
     for key in kwargs.keys() :
@@ -114,10 +114,10 @@ def _filterMonteCarlo(**kwargs) :
             p = pd.DataFrame(value).T
             ret = ret.append(p)
         ret = ret.drop(columns=list(meta))
-        mean = _reduceMonteCarlo(ret)
+        mean = lambdaReduce(ret)
         yield key, list(mean.columns)
 
-def _reduceMonteCarlo(ret) :
+def lambdaReduce(ret) :
     _len = len(ret)-3
     size = int(_len*.1) + 1
     ret = pd.DataFrame(ret)
@@ -130,7 +130,7 @@ def _reduceMonteCarlo(ret) :
     logging.info( msg )
     return ret, flag
 
-def calculateMonteCarlo(file_list, stock_list) :
+def load(file_list, stock_list) :
     name_list = []
     data_list = pd.DataFrame() 
     for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
@@ -140,22 +140,19 @@ def calculateMonteCarlo(file_list, stock_list) :
         except Exception as e : logging.error(e, exc_info=True)
         finally : pass
     return name_list, data_list
-def calculateMonteCarlo(file_list, stock_list) :
+def load(file_list, stock_list) :
     name_list,data_list = STOCK_TIMESERIES.read_all(file_list, stock_list)
     data_list = STOCK_TIMESERIES.flatten('Adj Close',data_list)
     data_list = data_list.fillna(0)
     logging.debug(data_list)
     return name_list, data_list
 
-def _calculateMonteCarlo(stock_list,data_list) :
-    annual = MonteCarlo.YEAR()
+def process(stock_list,data_list) :
     for subset in combinations(stock_list,4) : 
-        max_sharp, min_dev = annual(subset,data_list,1000) 
+        max_sharp, min_dev = PORTFOLIO.find(data, stocks=subset, portfolios=1000, period=FINANCE.YEAR)
         yield max_sharp, min_dev
-def _calculateMonteCarlo(stock_list,data_list) :
-    annual = MonteCarlo.YEAR()
-    #max_sharpe, min_dev = annual(stock_list,data_list,20000) 
-    max_sharpe, min_dev = annual(stock_list,data_list,1000) 
+def process(stock_list,data_list) :
+    max_sharp, min_dev = PORTFOLIO.find(data, stocks=subset, portfolios=1000, period=FINANCE.YEAR)
     #print max_sharpe, min_dev
     yield max_sharpe, min_dev
 

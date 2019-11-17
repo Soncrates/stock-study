@@ -14,11 +14,10 @@ ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
 
 from libCommon import INI, log_exception
-from libFinance import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save
-from libMonteCarlo import MonteCarlo
-from libSharpe import PORTFOLIO, HELPER
+from libSharpe import PORTFOLIO, HELPER as MONTECARLO
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
@@ -62,9 +61,9 @@ def benchmark(*ini_list) :
 def prototype(file_list,stock_list) :
     name_list, _ret = readData(file_list,stock_list)
     ret = _prototype(_ret)
-    annual = MonteCarlo.YEAR()
     value_list = map(lambda x : _ret[x], name_list)
-    value_list = map(lambda x : annual.findSharpe(x), value_list)
+    value_list = map(lambda data : data.sort_index(inplace=True), value_list)
+    value_list = map(lambda data : MONTECARLO.find(data, risk_free_rate=0.02, period=FINANCE.YEAR, span=0), value_list)
     sharpe = dict(zip(name_list,value_list))
     return name_list, ret, sharpe
 
@@ -109,13 +108,13 @@ def main(file_list, portfolio_ini, ini_list) :
         logging.info(weights)
         logging.info(stock_list)
         name_list, timeseries = readData(file_list,stock_list)
-        proto = map(lambda x : HELPER.find(timeseries[x], span=0,period=252),name_list)
+        proto = map(lambda x : MONTECARLO.find(timeseries[x], span=0,period=252),name_list)
         proto = dict(zip(name_list,proto))
         sharpe_weights, sharpe_stocks = _newFind(proto,local_enrich,weights)
         logging.info(sharpe_weights)
         logging.info(sharpe_stocks)
         data = timeseries.pct_change().dropna(how="all")
-        portfolio_sharpe = PORTFOLIO.findWeightedSharpe(data, weights)
+        portfolio_sharpe = PORTFOLIO.findWeightedSharpe(data, weights, risk_free_rate=0.02, period=FINANCE.YEAR)
         portfolio_return = weights.dot(data.T).dropna(how="all")
         portfolio_name_list.append(names['portfolio'])
         name_portfolio = 'legend_{portfolio}'.format(**names)

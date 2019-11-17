@@ -2,9 +2,9 @@
 
 import pandas as pd
 from libCommon import INI, combinations
-from libFinance import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+from libSharpe import HELPER as MONTECARLO
 from libNasdaq import getByNasdaq
-from libMonteCarlo import MonteCarlo
 
 '''
    WARNING : in development
@@ -19,33 +19,35 @@ def main(file_list, ini_list) :
     Industry_Top = {}
     Fund_Top = {}
 
-    for key, top_columns, top_data in filterSharpe(file_list, **Sector) :
+    for key, top_columns, top_data in load(file_list, **Sector) :
         Sector_Top[key] = sorted(top_columns)
-    for key, top_columns, top_data in filterSharpe(file_list, **Industry) :
+    for key, top_columns, top_data in load(file_list, **Industry) :
         Industry_Top[key] = sorted(top_columns)
-    for key, top_columns, top_data in filterSharpe(file_list, **Category) :
+    for key, top_columns, top_data in load(file_list, **Category) :
         Fund_Top[key] = sorted(top_columns)
     return Sector_Top, Industry_Top, Fund_Top
 
-def filterSharpe(file_list, **kwargs) :
+def load(file_list, **kwargs) :
     for key in sorted(kwargs.keys()) :
         value_list = sorted(kwargs[key])
-        ret = _calculateSharpe(file_list, value_list)
-        columns, ret = _filterSharpe(**ret)
+        ret = process(file_list, value_list)
+        columns, ret = lambdaFilter(**ret)
         yield key, columns, ret
 
-def _calculateSharpe(file_list, value_list) :
-    annual = MonteCarlo.YEAR()
+def process(file_list, value_list) :
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        data = annual.findSharpe(data['Adj Close']) 
+        data.sort_index(inplace=True)
+        data = data['Adj Close']
+        data = MONTECARLO.find(data, risk_free_rate=0.02, period=FINANCE.YEAR, span=0)
+
         # filter stocks that have less than a year
         sharpe = data.get('sharpe',0)
         if sharpe == 0 : continue
         ret[name] = data
     return ret
 
-def _filterSharpe(**ret) :
+def lambdaFilter(**ret) :
 
     if len(ret) == 0 : return [], None
     ret = pd.DataFrame(ret).T

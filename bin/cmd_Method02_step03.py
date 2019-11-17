@@ -6,9 +6,8 @@ import sys
 import pandas as pd
 
 from libCommon import ENVIRONMENT, INI, combinations, log_exception
-from libFinance import STOCK_TIMESERIES
-from libSharpe import HELPER
-from libMonteCarlo import MonteCarlo
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+from libSharpe import HELPER, PORTFOLIO
 
 from libDebug import trace
 
@@ -56,13 +55,6 @@ def load(file_list, stock_list) :
         except Exception as e : logging.error(e, exc_info=True)
         finally : pass
     return name_list, data_list
-
-def process(d) :
-    #locate position of portfolio with highest Sharpe Ratio
-    _sharpe = d['sharpe'].idxmax()
-    #locate positon of portfolio with minimum risk
-    _risk = d['risk'].idxmin()
-    return d.iloc[_sharpe], d.iloc[_risk]
 
 def filterByRisk(data,risk) :
     size = len(data)
@@ -134,36 +126,34 @@ def transform(key, data) :
     ret.update(temp)
     return ret
 
-def calculateMonteCarlo(stock_list,data_list) :
+def lambdaAction(stock_list,data_list) :
     meta = ['returns', 'risk', 'sharpe']
     stock_list = filter(lambda x : x not in meta, stock_list)
-    annual = MonteCarlo.YEAR()
-    max_sharpe, min_dev = annual(stock_list,data_list,5)
+    max_sharp, min_dev = PORTFOLIO.find(data_list, stocks=stock_list, portfolios=5, period=FINANCE.YEAR)
     logging.debug((max_sharpe, min_dev))
     yield max_sharpe, min_dev
 
-def calculateMonteCarlo(stock_list,data_list) :
+def lambdaAction(stock_list,data_list) :
     _size = len(stock_list)
     default_combo = 10
-    default_montecarlo = 5000
+    num_portfolios = 5000
     if _size < default_combo :
        default_combo = _size - 1
     elif _size >= 20  :
        default_combo = 16
-       default_montecarlo = 100
+       num_portfolios = 100
     elif _size >= 18  :
        default_combo = 14
-       default_montecarlo = 500
+       num_portfolios = 500
     elif _size >= 15  :
        default_combo = 12
-       default_montecarlo = 1000
+       num_portfolios = 1000
     elif _size > 12  :
-       default_montecarlo = 2000
+       num_portfolios = 2000
 
-    annual = MonteCarlo.YEAR()
     ret = pd.DataFrame()
     for subset in combinations(stock_list,default_combo) :
-        max_sharpe, min_dev = annual(subset,data_list,default_montecarlo)
+        max_sharp, min_dev = PORTFOLIO.find(data_list, stocks=subset, portfolios=num_portfolios, period=FINANCE.YEAR)
         ret = ret.append(max_sharpe)
         ret = ret.append(min_dev)
         size = len(ret)
@@ -188,7 +178,7 @@ def action(file_list, ini_list) :
         logging.debug(risk)
         logging.debug(sharpe)
         stock_list, data_list = load(file_list,_stock_list)
-        for results in calculateMonteCarlo(stock_list,data_list) :
+        for results in lambdaAction(stock_list,data_list) :
             columns = results.columns.values
             _i = 0
             for index, row in results.iterrows() :
@@ -210,14 +200,15 @@ if __name__ == '__main__' :
    from libCommon import ENVIRONMENT
 
    env = ENVIRONMENT()
+   ini_list = env.list_filenames('local/*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+   save_file = "{}/local/method02_step03.ini".format(env.pwd_parent)
+
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
-   ini_list = env.list_filenames('local/*.ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
-   save_file = "{}/local/method02_step03.ini".format(env.pwd_parent)
    ini_list = filter(lambda x : "method02_step02" in x, ini_list)
 
    main(file_list,ini_list,save_file)
