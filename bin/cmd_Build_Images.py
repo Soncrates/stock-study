@@ -201,7 +201,7 @@ def process(file_list, portfolio_ini, ini_list) :
         sharpe_weights, sharpe_stocks = lambdaFindAlternate(proto,local_enrich,weights)
         logging.info(sharpe_weights)
         logging.info(sharpe_stocks)
-        data = timeseries.pct_change().dropna(how="all")
+        data = FINANCE.getDailyReturns(timeseries)
         portfolio_sharpe = PORTFOLIO.findWeightedSharpe(data, weights, risk_free_rate=0.02, period=FINANCE.YEAR)
         portfolio_return = weights.dot(data.T).dropna(how="all")
         portfolio_name_list.append(names['portfolio'])

@@ -116,13 +116,12 @@ class PORTFOLIO :
 
       @classmethod
       def _find(cls, data, stocks, num_portfolios, risk_free_rate, period) :
-          size = len(stocks)
           data.sort_index(inplace=True)
-          #convert daily stock prices into daily returns
-          returns = data.pct_change()
+          returns = FINANCE.findDailyReturns(data)
 
           #set up array to hold results
           #We have increased the size of the array to hold the weight values for each stock
+          size = len(stocks)
           ret = np.zeros((3+size,num_portfolios))
 
           #calculate mean daily return and covariance of daily returns

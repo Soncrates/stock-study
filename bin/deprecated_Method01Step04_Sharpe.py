@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from libCommon import INI
+from libCommon import INI, log_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER as MONTECARLO
 from libGraph import LINE, BAR, POINT, save
@@ -46,31 +46,17 @@ def benchmark(*ini_list) :
         ret[key] = stock_list
     return ret
 
-def main(file_list, portfolo_ini, ini_list) :
-    try :
-        return _main(file_list, portfolio_ini, ini_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
-
 def prototype(file_list,stock_list) :
-    name_list, _ret = readData(file_list,stock_list)
-    ret = _prototype(_ret)
+    name_list, _ret = load(file_list,stock_list)
+    ret = FINANCE.graphDailyReturns(_ret)
     value_list = map(lambda x : _ret[x], name_list)
     value_list = map(lambda data : data.sort_index(inplace=True), value_list)
     value_list = map(lambda data : MONTECARLO.find(data, risk_free_rate=0.02, period=FINANCE.YEAR, span=0), value_list)
     sharpe = dict(zip(name_list,value_list))
     return name_list, ret, sharpe
 
-def _prototype(data) :
-    ret = data.pct_change().dropna(how="all")
-    if len(ret) == 0 :
-        return ret
-    ret = 1 + ret
-    ret.iloc[0] = 1  # set first day pseudo-price
-    ret =  ret.cumprod()
-    return ret
-
-def _main(file_list, portfolio_ini, ini_list) :
+@log_exception
+def main(file_list, portfolio_ini, ini_list) :
     local_enrich = enrich(*ini_list)
     bench_list = benchmark(*ini_list)
 
@@ -96,8 +82,8 @@ def _main(file_list, portfolio_ini, ini_list) :
     ret_sharpe_list = {}
     for weights, sharpe, diversified, name_diversified, name_returns in find(local_enrich, portfolio_list) :
         stock_list = sorted(weights.index)
-        name_list, ret = readData(file_list,stock_list)
-        ret = ret.pct_change().dropna(how="all")
+        name_list, ret = load(file_list,stock_list)
+        ret = FINANCE.findDailyReturns(ret)
         logging.info(weights)
         logging.info(stock_list)
         logging.info(sharpe)
@@ -158,7 +144,7 @@ def _find(enrich, portfolio) :
     sharpe = portfolio.drop(list(column_list))
     return weights, sharpe, ret
 
-def readData(file_list, stock_list) :
+def load(file_list, stock_list) :
     name_list = []
     data_list = pd.DataFrame() 
     if len(stock_list) == 0 :

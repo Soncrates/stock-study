@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from libCommon import INI
-from libFinance import STOCK_TIMERIES
+from libFinance import STOCK_TIMERIES, HELPER as FINANCE
 
 '''
     WARNING : Not currently used
@@ -75,9 +75,6 @@ class DataFrameDateTime(object) :
     def get(cls, df, date_arg) :
         start, end = DateFinder.getRange(date_arg)
         ret = df.loc[start:]
-        #ret = ret.pct_change()
-        #ret = (ret +1).cumprod()
-        #print ret.head(n=1)
         if len(ret) == 0 :
            ret = cls._get(df, date_arg)
         return ret
@@ -173,7 +170,7 @@ class Portfolio :
         ret['holdings'] = (positions.multiply(df[target], axis=0)).sum(axis=1)
         ret['cash'] = initial_capital - (pos_diff.multiply(df[target], axis=0)).sum(axis=1).cumsum()
         ret['total'] = ret['cash'] + ret['holdings']
-        ret['returns'] = ret['total'].pct_change()
+        ret['returns'] = FINANCE.getDailyReturns(ret['total'])
         return ret
 
 class CompoundAnnualGrowthRate :

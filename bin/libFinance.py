@@ -153,16 +153,22 @@ class HELPER :
       WEEK = 5
       @classmethod
       def findDailyReturns(cls, data, period=0) :
-          ret = data.pct_change().dropna(how="all")
+          ret = data.pct_change()
+          ret = ret.replace([np.inf, -np.inf], np.nan)
+          ret = ret.dropna(how="all")
           _len = len(ret)
           if _len < period :
              return None
+          #ret.sort_index(inplace=True)
           return ret
       @classmethod
       def graphDailyReturns(cls, data) :
-          ret = data.pct_change().dropna(how="all")
+          ret = data.pct_change()
+          ret = ret.replace([np.inf, -np.inf], np.nan)
+          ret = ret.dropna(how="all")
           if len(ret) == 0 :
              return ret
+          #ret.sort_index(inplace=True)
           ret = 1 + ret
           ret.iloc[0] = 1  # set first day pseudo-price
           ret = ret.cumprod()

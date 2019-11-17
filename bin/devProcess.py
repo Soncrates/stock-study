@@ -5,7 +5,7 @@ import datetime
 import math
 import numpy as np
 
-from libFinance import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 
 '''
 WARNING : not currently in use
@@ -73,12 +73,8 @@ class StockTransform(object) :
               if month in [4,5,6] : quarter = 2
               elif month in [7,8,9] : quarter = 3
               elif month in [10,11,12] : quarter = 4
-              percent = dataSeries.pct_change()
-              percent = percent.replace([np.inf, -np.inf], np.nan)
-              percent = percent.dropna(how='all')
+              percent = FINANCE.getDailyReturns(dataSeries)
               percent = percent.fillna(0)
-              #percent = percent + 1
-              #percent = percent.cumprod()
               if len(percent) == 0 : continue
               if quarter not in year_to_year :
                  year_to_year[quarter] = pd.DataFrame(percent)
@@ -93,11 +89,7 @@ class StockTransform(object) :
           year_to_year = {}
           many_years = {}
           for month, year, dataSeries in cls.group_by_month(data) :
-              percent = dataSeries.pct_change()
-              percent = percent.replace([np.inf, -np.inf], np.nan)
-              percent = percent.dropna(how='all')
-              #percent = percent + 1
-              #percent = percent.cumprod()
+              percent = FINANCE.findDailyReturns(dataSeries)
               if len(percent) == 0 : continue
               if month not in year_to_year :
                  year_to_year[month] = pd.DataFrame(percent)
@@ -218,19 +210,10 @@ class Normalize(object) :
       @classmethod
       def t01(cls, baseline,test) :
           baseline = baseline.reindex(test.index)
-          baseline = Normalize._t01(baseline)
-          test = cls._t01(test)
+          test = FINANCE.findDailyReturns(baseline)
           ret = test / baseline
           ret = ret.replace([np.inf, -np.inf], np.nan)
           ret = ret.fillna(0)
-          ret = ret.dropna(how='all')
-          return ret
-      @classmethod
-      def _t01(cls, df) :
-          ret = df.pct_change()
-          # clean up data
-          ret = ret.replace([np.inf, -np.inf], np.nan)
-          #ret = ret.fillna(0)
           ret = ret.dropna(how='all')
           return ret
 
