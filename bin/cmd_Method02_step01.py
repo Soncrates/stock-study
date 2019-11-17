@@ -122,14 +122,12 @@ def action(file_list, ini_list) :
         yield sector, ret
 
 @log_exception
-def main(file_list, ini_list) : 
-    env = ENVIRONMENT()
+def main(file_list, ini_list,save_file) : 
     ret = INI.init()
     for key, value in action(file_list, ini_list) :
         logging.debug(value)
         INI.write_section(ret,key,**value)
-    stock_ini = "{}/local/method02_step01.ini".format(env.pwd_parent)
-    ret.write(open(stock_ini, 'w'))
+    ret.write(open(save_file, 'w'))
 
 if __name__ == '__main__' :
    import sys
@@ -144,5 +142,6 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
+   save_file = "{}/local/method02_step01.ini".format(env.pwd_parent)
 
-   main(file_list,ini_list)
+   main(file_list,ini_list,save_file)

@@ -98,12 +98,13 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
+   save_file = "{}/local/method01_step01_sharpe.ini".format(env.pwd_parent)
+
    Sector_Top, Industry_Top, Fund_Top = main(file_list,ini_list)
    
    config = INI.init()
    INI.write_section(config,'Sector',**Sector_Top)
    INI.write_section(config,'Industry',**Industry_Top)
    INI.write_section(config,'Fund',**Fund_Top)
-   stock_ini = "{}/local/method01_step01_sharpe.ini".format(env.pwd_parent)
-   config.write(open(stock_ini, 'w'))
+   config.write(open(save_file, 'w'))
 

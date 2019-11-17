@@ -200,8 +200,6 @@ if __name__ == '__main__' :
    from libCommon import ENVIRONMENT
 
    env = ENVIRONMENT()
-   ini_list = env.list_filenames('local/*.ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method02_step03.ini".format(env.pwd_parent)
 
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
@@ -209,6 +207,8 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
+   ini_list = env.list_filenames('local/*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
    ini_list = filter(lambda x : "method02_step02" in x, ini_list)
 
    main(file_list,ini_list,save_file)

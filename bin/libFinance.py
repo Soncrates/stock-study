@@ -159,6 +159,15 @@ class HELPER :
              return None
           return ret
       @classmethod
+      def graphDailyReturns(cls, data) :
+          ret = data.pct_change().dropna(how="all")
+          if len(ret) == 0 :
+             return ret
+          ret = 1 + ret
+          ret.iloc[0] = 1  # set first day pseudo-price
+          ret = ret.cumprod()
+          return ret
+      @classmethod
       def findRiskAndReturn(cls, data, period=0, span=0) :
           returns, risk = cls._findRiskAndReturn(data, span)
           if isinstance(returns,pd.Series) : returns = returns[0]

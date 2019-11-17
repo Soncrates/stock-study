@@ -169,6 +169,7 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/method01_step02*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
+   save_file = "{}/local/method01_step03_sharpe_portfolios.ini".format(env.pwd_parent)
 
    ini = main(file_list,ini_list)
 
@@ -178,5 +179,4 @@ if __name__ == '__main__' :
        if not isinstance(values,dict) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
-   stock_ini = "{}/local/method01_step03_sharpe_portfolios.ini".format(env.pwd_parent)
-   config.write(open(stock_ini, 'w'))
+   config.write(open(save_file, 'w'))

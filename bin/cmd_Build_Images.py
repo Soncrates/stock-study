@@ -21,7 +21,6 @@ from libSharpe import PORTFOLIO, HELPER as MONTECARLO
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
-@trace
 def prep(*ini_list) :
     ret = {}
     for path, section, key, weight in INI.loadList(*ini_list) :
@@ -30,7 +29,7 @@ def prep(*ini_list) :
         ret[section][key] = float(weight[0])
     return ret
 
-def enrich(*ini_list) :
+def prep_Enrich(*ini_list) :
     ret = {}
     ini_list = filter(lambda x : 'background' in x, ini_list)
     ini_list = filter(lambda x : 'yahoo' in x, ini_list)
@@ -45,7 +44,7 @@ def enrich(*ini_list) :
     return ret
 
 @trace
-def benchmark(*ini_list) :
+def prep_benchmark(*ini_list) :
     ret = {}
     ini_list = filter(lambda x : 'benchmark' in x, ini_list)
     for path, section, key, stock_list in INI.loadList(*ini_list) :
@@ -58,39 +57,128 @@ def benchmark(*ini_list) :
         ret[key] = stock_list
     return ret
 
-def prototype(file_list,stock_list) :
-    name_list, _ret = readData(file_list,stock_list)
-    ret = _prototype(_ret)
-    value_list = map(lambda x : _ret[x], name_list)
+def load(file_list, stock_list) :
+    name_list = []
+    data_list = pd.DataFrame() 
+    if len(stock_list) == 0 :
+       return name_list, data_list
+       
+    for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
+        try :
+            data_list[name] = stock['Adj Close']
+            name_list.append(name)
+        except Exception as e : logging.error(e, exc_info=True) 
+        finally : pass
+    return name_list, data_list
+
+def lambdaTransform(file_list,stock_list) :
+    name_list, _ret = load(file_list,stock_list)
+    ret = FINANCE.graphDailyReturns(_ret)
+    value_list = map(lambda x : ret[x], name_list)
     value_list = map(lambda data : data.sort_index(inplace=True), value_list)
     value_list = map(lambda data : MONTECARLO.find(data, risk_free_rate=0.02, period=FINANCE.YEAR, span=0), value_list)
     sharpe = dict(zip(name_list,value_list))
     return name_list, ret, sharpe
 
-def _prototype(data) :
-    ret = data.pct_change().dropna(how="all")
-    if len(ret) == 0 :
-        return ret
-    ret = 1 + ret
-    ret.iloc[0] = 1  # set first day pseudo-price
-    ret =  ret.cumprod()
-    return ret
+def lambdaFind(enrich, portfolio_list) :
+    name_format_1 = "portfolio_diversified_{}"
+    name_format_2 = "portfolio_returns_{}"
+    key_list = sorted(portfolio_list.keys())
+    for curr, portfolio_name in enumerate(key_list) :
+        portfolio = portfolio_list[portfolio_name]
+        portfolio = pd.DataFrame(portfolio, index=['weights'])
+        portfolio = portfolio.T.dropna(how='all').T
+        stock_list, weights, diversified_graph, diversified_data = lambdaFindDiversified(enrich,portfolio)
+        key_list = sorted(diversified_graph.keys())
+        key_list = filter(lambda x : x is not None, key_list)
+        msg = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
+        msg = "\n ".join(msg)
+        logging.info(msg.format(**diversified_graph))
+        name_diversified = name_format_1.format(curr+1)
+        name_returns = name_format_2.format(curr+1)
+        names = ['portfolio', 'diversified', 'returns']
+        names = dict(zip(names,[portfolio_name, name_diversified, name_returns]))
+        yield stock_list, weights, diversified_graph, diversified_data, names
 
-@log_exception
-@trace
-def main(file_list, portfolio_ini, ini_list) :
-    local_enrich = enrich(*ini_list)
-    bench_list = benchmark(*ini_list)
+def lambdaFindDiversified(enrich, portfolio) :
+    stock_diverse_keys = ['weight', 'ticker']
+    meta = ['returns', 'risk', 'sharpe']
+    set_meta = set(meta)
+    column_list = set(portfolio.T.index) - set_meta
+    logging.info(column_list)
+    diversified_weights = {}
+    diversified_stocks = {}
+    for column in column_list :
+        sector = enrich.get(column, {}).get('Sector',None)
+        if sector is None :
+           sector = enrich.get(column, {}).get('Category','Unknown')
+        weight_1 = portfolio[column]
+        weight = round(weight_1,2)
+        logging.debug(( column, sector, weight))
+        if sector not in diversified_weights :
+           diversified_weights[sector] = 0.0
+        diversified_weights[sector] += weight
+        diversified_weights[sector] = round(diversified_weights[sector],2)
+        if sector not in diversified_stocks :
+           diversified_stocks[sector] = []
+        value = dict(zip(stock_diverse_keys,[round(weight_1*100,2), column]))
+        diversified_stocks[sector].append(value)
+    temp = filter(lambda x : x in portfolio, meta)
+    weights = portfolio.T.drop(list(temp))
+    return column_list, weights['weights'], diversified_weights, diversified_stocks
+
+def lambdaFindAlternate(data, enrich, weights) :
+    column_list = []
+    diversified_stocks = {}
+    diversified_weights = {}
+    if isinstance(data,dict) : 
+       column_list = sorted(data.keys()) 
+    meta = ['returns', 'risk', 'sharpe']
+    weighted_meta = ['weighted returns', 'weighted risk', 'weighted sharpe']
+    for column in column_list :
+
+        #add weighted percentages to returns, risk and sharpe
+        ret = deepcopy(data.get(column,{}))
+        value_list = map(lambda x : ret.get(x,0),meta)
+        value_list = map(lambda x : x*weights[column],value_list)
+        temp = dict(zip(weighted_meta,value_list))
+        ret.update(temp)
+        temp = enrich.get(column,{})
+        target = 'Sector'
+        if target not in temp :
+           target = 'Category'
+        sector = temp.get(target,'Unknown')
+        if sector not in diversified_stocks :
+           diversified_stocks[sector] = {}
+
+        # round the percentages to human readable
+        key_list = ret.keys()
+        value_list = map(lambda x : ret[x], key_list) 
+        value_list = map(lambda x : round(float(x),2), value_list)
+        ret = dict(zip(key_list,value_list))
+
+        diversified_stocks[sector][column] = ret
+        if sector not in diversified_weights :
+           diversified_weights[sector] = dict(zip(weighted_meta,[0.0]*len(weighted_meta)))
+        for key in weighted_meta :
+            w = diversified_weights[sector][key] + ret[key]
+            diversified_weights[sector][key] = w
+
+    return diversified_weights, diversified_stocks
+
+def process(file_list, portfolio_ini, ini_list) :
+    local_enrich = prep_Enrich(*ini_list)
+    bench_list = prep_benchmark(*ini_list)
 
     SNP = 'SNP500'
     snp = bench_list[SNP]
     gcps = snp[0]
-    name_list, snp_returns, snp_sharpe = prototype(file_list,snp)
+    name_list, snp_returns, snp_sharpe = lambdaTransform(file_list,snp)
     snp_returns.rename(columns={gcps:SNP},inplace=True)
 
     FUNDS = 'NASDAQMUTFUND'
     funds = bench_list[FUNDS]
-    fund_name_list, fund_returns, fund_sharpe = prototype(file_list,funds)
+    fund_name_list, fund_returns, fund_sharpe = lambdaTransform(file_list,funds)
 
     portfolio_list = prep(*portfolio_ini)
     logging.info(portfolio_list)
@@ -104,13 +192,13 @@ def main(file_list, portfolio_ini, ini_list) :
     sharpe_stocks_list = []
     sharpe_list = {}
     portfolio_name_list = []
-    for stock_list, weights, diversified_graph, diversified_data, names in find(local_enrich, portfolio_list) :
+    for stock_list, weights, diversified_graph, diversified_data, names in lambdaFind(local_enrich, portfolio_list) :
         logging.info(weights)
         logging.info(stock_list)
-        name_list, timeseries = readData(file_list,stock_list)
+        name_list, timeseries = load(file_list,stock_list)
         proto = map(lambda x : MONTECARLO.find(timeseries[x], span=0,period=252),name_list)
         proto = dict(zip(name_list,proto))
-        sharpe_weights, sharpe_stocks = _newFind(proto,local_enrich,weights)
+        sharpe_weights, sharpe_stocks = lambdaFindAlternate(proto,local_enrich,weights)
         logging.info(sharpe_weights)
         logging.info(sharpe_stocks)
         data = timeseries.pct_change().dropna(how="all")
@@ -143,115 +231,10 @@ def main(file_list, portfolio_ini, ini_list) :
     diversified = {'graph' : diversified_graph_list, 'name' : diversified_name_list, 'description' : diversified_data_list }
     return returns, diversified, summary_list, sharpe_list, portfolio_name_list
 
-def find(enrich, portfolio_list) :
-    name_format_1 = "portfolio_diversified_{}"
-    name_format_2 = "portfolio_returns_{}"
-    key_list = sorted(portfolio_list.keys())
-    for curr, portfolio_name in enumerate(key_list) :
-        portfolio = portfolio_list[portfolio_name]
-        portfolio = pd.DataFrame(portfolio, index=['weights'])
-        portfolio = portfolio.T.dropna(how='all').T
-        stock_list, weights, diversified_graph, diversified_data = _findDiversified(enrich,portfolio)
-        key_list = sorted(diversified_graph.keys())
-        key_list = filter(lambda x : x is not None, key_list)
-        msg = map(lambda x : "{} : {}".format(x, "{" + x + "}"), key_list)
-        msg = "\n ".join(msg)
-        logging.info(msg.format(**diversified_graph))
-        name_diversified = name_format_1.format(curr+1)
-        name_returns = name_format_2.format(curr+1)
-        names = ['portfolio', 'diversified', 'returns']
-        names = dict(zip(names,[portfolio_name, name_diversified, name_returns]))
-        yield stock_list, weights, diversified_graph, diversified_data, names
-
-def _findDiversified(enrich, portfolio) :
-    stock_diverse_keys = ['weight', 'ticker']
-    meta = ['returns', 'risk', 'sharpe']
-    set_meta = set(meta)
-    column_list = set(portfolio.T.index) - set_meta
-    logging.info(column_list)
-    diversified_weights = {}
-    diversified_stocks = {}
-    for column in column_list :
-        sector = enrich.get(column, {}).get('Sector',None)
-        if sector is None :
-           sector = enrich.get(column, {}).get('Category','Unknown')
-        weight_1 = portfolio[column]
-        weight = round(weight_1,2)
-        logging.debug(( column, sector, weight))
-        if sector not in diversified_weights :
-           diversified_weights[sector] = 0.0
-        diversified_weights[sector] += weight
-        diversified_weights[sector] = round(diversified_weights[sector],2)
-        if sector not in diversified_stocks :
-           diversified_stocks[sector] = []
-        value = dict(zip(stock_diverse_keys,[round(weight_1*100,2), column]))
-        diversified_stocks[sector].append(value)
-    temp = filter(lambda x : x in portfolio, meta)
-    weights = portfolio.T.drop(list(temp))
-    return column_list, weights['weights'], diversified_weights, diversified_stocks
-
-def _newFind(data, enrich, weights) :
-    column_list = []
-    diversified_stocks = {}
-    diversified_weights = {}
-    if isinstance(data,dict) : 
-       column_list = sorted(data.keys()) 
-    meta = ['returns', 'risk', 'sharpe']
-    weighted_meta = ['weighted returns', 'weighted risk', 'weighted sharpe']
-    for column in column_list :
-        ret = deepcopy(data.get(column,{}))
-        value_list = map(lambda x : ret.get(x,0),meta)
-        value_list = map(lambda x : x*weights[column],value_list)
-        temp = dict(zip(weighted_meta,value_list))
-        ret.update(temp)
-        temp = enrich.get(column,{})
-        target = 'Sector'
-        if target not in temp :
-           target = 'Category'
-        sector = temp.get(target,'Unknown')
-        if sector not in diversified_stocks :
-           diversified_stocks[sector] = {}
-        key_list = ret.keys()
-        value_list = map(lambda x : ret[x], key_list) 
-        value_list = map(lambda x : round(float(x),2), value_list)
-        ret = dict(zip(key_list,value_list))
-        diversified_stocks[sector][column] = ret
-        if sector not in diversified_weights :
-           diversified_weights[sector] = dict(zip(weighted_meta,[0.0]*len(weighted_meta)))
-        for key in weighted_meta :
-            w = diversified_weights[sector][key] + ret[key]
-            diversified_weights[sector][key] = w
-    return diversified_weights, diversified_stocks
-
-def readData(file_list, stock_list) :
-    name_list = []
-    data_list = pd.DataFrame() 
-    if len(stock_list) == 0 :
-       return name_list, data_list
-       
-    for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
-        try :
-            data_list[name] = stock['Adj Close']
-            name_list.append(name)
-        except Exception as e : logging.error(e, exc_info=True) 
-        finally : pass
-    return name_list, data_list
-
-if __name__ == '__main__' :
-
-   import logging
-   from libCommon import ENVIRONMENT
-
-   env = ENVIRONMENT()
-   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-
-   portfolio_ini = env.list_filenames('local/method*portfolios.ini')
-   ini_list = env.list_filenames('local/*.ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
-
-   returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = main(file_list, portfolio_ini, ini_list )
+@log_exception
+@trace
+def main(env, file_list, portfolio_ini, ini_list) :
+   returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = process(file_list, portfolio_ini, ini_list )
    summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
    path = "{pwd_parent}/local/portfolio_sharpe.png".format(**vars(env))
@@ -312,3 +295,20 @@ if __name__ == '__main__' :
        INI.write_section(config,key,**values)
    stock_ini = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
    config.write(open(stock_ini, 'w'))
+
+if __name__ == '__main__' :
+
+   import logging
+   from libCommon import ENVIRONMENT
+
+   env = ENVIRONMENT()
+
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+
+   portfolio_ini = env.list_filenames('local/method*portfolios.ini')
+   ini_list = env.list_filenames('local/*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+
+   main(env, file_list, portfolio_ini, ini_list )
