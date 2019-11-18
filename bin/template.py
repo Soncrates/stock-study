@@ -5,11 +5,12 @@ import sys
 from libCommon import log_exception
 from libDebug import trace
 
-@trace
 @log_exception
+@trace
 def main(file_list, ini_list) : pass
 
 if __name__ == '__main__' :
+   import sys
    import logging
    from libCommon import ENVIRONMENT
 
@@ -21,7 +22,6 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
-
 
    main(file_list,ini_list)
 

@@ -36,7 +36,7 @@ def prep_init() :
         ret[key] = {}
     default = { 'risk' : 0, 'returns': 0, 'sharpe' : 0 }
     return ret, {}, default
-def _find_sector(default,values,section) :
+def lambdaFindSector(default,values,section) :
     key = filter(lambda k : k in section, values.keys() )
     if len(key) == 0 :
        ret = default
@@ -47,12 +47,11 @@ def _find_sector(default,values,section) :
           ret[section] = {}
     return ret 
 
-
 def prep(*ini_list) :
     ret, overflow, default = prep_init()
     ini_list = filter(lambda x : 'step03' in x, ini_list)
     for path, section, key, value in INI.loadList(*ini_list) :
-        curr = _find_sector(overflow,ret,section)
+        curr = lambdaFindSector(overflow,ret,section)
         curr[section][key] = float(value[0])
     default_keys = sorted(default)
     for key in sorted(ret) :
@@ -158,4 +157,3 @@ if __name__ == '__main__' :
    save_file = "{}/local/method02_step04.ini".format(env.pwd_parent)
 
    main(file_list,ini_list,save_file)
-   print(__file__)

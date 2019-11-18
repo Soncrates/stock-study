@@ -110,6 +110,8 @@ class cpu(WRAPPER):
         return ret
 
 '''
+TODO : optional parameters are not working in delay
+
 def delay(func, *largs):
     print(locals())
     wait =5 

@@ -73,7 +73,7 @@ class ENVIRONMENT(object) :
           self.pwd_parent = os.path.dirname(self.pwd)
           self.path = sys.path
           self.name = sys.argv[0].split('.')[0]
-          self.argv = sys.argv
+          self.argv = sys.argv[1:]
           self.version = sys.version
           self.version_info = sys.version_info
       def __str__(self) :
