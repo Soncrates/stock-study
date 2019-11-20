@@ -271,7 +271,6 @@ if __name__ == "__main__" :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-
    ini_list = env.list_filenames('local/*.ini')
    for path, section, key, value in INI.loadList(*ini_list) :
        if 'Industry' not in section : continue
