@@ -151,27 +151,34 @@ class HELPER :
       QUARTER = 63
       MONTH = 21
       WEEK = 5
+      RESAMPLE_YEAR = '12M'
+      RESAMPLE_QUARTER = '3M'
+      RESAMPLE_MONTH = 'M'
       @classmethod
       def findDailyReturns(cls, data, period=0) :
           ret = data.pct_change()
           ret = ret.replace([np.inf, -np.inf], np.nan)
-          ret = ret.dropna(how="all")
-          _len = len(ret)
-          if _len < period :
+          height, width = ret.shape
+          if width == 1 :
+             ret = ret.dropna(how="all")
+          #else :
+          #   ret.fillna(0, inplace=True)
+          height, width = ret.shape
+          if height < period :
              return None
+          ret.iloc[0] = 0  # set first day pseudo-price
           #ret.sort_index(inplace=True)
+          logging.debug(ret.head(3))
+          logging.debug(ret.tail(3))
           return ret
       @classmethod
       def graphDailyReturns(cls, data) :
-          ret = data.pct_change()
-          ret = ret.replace([np.inf, -np.inf], np.nan)
-          ret = ret.dropna(how="all")
-          if len(ret) == 0 :
-             return ret
-          #ret.sort_index(inplace=True)
+          data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
+          ret = cls.findDailyReturns(data)
           ret = 1 + ret
-          ret.iloc[0] = 1  # set first day pseudo-price
           ret = ret.cumprod()
+          logging.debug(ret.head(3))
+          logging.debug(ret.tail(3))
           return ret
       @classmethod
       def findRiskAndReturn(cls, data, period=0, span=0) :
@@ -304,7 +311,7 @@ if __name__ == "__main__" :
        returns = HELPER.findDailyReturns(ret)
        logging.debug (returns.describe())
        logging.debug (HELPER.findRiskAndReturn(returns))
-       logging.debug (HELPER.findRiskAndReturn(returns, span=252))
+       logging.debug (HELPER.findRiskAndReturn(returns, span=HELPER.YEAR))
 
    #a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
    #b = STOCK_TIMESERIES.flatten('Adj Close',b)

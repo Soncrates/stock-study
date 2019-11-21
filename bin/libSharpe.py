@@ -59,17 +59,19 @@ class HELPER :
           target = "risk_free_rate"
           risk_free_rate = kwargs.get(target,0.02)
           target = "span"
-          span = kwargs.get(target,500)
+          span = kwargs.get(target,2*FINANCE.YEAR)
 
           data, risk_free_rate, period, span = cls.validate(data, risk_free_rate, period, span)
           data = FINANCE.findDailyReturns(data, period)
           if data is None :
-             return dict(zip(cls.key_list, [0, 0, 0, 0]))
+             ret =  dict(zip(cls.key_list, [0, 0, 0, 0]))
+             return ret
           returns, risk = FINANCE.findRiskAndReturn(data, span)
           sharpe = 0
           if risk != 0 :
              sharpe = ( returns - risk_free_rate ) / risk
-          return dict(zip(cls.key_list, [returns, risk, sharpe, len(data)]))
+          ret = dict(zip(cls.key_list, [returns, risk, sharpe, len(data)]))
+          return ret
 
       @classmethod
       def validate(cls, data, risk_free_rate, period, span) :
@@ -79,6 +81,9 @@ class HELPER :
           if span < 0 :
              warnings.warn("span must be positive", RuntimeWarning)
              span = 0
+          if risk_free_rate < 0 :
+             warnings.warn("risk_free_rate must be positive", RuntimeWarning)
+             risk_free_rate = 0
           if not isinstance(data,pd.DataFrame) :
              warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
              data = pd.DataFrame(data)
@@ -211,8 +216,9 @@ if __name__ == "__main__" :
    from libFinance import STOCK_TIMESERIES
 
    env = ENVIRONMENT()
-   file_list = env.list_filenames('local/historical_prices/*pkl')
-   ini_list = env.list_filenames('local/*.ini')
+
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    def prep(*ini_list) :
        ini_list = filter(lambda x : "benchmark" in x , ini_list)
@@ -222,8 +228,8 @@ if __name__ == "__main__" :
            else : continue
            yield key, stock_list
 
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+   ini_list = env.list_filenames('local/*.ini')
 
    reader = STOCK_TIMESERIES.init()
    for name, stock_list in prep(*ini_list) :
@@ -238,6 +244,6 @@ if __name__ == "__main__" :
            print ret.std()
            print ret.mean()[0]
            print ret.std()[0]
-           print HELPER.find(ret,period=252,span=0)
-           print HELPER.find(ret,period=252)
+           print HELPER.find(ret,period=FINANCE.YEAR,span=0)
+           print HELPER.find(ret,period=FINANCE.YEAR)
            print (stock,name)

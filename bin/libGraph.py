@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from libDebug import trace
+
 class CONSTANTS :
       GOLDEN_RATIO = 1.62
       LEGEND = 'legend_'
@@ -95,7 +97,7 @@ class POINT :
       @classmethod
       def plot(cls, points, **kwargs) :
           logging.debug(points)
-          logging.info(type(points))
+          logging.debug(type(points))
           target = 'x'
           x_column_name = kwargs.get(target,'returns')
           target = 'y'
@@ -152,22 +154,47 @@ def save(path, **kwargs) :
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   import sys
+   import logging
+   from libCommon import ENVIRONMENT
+   from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+   from libSharpe import HELPER as MONTECARLO
 
-   pwd = os.getcwd()
-   local = pwd.replace('bin','local')
-   portfolio_ini = glob('{}/yahoo_sharpe_method1*portfolios.ini'.format(local))
-   ini_list = glob('{}/*.ini'.format(local))
-   file_list = glob('{}/historical_prices/*pkl'.format(local))
+   env = ENVIRONMENT()
 
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
-   logging.info("finished {} elapsed time : {} ".format(name,elapsed()))
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+   ini_list = env.list_filenames('local/*.ini')
+
+   portfolio_ini = filter(lambda ini : "portfolio" in ini, ini_list)
+   portfolio_ini = filter(lambda ini : "sharpe" in ini, ini_list)
+   logging.debug( portfolio_ini )
+
+   reader = STOCK_TIMESERIES.init()
+   ticker_list = ["FB", "AMZN", "AAPL", "NFLX", "GOOG", "BTZ", "^GSPC"]
+   ticker_list = sorted(ticker_list)
+   value_list = map(lambda ticker : reader.extract_from_yahoo(ticker), ticker_list)
+   value_list = map(lambda data : pd.DataFrame(data)['Adj Close'], value_list)
+   #for i, ticker in enumerate(ticker_list) :
+   #    print i, ticker
+   data = dict(zip(ticker_list, value_list))
+   data = pd.DataFrame(data, columns=ticker_list)
+   logging.debug( data.describe() )
+   returns = FINANCE.findDailyReturns(data)
+   logging.debug( returns.describe() )
+   returns =  FINANCE.graphDailyReturns(data)
+   logging.debug( returns.describe() )
+
+   LINE.plot(returns, title="Returns")
+   path = "{pwd_parent}/local/example_returns.png".format(**vars(env))
+   save(path)
+
+   sharpe = map(lambda stock : MONTECARLO.find(data[stock], span=2*FINANCE.YEAR, period=FINANCE.YEAR), data)
+   sharpe = dict(zip(ticker_list, sharpe))
+   logging.info(sharpe)
+   POINT.plot(sharpe,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
+   path = "{pwd_parent}/local/example_sharpes.png".format(**vars(env))
+   save(path)
+
