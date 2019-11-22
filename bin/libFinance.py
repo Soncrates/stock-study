@@ -172,13 +172,18 @@ class HELPER :
           logging.debug(ret.tail(3))
           return ret
       @classmethod
-      def graphDailyReturns(cls, data) :
-          data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
+      def graphReturns(cls, data) :
+          #data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
           ret = cls.findDailyReturns(data)
-          ret = 1 + ret
-          ret = ret.cumprod()
+          ret = cls.transformReturns(ret)
+          ret = ret.rolling(HELPER.MONTH).mean()
           logging.debug(ret.head(3))
           logging.debug(ret.tail(3))
+          return ret
+      @classmethod
+      def transformReturns(cls, ret) :
+          ret = 1 + ret
+          ret = ret.cumprod()
           return ret
       @classmethod
       def findRiskAndReturn(cls, data, period=0, span=0) :
@@ -291,29 +296,37 @@ if __name__ == "__main__" :
    file_list = env.list_filenames('local/historical_prices/*pkl')
    ini_list = env.list_filenames('local/*.ini')
    _nasdaq = env.list_filenames('local/'+NASDAQ.path)[0]
-   nasdaq = NASDAQ.init(filename=_nasdaq)
-   for stock in nasdaq() :
-       print (stock)
-       if stock == 'AAPL' : break
+   def demo_nasdaq() :
+       nasdaq = NASDAQ.init(filename=_nasdaq)
+       for stock in nasdaq() :
+           logging.debug(stock)
+           if stock == 'AAPL' : break
 
-   for path, section, key, value in INI.loadList(*ini_list) :
-       if 'Industry' not in section : continue
-       if 'Gas' not in key : continue
-       if 'Util' not in key : continue
-       break
-   stock_list = value[:2]
+   def prep() :
+       for path, section, key, value in INI.loadList(*ini_list) :
+           if 'Industry' not in section : continue
+           if 'Gas' not in key : continue
+           if 'Util' not in key : continue
+           break
+       return value[:2]
 
-   reader = STOCK_TIMESERIES.init()
-   for stock in stock_list :
-       ret = reader.extract_from_yahoo(stock)
-       logging.debug (stock)
-       logging.debug (ret.describe())
-       returns = HELPER.findDailyReturns(ret)
-       logging.debug (returns.describe())
-       logging.debug (HELPER.findRiskAndReturn(returns))
-       logging.debug (HELPER.findRiskAndReturn(returns, span=HELPER.YEAR))
+   def demo_stock() :
+       reader = STOCK_TIMESERIES.init()
+       for stock in stock_list :
+           ret = reader.extract_from_yahoo(stock)
+           logging.debug (stock)
+           logging.debug (ret.describe())
+           returns = HELPER.findDailyReturns(ret)
+           logging.debug (returns.describe())
+           logging.debug (HELPER.findRiskAndReturn(returns))
+           logging.debug (HELPER.findRiskAndReturn(returns, span=HELPER.YEAR))
 
-   #a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
-   #b = STOCK_TIMESERIES.flatten('Adj Close',b)
-   #print (b.describe())
-   #print (a)
+   def demo_stock_2() :
+       a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
+       b = STOCK_TIMESERIES.flatten('Adj Close',b)
+       print (b.describe())
+       print (a)
+   stock_list = prep()
+   demo_stock()
+   #demo_stock2()
+   demo_nasdaq()

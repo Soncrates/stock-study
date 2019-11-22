@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from libDebug import trace
 
-class CONSTANTS :
+class HELPER :
       GOLDEN_RATIO = 1.62
       LEGEND = 'legend_'
       RETURNS = '_returns_'
@@ -54,7 +54,7 @@ class BAR :
           target = 'height'
           height = kwargs.get(target,7)
           target = 'width'
-          width = kwargs.get(target,height*CONSTANTS.GOLDEN_RATIO)
+          width = kwargs.get(target,height*HELPER.GOLDEN_RATIO)
           plt.figure(figsize=(width, height))
           cls._plot(bar)
           if xlabel is not None : plt.xlabel(xlabel)
@@ -110,16 +110,19 @@ class POINT :
           ylabel = kwargs.get(target,None)
           target = 'title'
           title = kwargs.get(target,None)
-          cls._plot(points, x_column_name, y_column_name, style)
+          target = 'labels'
+          label_dict = kwargs.get(target,{})
+          cls._plot(points, label_dict, x_column_name, y_column_name, style)
           if xlabel is not None : plt.xlabel(xlabel)
           if title is not None : plt.title(title)
           if ylabel is not None : plt.ylabel(ylabel)
 
       @classmethod
-      def _plot(cls, points, column_x, column_y, style) :
+      def _plot(cls, points, label_dict, column_x, column_y, style) :
           for x, y, label in cls._xy(points,column_x,column_y) :
               #plt.scatter(x,y)
               #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
+              label = label_dict.get(label,label)
               if 'portfolio' in label or 'legend_' in label :
                  label = label.replace('_returns_','_')
                  label = label.replace('legend_','')
@@ -163,7 +166,7 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
 
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    file_list = env.list_filenames('local/historical_prices/*pkl')
    ini_list = env.list_filenames('local/*.ini')
@@ -172,29 +175,37 @@ if __name__ == '__main__' :
    portfolio_ini = filter(lambda ini : "sharpe" in ini, ini_list)
    logging.debug( portfolio_ini )
 
-   reader = STOCK_TIMESERIES.init()
+   def prep(tickers) :
+       reader = STOCK_TIMESERIES.init()
+       values = map(lambda ticker : reader.extract_from_yahoo(ticker), tickers)
+       values = map(lambda data : pd.DataFrame(data)['Adj Close'], values)
+       ret = dict(zip(tickers, values))
+       ret = pd.DataFrame(ret, columns=tickers)
+       return ret
+
+   def demo_returns(data, path) :
+       data =  FINANCE.graphReturns(data)
+       logging.debug( data.describe() )
+       data.rename(columns = {'^GSPC':'SNP500'}, inplace = True)
+       LINE.plot(data, title="Returns")
+       save(path)
+
+   def demo_sharpe(data, path) :
+       pt_list = map(lambda name : "legend_" + name, ticker_list)
+       labels = dict(zip(ticker_list,pt_list))
+       labels['^GSPC'] = 'SNP500'
+
+       data = map(lambda stock : MONTECARLO.find(data[stock], span=2*FINANCE.YEAR, period=FINANCE.YEAR), data)
+       data = dict(zip(ticker_list, data))
+       data = pd.DataFrame(data, columns=ticker_list)
+       logging.debug(data)
+       POINT.plot(data,labels=labels,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
+       save(path, loc="lower right")
+
    ticker_list = ["FB", "AMZN", "AAPL", "NFLX", "GOOG", "BTZ", "^GSPC"]
    ticker_list = sorted(ticker_list)
-   value_list = map(lambda ticker : reader.extract_from_yahoo(ticker), ticker_list)
-   value_list = map(lambda data : pd.DataFrame(data)['Adj Close'], value_list)
-   #for i, ticker in enumerate(ticker_list) :
-   #    print i, ticker
-   data = dict(zip(ticker_list, value_list))
-   data = pd.DataFrame(data, columns=ticker_list)
-   logging.debug( data.describe() )
-   returns = FINANCE.findDailyReturns(data)
-   logging.debug( returns.describe() )
-   returns =  FINANCE.graphDailyReturns(data)
-   logging.debug( returns.describe() )
-
-   LINE.plot(returns, title="Returns")
+   data = prep(ticker_list)
    path = "{pwd_parent}/local/example_returns.png".format(**vars(env))
-   save(path)
-
-   sharpe = map(lambda stock : MONTECARLO.find(data[stock], span=2*FINANCE.YEAR, period=FINANCE.YEAR), data)
-   sharpe = dict(zip(ticker_list, sharpe))
-   logging.info(sharpe)
-   POINT.plot(sharpe,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
+   demo_returns(data, path)
    path = "{pwd_parent}/local/example_sharpes.png".format(**vars(env))
-   save(path)
-
+   demo_sharpe(data, path)
