@@ -1,5 +1,6 @@
-from libCommon import FTP
+import logging
 import csv as _csv
+from libCommon import FTP
 
 '''
 

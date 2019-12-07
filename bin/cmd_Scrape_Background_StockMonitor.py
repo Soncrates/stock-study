@@ -2,15 +2,19 @@
 
 import re
 import logging
+from multiprocessing import Pool
 from libCommon import INI, log_exception
 from libDebug import trace
-from libWeb import WEB_UTIL
+from libNASDAQ import NASDAQ
+from libWeb import WEB_UTIL, YAHOO_PROFILE
+from libWeb import FINANCEMODELLING_STOCK_LIST as STOCK_LIST, FINANCEMODELLING_PROFILE
+
 
 '''
    Web Scraper
    Use RESTful interface to to get web pages and parse for relevant info about stocks and funds
 '''
-class SECTOR() :
+class STOCKMONITOR() :
       url = 'https://www.stockmonitor.com/sector/{}'
       url_list = [
       'basic-materials'
@@ -28,7 +32,7 @@ class SECTOR() :
           self.url_list = url_list
       def __str__(self) :
           msg = self.url_list.values()
-          msg = ','.join(sorted(msg))
+          msg = '\n'.join(sorted(msg))
           return msg
       def __call__(self) :
           ret = {}
@@ -36,7 +40,7 @@ class SECTOR() :
           for sector in sorted(self.url_list) : 
               logging.debug(sector)
               url = self.url_list[sector]
-              stock_list = SECTOR.get(url)
+              stock_list = STOCKMONITOR.get(url)
               logging.info((sector,len(stock_list)))
               ret[sector] = stock_list
               total += len(stock_list)
@@ -58,15 +62,67 @@ class SECTOR() :
           for link in soup.findAll('a', attrs={'href': re.compile("^/quote")}):
               ret.add( link.contents[0] )
           return sorted(list(ret))
+def scrape_yahoo(stock_list) :
+    ret = {}
+    _sector = 'Sector'
+    for row in stock_list :
+        stock = YAHOO_PROFILE.get(row)
+        sector = stock.get(_sector,None) 
+        if not sector :
+           continue
+        if sector not in ret :
+           ret[sector] = []
+        ret[sector].append(row)
+    return ret
+
+def scrape_financemodelling(stock_list) :
+    _stock_list = map(lambda x : x.get('symbol', None), STOCK_LIST.get())
+    stock_list = set(_stock_list).intersection(set(stock_list))
+    stock_list = sorted(list(stock_list))
+
+    ret = {}
+    _sector = 'sector'
+    for row in stock_list:
+        try :
+           stock = FINANCEMODELLING_PROFILE.get(row)
+        except :
+           stock = None
+        if not stock : continue
+        sector = stock.get(_sector,None) 
+        if not sector :
+           continue
+        if sector not in ret :
+           ret[sector] = []
+        ret[sector].append(row)
+    return ret
 
 @log_exception
 @trace
 def main(save_file) :
-    obj = SECTOR.init()
-    logging.info(obj)
-    ret = obj()
+    stock, etf, alias = NASDAQ.init().stock_list()
+
+    background = STOCKMONITOR.init()
+    logging.info(background)
+    ret = background()
+    temp = reduce(lambda a, b : a+b, ret.values())
+    stock = set(stock) - set(temp)
+    stock_list = sorted(list(stock))
+
+    FinanceModel = scrape_financemodelling(stock_list)
+    temp = reduce(lambda a, b : a+b, FinanceModel.values())
+    stock = set(stock) - set(temp)
+    stock_list = sorted(list(stock))
+
+    yahoo = scrape_yahoo(stock_list)
+    temp = reduce(lambda a, b : a+b, yahoo.values())
+    stock = set(stock) - set(temp)
+    stock_list = sorted(list(stock))
+
     config = INI.init()
-    INI.write_section(config,"SECTOR",**ret)
+    INI.write_section(config,"STOCKMONITOR",**ret)
+    INI.write_section(config,"FINANCEMODEL",**FinanceModel)
+    INI.write_section(config,"YAHOO",**yahoo)
+    INI.write_section(config,"NASDAQTRADER",**{'unkown' : stock_list})
     config.write(open(save_file, 'w'))
 
 if __name__ == '__main__' :
