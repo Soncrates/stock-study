@@ -96,6 +96,14 @@ def scrape_financemodelling(stock_list) :
         ret[sector].append(row)
     return ret
 
+def handle_alias(*stock_list,**alias) :
+    ret = set(alias.keys()).intersection(set(stock_list))
+    left_overs = set(stock_list) - ret
+    ret = sorted(list(ret))
+    left_overs = sorted(list(left_overs))
+    logging.info(ret)
+    return ret, left_overs 
+
 @log_exception
 @trace
 def main(save_file) :
@@ -103,8 +111,8 @@ def main(save_file) :
 
     background = STOCKMONITOR.init()
     logging.info(background)
-    ret = background()
-    temp = reduce(lambda a, b : a+b, ret.values())
+    stockmonitor = background()
+    temp = reduce(lambda a, b : a+b, stockmonitor.values())
     stock = set(stock) - set(temp)
     stock_list = sorted(list(stock))
 
@@ -118,11 +126,37 @@ def main(save_file) :
     stock = set(stock) - set(temp)
     stock_list = sorted(list(stock))
 
+    '''
+    Try a set of alternative names
+    '''
+    _retry, stock_list = handle_alias(*stock_list,**alias) 
+    retry = map(lambda x : alias[x].values(), _retry)
+    retry = reduce(lambda a, b : a+b, retry)
+
+    FinanceModel2 = scrape_financemodelling(retry)
+    temp_fm = reduce(lambda a, b : a+b, FinanceModel2.values())
+    retry = set(retry) - set(temp_fm)
+    retry = sorted(list(retry))
+
+    yahoo2 = scrape_yahoo(retry)
+    temp_y = reduce(lambda a, b : a+b, yahoo2.values())
+    retry = set(retry) - set(temp_y)
+    retry = sorted(list(retry))
+
+    logging.info(retry)
+    logging.info(temp_fm)
+    logging.info(temp_y)
+    logging.info(_retry)
+
     config = INI.init()
-    INI.write_section(config,"STOCKMONITOR",**ret)
+    INI.write_section(config,"STOCKMONITOR",**stockmonitor)
     INI.write_section(config,"FINANCEMODEL",**FinanceModel)
     INI.write_section(config,"YAHOO",**yahoo)
-    INI.write_section(config,"NASDAQTRADER",**{'unkown' : stock_list})
+    INI.write_section(config,"FINANCEMODEL2",**FinanceModel2)
+    INI.write_section(config,"YAHOO2",**yahoo2)
+    INI.write_section(config,"NASDAQTRADER",**{'unkown' : stock_list , 'alias' : retry })
+    for name in sorted(alias) :
+        INI.write_section(config,name,**alias[name])
     config.write(open(save_file, 'w'))
 
 if __name__ == '__main__' :
@@ -135,6 +169,6 @@ if __name__ == '__main__' :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   stock_ini = '{}/local/stockmonitor_background.ini'.format(env.pwd_parent)
+   stock_ini = '{}/local/stock_background.ini'.format(env.pwd_parent)
    main(stock_ini)
 
