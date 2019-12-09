@@ -2,18 +2,27 @@
 
 import re
 import logging
-from multiprocessing import Pool
 from libCommon import INI, log_exception
-from libDebug import trace
 from libNASDAQ import NASDAQ
 from libWeb import WEB_UTIL
-
+from libDebug import trace
 '''
    Web Scraper
    Use RESTful interface to to get web pages and parse for relevant info about stocks and funds
 '''
 
 class DICT_HELPER() :
+    normalized = ['Basic Materials'
+              ,'Utilities'
+              ,'Real Estate'
+              ,'Communication Services'
+              ,'Consumer Defensive'
+              ,'Consumer Cyclical'
+              ,'Energy'
+              ,'Technology'
+              ,'Healthcare'
+              ,'Industrials'
+              ,'Financial Services']
     def __init__(self, *largs, **kwargs):
         self.data = kwargs
     def __delitem__(self, key):
@@ -42,6 +51,36 @@ class DICT_HELPER() :
     def init(cls, *largs, **kwargs) :
         ret = cls(*largs, **kwargs)
         return ret
+    @classmethod
+    def normalize(cls,name) :
+        if name in cls.normalized :
+            return name
+        if 'estate' in name :
+            return 'Real Estate'
+        if 'basic' in name :
+            return 'Basic Materials'
+        if 'utilities' in name :
+            return 'Utilities'
+        if 'communication' in name :
+            return 'Communication Services'
+        if 'defensive' in name :
+            return 'Consumer Defensive'
+        if 'cyclical' in name :
+            return 'Consumer Cyclical'
+        if 'energy' in name :
+            return 'Energy'
+        if 'technology' in name :
+            return 'Technology'
+        if 'healthcare' in name :
+            return 'Healthcare'
+        if 'industrials' in name :
+            return 'Industrials'
+        if 'financial' in name :
+            return 'Financial Services'
+        if 'Industrial Goods' in name :
+            return 'Industrials'
+        logging.warn(name)
+        return name
 
 class YAHOO() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
@@ -88,6 +127,7 @@ class YAHOO() :
               sector = stock.get(_sector,None) 
               if not sector :
                  continue
+              sector = DICT_HELPER.normalize(sector)
               ret.append(sector,row)
           logging.info(ret)
           _stock_list = ret.values()
@@ -132,6 +172,7 @@ class FINANCEMODELLING() :
               sector = stock.get(_sector,None) 
               if not sector :
                  continue
+              sector = DICT_HELPER.normalize(sector)
               ret.append(sector,row)
           logging.info(ret)
           _stock_list = ret.values()
@@ -148,6 +189,7 @@ class STOCKMONITOR() :
       , 'financial-services'
       , 'healthcare'
       , 'industrials'
+      , 'real-estate'
       , 'technology'
       , 'utilities'
       ]
@@ -161,6 +203,7 @@ class STOCKMONITOR() :
       @classmethod
       def init(cls) :
           key_list = map(lambda x : x.replace('-','_'), cls.url_list)
+          key_list = map(lambda x : DICT_HELPER.normalize(x), cls.url_list)
           url_list = map(lambda x : cls.url.format(x), cls.url_list)
           url_list = dict(zip(key_list,url_list))
           ret = cls(url_list)
@@ -237,7 +280,7 @@ def main(save_file) :
     INI.write_section(config,"YAHOO",**y)
     INI.write_section(config,"FINANCEMODEL2",**fm2)
     INI.write_section(config,"YAHOO2",**y2)
-    INI.write_section(config,"NASDAQTRADER",**{'unkown' : stock_list , 'alias' : retry })
+    INI.write_section(config,"NASDAQTRADER",**{'unknown' : stock_list , 'alias' : retry })
     for name in sorted(alias) :
         INI.write_section(config,name,**alias[name])
     config.write(open(save_file, 'w'))
@@ -252,5 +295,5 @@ if __name__ == '__main__' :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   stock_ini = '{}/local/stock_background.ini'.format(env.pwd_parent)
-   main(stock_ini)
+   save_file = '{}/local/scrape_background.ini'.format(env.pwd_parent)
+   main(save_file)
