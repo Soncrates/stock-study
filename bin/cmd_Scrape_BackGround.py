@@ -29,10 +29,11 @@ class DICT_HELPER() :
         msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
         msg.append("Total : {}".format(len(self.values())))
         return "\n".join(msg)
-    def append(self, key, *value):
+    def append(self, key, *value_list):
         if key not in self.data:
            self.data[key] = []
-        self.data[key].append(value)
+        for value in value_list :
+            self.data[key].append(value)
     def values(self):
         ret = reduce(lambda a, b : a+b, self.data.values())
         ret = sorted(list(set(ret)))
@@ -90,7 +91,7 @@ class YAHOO() :
               ret.append(sector,row)
           logging.info(ret)
           _stock_list = ret.values()
-          return ret, _stock_list
+          return ret.data, _stock_list
 
 class FINANCEMODELLING_STOCK_LIST() :
       url = "https://financialmodelingprep.com/api/v3/company/stock/list"
@@ -134,7 +135,7 @@ class FINANCEMODELLING() :
               ret.append(sector,row)
           logging.info(ret)
           _stock_list = ret.values()
-          return ret, _stock_list
+          return ret.data, _stock_list
 
 class STOCKMONITOR() :
       url = 'https://www.stockmonitor.com/sector/{}'
@@ -156,16 +157,6 @@ class STOCKMONITOR() :
           msg = self.url_list.values()
           msg = '\n'.join(sorted(msg))
           return msg
-      def scrape(self) :
-          ret = DICT_HELPER.init()
-          for sector in sorted(self.url_list) : 
-              logging.debug(sector)
-              url = self.url_list[sector]
-              stock_list = STOCKMONITOR.get(url)
-              ret[sector] = stock_list
-          logging.info(ret)
-          _stock_list = ret.values()
-          return ret, _stock_list 
 
       @classmethod
       def init(cls) :
@@ -183,6 +174,19 @@ class STOCKMONITOR() :
           for link in soup.findAll('a', attrs={'href': re.compile("^/quote")}):
               ret.add( link.contents[0] )
           return sorted(list(ret))
+      @classmethod
+      @trace
+      def scrape(cls) :
+          obj = STOCKMONITOR.init()
+          ret = DICT_HELPER.init()
+          for sector in sorted(obj.url_list) : 
+              logging.debug(sector)
+              url = obj.url_list[sector]
+              stock_list = cls.get(url)
+              ret[sector] = stock_list
+          logging.info(ret)
+          _stock_list = ret.values()
+          return ret.data, _stock_list 
 
 def handle_alias(*stock_list,**alias) :
     ret = set(alias.keys()).intersection(set(stock_list))
@@ -199,7 +203,7 @@ def handle_alias(*stock_list,**alias) :
 def main(save_file) :
     stock_list, etf_list, alias = NASDAQ.init().stock_list()
 
-    sm, stocks = STOCKMONITOR.init().scrape()
+    sm, stocks = STOCKMONITOR.scrape()
     stock_list = set(stock_list) - set(stocks)
     stock_list = sorted(list(stock_list))
 
@@ -216,17 +220,15 @@ def main(save_file) :
     '''
     _retry, retry, stock_list = handle_alias(*stock_list,**alias) 
 
-    fm2, stocks = scrape_financemodelling(retry)
+    fm2, stocks = FINANCEMODELLING.scrape(retry)
     retry = set(retry) - set(stocks)
     retry = sorted(list(retry))
 
-    y2, stocks = scrape_yahoo(retry)
+    y2, stocks = YAHOO.scrape(retry)
     retry = set(retry) - set(stocks)
     retry = sorted(list(retry))
 
     logging.info(retry)
-    logging.info(temp_fm)
-    logging.info(temp_y)
     logging.info(_retry)
 
     config = INI.init()
