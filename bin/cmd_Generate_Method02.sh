@@ -1,7 +1,7 @@
 #!/bin/bash
 function generate {
-	python cm_Build_Images.py $1 $2
-	python cm_Build_Report.py $2 $3
+	python cmd_Build_Images.py $1 $2
+	python cmd_Build_Report.py $2 $3
 }
 
 python cmd_Method02_step01.py

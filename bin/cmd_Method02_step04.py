@@ -30,7 +30,7 @@ portfolios are now divided into 9 groups :
 Write results and basic statistics data about each sub section into ini file
 '''
 def prep_init() :
-    key_list = ['Basic_Materials','Communication_Services','Consumer_Cyclical','Consumer_Defensive','Empty','Energy','Financial_Services','Healthcare','Industrials','Real_Estate','Technology','Utilities']
+    key_list = ['Basic Materials','Communication Services','Consumer Cyclical','Consumer Defensive','Energy','Financial Services','Healthcare','Industrials','Real Estate','Technology','Utilities']
     ret = {}
     for key in key_list :
         ret[key] = {}
@@ -49,7 +49,6 @@ def lambdaFindSector(default,values,section) :
 
 def prep(*ini_list) :
     ret, overflow, default = prep_init()
-    ini_list = filter(lambda x : 'step03' in x, ini_list)
     for path, section, key, value in INI.loadList(*ini_list) :
         curr = lambdaFindSector(overflow,ret,section)
         curr[section][key] = float(value[0])
@@ -64,57 +63,63 @@ def prep(*ini_list) :
             _list.append(dict(zip(default_keys,value)))
         yield key, dict(zip(portfolio_keys,_list))
 
-def _partition(data,target) : 
-    if data is None: return {}
-    size = len(data)
-    size = int(math.floor(size/3))
-    if size == 0 : return {}
-    low = data.sort_values([target]).head(size)
-    high = data.sort_values([target]).tail(size)
-    middle = data.sort_values([target]).tail(size+size).head(size)
-    return dict(zip([0,1,2],[low, middle, high ]))
+class HELPER() :
+    @classmethod
+    def _partition(cls, data,target) : 
+        if data is None: return {}
+        size = len(data)
+        size = int(math.floor(size/3))
+        if size == 0 : return {}
+        low = data.sort_values([target]).head(size)
+        high = data.sort_values([target]).tail(size)
+        middle = data.sort_values([target]).tail(size+size).head(size)
+        return dict(zip([0,1,2],[low, middle, high ]))
 
-def partitionByRisk(data) :
-    return _partition(data, 'risk')
+    @classmethod
+    def partitionByRisk(cls, data) :
+        return cls._partition(data, 'risk')
 
-def partitionBySharpe(data) :
-    return _partition(data, 'sharpe')
+    @classmethod
+    def partitionBySharpe(cls, data) :
+        return cls._partition(data, 'sharpe')
 
-def partition(data) : 
-    _data = pd.DataFrame(data).T
-    risk = partitionByRisk(_data) 
-    low_risk = partitionBySharpe(risk.get(0,None))
-    middle_risk = partitionBySharpe(risk.get(1,None))
-    high_risk = partitionBySharpe(risk.get(2,None))
-    ret = dict(zip([0,1,2],[low_risk,middle_risk,high_risk]))
-    for _risk in sorted(ret) :
-        _ret = ret[_risk]
-        for _sharpe in sorted(_ret) :
-            key = '{}_{}'.format(_risk,_sharpe)
-            _d = _ret[_sharpe]
-            yield key, _d
+    @classmethod
+    def partition(cls, data) : 
+        _data = pd.DataFrame(data).T
+        risk = cls.partitionByRisk(_data) 
+        low_risk = cls.partitionBySharpe(risk.get(0,None))
+        middle_risk = cls.partitionBySharpe(risk.get(1,None))
+        high_risk = cls.partitionBySharpe(risk.get(2,None))
+        ret = dict(zip([0,1,2],[low_risk,middle_risk,high_risk]))
+        for _risk in sorted(ret) :
+            _ret = ret[_risk]
+            for _sharpe in sorted(_ret) :
+                key = '{}_{}'.format(_risk,_sharpe)
+                _d = _ret[_sharpe]
+                yield key, _d
 
-def transform(key, data) :
-    stock_list = data.T.columns.values
-    stock_list = sorted(list(stock_list))
-    ret = { key : stock_list } 
-    logging.info(ret)
+    @classmethod
+    def transform(cls, key, data) :
+        stock_list = data.T.columns.values
+        stock_list = sorted(list(stock_list))
+        ret = { key : stock_list } 
+        logging.info(ret)
 
-    column_list = ['mean', 'std', 'min', 'max']
+        column_list = ['mean', 'std', 'min', 'max']
 
-    temp = data.describe()['sharpe'] 
-    logging.debug(temp)
-    value_list = map(lambda key : round(temp[key],2), column_list)
-    key_list = map(lambda k : '{}_sharpe_{}'.format(key,k), column_list)
-    temp = dict(zip(key_list,value_list))
-    ret.update(temp)
+        temp = data.describe()['sharpe'] 
+        logging.debug(temp)
+        value_list = map(lambda key : round(temp[key],2), column_list)
+        key_list = map(lambda k : '{}_sharpe_{}'.format(key,k), column_list)
+        temp = dict(zip(key_list,value_list))
+        ret.update(temp)
 
-    temp = data.describe()['risk'] 
-    value_list = map(lambda key : round(temp[key],2), column_list)
-    key_list = map(lambda k : '{}_risk_{}'.format(key,k), column_list)
-    temp = dict(zip(key_list,value_list))
-    ret.update(temp)
-    return ret
+        temp = data.describe()['risk'] 
+        value_list = map(lambda key : round(temp[key],2), column_list)
+        key_list = map(lambda k : '{}_risk_{}'.format(key,k), column_list)
+        temp = dict(zip(key_list,value_list))
+        ret.update(temp)
+        return ret
 
 def action(file_list, ini_list) : 
     for sector, portfolio_list in prep(*ini_list) :
@@ -122,8 +127,8 @@ def action(file_list, ini_list) :
         logging.debug(portfolio_list)
         logging.debug(sector)
         ret = {}
-        for key, data in partition(portfolio_list) :
-            results = transform(key,data)
+        for key, data in HELPER.partition(portfolio_list) :
+            results = HELPER.transform(key,data)
             logging.info(results)
             key_list = sorted(results)
             value_list = map(lambda x : results[x], key_list)
@@ -133,6 +138,7 @@ def action(file_list, ini_list) :
         yield sector, ret
 
 @log_exception
+@trace
 def main(file_list, ini_list,save_file) : 
     ret = INI.init()
     for key, value in action(file_list, ini_list) :
@@ -148,11 +154,11 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
-   ini_list = env.list_filenames('local/*.ini')
-   ini_list = filter(lambda x : 'method02' in x, ini_list)
+   ini_list = env.list_filenames('local/method02*.ini')
+   ini_list = filter(lambda x : 'step03' in x, ini_list)
    file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method02_step04.ini".format(env.pwd_parent)
 

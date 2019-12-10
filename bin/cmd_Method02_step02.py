@@ -71,75 +71,81 @@ def load(file_list, value_list) :
         ret[name] = data
     return ret
 
-def filterByRisk(data,risk) :
-    size = len(data)
-    logging.debug(data.describe())
-    logging.debug(risk)
-    ret = data[data.risk < risk]
-    _size = len(ret)
-    logging.debug(size)
-    logging.debug(_size)
-    if _size == 0 :
-        return data
-    return ret
+class HELPER() :
+    @classmethod
+    def filterByRisk(cls, data,risk) :
+        size = len(data)
+        logging.debug(data.describe())
+        logging.debug(risk)
+        ret = data[data.risk < risk]
+        _size = len(ret)
+        logging.debug(size)
+        logging.debug(_size)
+        if _size == 0 :
+            return data
+        return ret
 
-def filterBySharpe(data,sharpe) :
-    size = len(data)
-    logging.debug(data.describe())
-    logging.debug(sharpe)
-    ret = data[data.sharpe > sharpe]
-    _size = len(ret)
-    logging.debug(size)
-    logging.debug(_size)
-    if _size == 0 :
-        return data
-    return ret
+    @classmethod
+    def filterBySharpe(cls, data,sharpe) :
+        size = len(data)
+        logging.debug(data.describe())
+        logging.debug(sharpe)
+        ret = data[data.sharpe > sharpe]
+        _size = len(ret)
+        logging.debug(size)
+        logging.debug(_size)
+        if _size == 0 :
+            return data
+        return ret
 
-def transformMeta(**meta) :
-    mean = float(meta.get('mean',0))
-    std = float(meta.get('std',1))
-    ret = [mean,mean+std,mean+std+std]
-    logging.debug(ret)
-    return ret
+    @classmethod
+    def transformMeta(cls, **meta) :
+        mean = float(meta.get('mean',0))
+        std = float(meta.get('std',1))
+        ret = [mean,mean+std,mean+std+std]
+        logging.debug(ret)
+        return ret
 
-def filterStock(data,risk,sharpe,cap=5) : 
-    size = len(data.T)
-    if size <= cap : return data
+    @classmethod
+    def filterStock(cls, data,risk,sharpe,cap=5) : 
+        size = len(data.T)
+        if size <= cap : return data
 
-    risk = transformMeta(**risk)[::-1]
-    sharpe = transformMeta(**sharpe)
-    ret = data.T
-    for i, value in enumerate(risk) :
-       _d01 = filterByRisk(ret, risk[i]) 
-       size = len(_d01)
-       if size <= cap : return _d01.T
-       _d02 = filterBySharpe(_d01, sharpe[i])
-       size = len(_d02)
-       if size <= cap : return _d02.T
-       ret = _d02
-    size = len(ret)
-    if size <= cap : return ret.T
-    return ret.T
+        risk = cls.transformMeta(**risk)[::-1]
+        sharpe = cls.transformMeta(**sharpe)
+        ret = data.T
+        for i, value in enumerate(risk) :
+           _d01 = cls.filterByRisk(ret, risk[i]) 
+           size = len(_d01)
+           if size <= cap : return _d01.T
+           _d02 = cls.filterBySharpe(_d01, sharpe[i])
+           size = len(_d02)
+           if size <= cap : return _d02.T
+           ret = _d02
+        size = len(ret)
+        if size <= cap : return ret.T
+        return ret.T
 
-def transform(key, data) :
-    stock_list = data.columns.values
-    stock_list = sorted(list(stock_list))
-    ret = { key : stock_list } 
+    @classmethod
+    def transform(cls, key, data) :
+        stock_list = data.columns.values
+        stock_list = sorted(list(stock_list))
+        ret = { key : stock_list } 
 
-    column_list = ['mean', 'std', 'min', 'max']
+        column_list = ['mean', 'std', 'min', 'max']
 
-    temp = data.T.describe()['sharpe'] 
-    value_list = map(lambda key : round(temp[key],2), column_list)
-    key_list = map(lambda k : '{}_sharpe_{}'.format(key,k), column_list)
-    temp = dict(zip(key_list,value_list))
-    ret.update(temp)
+        temp = data.T.describe()['sharpe'] 
+        value_list = map(lambda key : round(temp[key],2), column_list)
+        key_list = map(lambda k : '{}_sharpe_{}'.format(key,k), column_list)
+        temp = dict(zip(key_list,value_list))
+        ret.update(temp)
 
-    temp = data.T.describe()['risk'] 
-    value_list = map(lambda key : round(temp[key],2), column_list)
-    key_list = map(lambda k : '{}_risk_{}'.format(key,k), column_list)
-    temp = dict(zip(key_list,value_list))
-    ret.update(temp)
-    return ret
+        temp = data.T.describe()['risk'] 
+        value_list = map(lambda key : round(temp[key],2), column_list)
+        key_list = map(lambda k : '{}_risk_{}'.format(key,k), column_list)
+        temp = dict(zip(key_list,value_list))
+        ret.update(temp)
+        return ret
 
 def action(file_list, ini_list) : 
     for sector, _stock_list, risk, sharpe in prep(*ini_list) :
@@ -149,11 +155,12 @@ def action(file_list, ini_list) :
         logging.debug(sharpe)
         stock_list = load(file_list,_stock_list)
         stock_list = pd.DataFrame(stock_list)
-        stock_list = filterStock(stock_list,risk,sharpe,cap=20)
-        results = transform(sector,stock_list)
+        stock_list = HELPER.filterStock(stock_list,risk,sharpe,cap=20)
+        results = HELPER.transform(sector,stock_list)
         yield sector, results
 
 @log_exception
+@trace
 def main(file_list, ini_list,save_file) : 
     ret = INI.init()
     for key, value in action(file_list, ini_list) :
@@ -168,10 +175,10 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   ini_list = env.list_filenames('local/*.ini')
+   ini_list = env.list_filenames('local/method02*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method02_step02.ini".format(env.pwd_parent)
    target_sector = '_0_2'
