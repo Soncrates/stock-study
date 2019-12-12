@@ -36,18 +36,21 @@ def prep(ini_list, portfolio_list) :
     for path, sector_enum, key, value in INI.loadList(*ini_list) :
         if not key.endswith("_0_2")  : 
             continue
+        logging.debug((key,value))
         for _path, portfolio_name, stock_name, weight in INI.loadList(*portfolio_list) :
             if portfolio_name not in value :
                continue
+            logging.debug((stock_name,weight))
             weight = float(weight[0])
             #weight = round(weight,3)
             yield sector_enum, portfolio_name, stock_name, weight
 
 def action(input_file, file_list, ini_list) : 
-    portfolio_list = filter(lambda name : '03' in name, ini_list)
+    portfolio_list = filter(lambda name : 'step03' in name, ini_list)
     logging.info(portfolio_list)
     ret = {}
     for sector_enum, portfolio_name, stock_name, weight in prep(input_file,portfolio_list) :
+        logging.debug((sector_enum, portfolio_name, stock_name, weight))
         curr = None
         if sector_enum not in ret :
            ret[sector_enum] = {}
@@ -65,9 +68,10 @@ def action(input_file, file_list, ini_list) :
 
 @log_exception
 @trace
-def main(env, input_file, file_list, ini_list,output_file) : 
+def main(input_file, file_list, ini_list,local_dir) : 
     for name, section_list in action(input_file, file_list, ini_list) :
-        output_file = "{}/local/portfolio_{}.ini".format(env.pwd_parent,name)
+        output_file = "{}/portfolio_{}.ini".format(local_dir, name)
+        output_file = output_file.replace(" ", "_")
         ret = INI.init()
         name_list = sorted(section_list.keys())
         value_list = map(lambda key : section_list[key], name_list)
@@ -86,11 +90,9 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
-   ini_list = env.list_filenames('local/method02*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
+   ini_list = env.list_filenames('local/method02*.ini')
    input_file = filter(lambda x : 'step04' in x, ini_list)
-   if len(input_file) > 0 :
-      input_file = input_file[0]
-   output_file = "{}/local/method02_step05.ini".format(env.pwd_parent)
+   local_dir = "{}/local".format(env.pwd_parent)
 
-   main(env, input_file, file_list,ini_list,output_file)
+   main(input_file, file_list,ini_list,local_dir)

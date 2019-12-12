@@ -66,7 +66,7 @@ class HELPER :
           if data is None :
              ret =  dict(zip(cls.key_list, [0, 0, 0, 0]))
              return ret
-          returns, risk = FINANCE.findRiskAndReturn(data, span)
+          risk, returns = FINANCE.findRiskAndReturn(data, span)
           sharpe = 0
           if risk != 0 :
              sharpe = ( returns - risk_free_rate ) / risk

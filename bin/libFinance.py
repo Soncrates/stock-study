@@ -22,6 +22,61 @@ else :
   TIME_SERIES - perhaps the only legit class in the entire library
               - defaults to pulling 10 years of stock data
               - Stock data saved as pkl files
+
+Metric 
+Start Balance	$10,000	$10,000
+End Balance	$1,772,527	$8,567,187
+CAGR	16.49%	22.03%
+Expected Return	21.52%	34.34%
+Stdev	29.28%	43.73%
+Best Year	146.24%	211.90%
+Worst Year	-47.62%	-71.06%
+Max. Drawdown	-63.41%	-79.68%
+Sharpe Ratio (ex-ante)	0.63	0.71
+Sharpe Ratio (ex-post)	0.56	0.61
+Sortino Ratio	0.89	0.98
+US Stock Market Correlation	0.60	0.47
+
+Annual Growth (completed)
+Annual Return (bar chart by portfolio, grouped by year)
+
+
+Arithmetic Mean (monthly)	1.64%	2.49%
+Arithmetic Mean (annualized)	21.52%	34.34%
+Geometric Mean (monthly)	1.28%	1.67%
+Geometric Mean (annualized)	16.49%	22.03%
+Volatility (monthly)	8.45%	12.63%
+Volatility (annualized)	29.28%	43.73%
+Downside Deviation (monthly)	5.23%	7.76%
+Max. Drawdown	-63.41%	-79.68%
+US Market Correlation	0.60	0.47
+Beta(*)	1.16	1.37
+Alpha (annualized)	6.77%	14.67%
+R2	35.50%	22.19%
+Sharpe Ratio	0.56	0.61
+Sortino Ratio	0.89	0.98
+Treynor Ratio (%)	14.22	19.49
+Calmar Ratio	0.67	1.19
+Active Return	6.09%	11.63%
+Tracking Error	23.64%	38.98%
+Information Ratio	0.26	0.30
+Skewness	-0.08	-0.17
+Excess Kurtosis	1.63	1.52
+Historical Value-at-Risk (5%)	-12.36%	-17.43%
+Analytical Value-at-Risk (5%)	-12.25%	-18.28%
+Conditional Value-at-Risk (5%)	-16.89%	-26.07%
+Upside Capture Ratio (%)	129.76	170.46
+Downside Capture Ratio (%)	105.67	125.63
+Safe Withdrawal Rate	9.63%	12.24%
+Perpetual Withdrawal Rate	12.27%	16.36%
+Positive Periods	247 out of 407 (60.69%)	231 out of 407 (56.76%)
+Gain/Loss Ratio	1.08	1.28
+
+#	Asset	                        CAGR	Expected Return*	Standard Deviation	Sharpe Ratio*	Min. Weight	Max. Weight
+1	Apple Inc. (AAPL)	        22.03%	34.34%	                43.73%	                0.713	        0.00%	100.00%
+2	Intern Bus Machines Corp (IBM)	6.15%	9.84%	                26.32%	                0.253	        0.00%	100.00%
+
+
 '''
 
 class NASDAQ :
@@ -71,6 +126,8 @@ class STOCK_TIMESERIES :
       def init(cls, **kwargs) :
           target = 'end'
           end = kwargs.get(target, datetime.datetime.utcnow())
+          if isinstance(end, basestring) :
+             end = datetime.datetime.strptime(end, '%Y-%m-%d')
           target = 'start'
           start = kwargs.get(target, datetime.timedelta(days=365*10))
           start = end - start
@@ -156,7 +213,9 @@ class HELPER :
       RESAMPLE_MONTH = 'M'
       @classmethod
       def findDailyReturns(cls, data, period=0) :
+          #ret = data / data.iloc[0]
           ret = data.pct_change()
+          ret.iloc[0] = 0  # set first day pseudo-price
           ret = ret.replace([np.inf, -np.inf], np.nan)
           height, width = ret.shape
           if width == 1 :
@@ -166,8 +225,8 @@ class HELPER :
           height, width = ret.shape
           if height < period :
              return None
-          ret.iloc[0] = 0  # set first day pseudo-price
           #ret.sort_index(inplace=True)
+          #ret = 1 + ret
           logging.debug(ret.head(3))
           logging.debug(ret.tail(3))
           return ret
@@ -187,23 +246,32 @@ class HELPER :
           return ret
       @classmethod
       def findRiskAndReturn(cls, data, period=0, span=0) :
-          returns, risk = cls._findRiskAndReturn(data, span)
+          risk, returns = cls._findRiskAndReturn(data, span)
           if isinstance(returns,pd.Series) : returns = returns[0]
           if isinstance(risk,pd.Series) : risk = risk[0]
           if period > 0 :
              returns *= period
              risk *= np.sqrt(period)
-          return returns, risk
+          return risk, returns
       @classmethod
       def _findRiskAndReturn(cls, data, span=0) :
           if span == 0 :
              returns = data.mean()
              risk = data.std()
-             return returns, risk
+             return risk, returns
           #weigth recent history more heavily that older history
           returns = data.ewm(span=span).mean().iloc[-1]
           risk = data.ewm(span=span).std().iloc[-1]
-          return returns, risk
+          return risk, returns
+      @classmethod
+      def CAGR(cls, data):
+          periods = len(data) / float(cls.YEAR)
+          first = data.head(1)[0]
+          last = data.tail(1)[0]
+          return cls._CAGR(first, last, periods)
+      @classmethod
+      def _CAGR(cls, first, last, periods):
+          return (last/first)**(1/periods)-1
 
 class RISK :
       column = 'risk'
@@ -282,6 +350,12 @@ class BIN :
           ret = filter(lambda x : len(x) > 0, ret)
           return ret
 
+'''
+#	Asset	                        CAGR	Expected Return*	Standard Deviation	Sharpe Ratio*	Min. Weight	Max. Weight
+1	Apple Inc. (AAPL)	        22.03%	34.34%	                43.73%	                0.713	        0.00%	100.00%
+2	Intern Bus Machines Corp (IBM)	6.15%	9.84%	                26.32%	                0.253	        0.00%	100.00%
+'''
+
 if __name__ == "__main__" :
 
    import sys
@@ -295,6 +369,8 @@ if __name__ == "__main__" :
 
    file_list = env.list_filenames('local/historical_prices/*pkl')
    ini_list = env.list_filenames('local/*.ini')
+   ini_list = filter(lambda x : 'background' in x, ini_list)
+   ini_list = filter(lambda x : 'stock_' in x, ini_list)
    _nasdaq = env.list_filenames('local/'+NASDAQ.path)[0]
    def demo_nasdaq() :
        nasdaq = NASDAQ.init(filename=_nasdaq)
@@ -302,7 +378,7 @@ if __name__ == "__main__" :
            logging.debug(stock)
            if stock == 'AAPL' : break
 
-   def prep() :
+   def prep(*ini_list) :
        for path, section, key, value in INI.loadList(*ini_list) :
            if 'Industry' not in section : continue
            if 'Gas' not in key : continue
@@ -311,22 +387,32 @@ if __name__ == "__main__" :
        return value[:2]
 
    def demo_stock() :
-       reader = STOCK_TIMESERIES.init()
+       end = "2019-06-01"
+       reader = STOCK_TIMESERIES.init(end=end)
        for stock in stock_list :
            ret = reader.extract_from_yahoo(stock)
            logging.debug (stock)
            logging.debug (ret.describe())
            returns = HELPER.findDailyReturns(ret)
            logging.debug (returns.describe())
-           logging.debug (HELPER.findRiskAndReturn(returns))
-           logging.debug (HELPER.findRiskAndReturn(returns, span=HELPER.YEAR))
+           _risk, _returns = HELPER.findRiskAndReturn(returns['Adj Close'])
+           msg = [_returns,_risk,_returns/_risk]
+           msg = zip(['returns','risk','sharpe'],msg)
+           logging.debug(msg)
+           _risk, _returns = HELPER.findRiskAndReturn(returns['Adj Close'], period=HELPER.YEAR )
+           msg = [_returns,_risk,_returns/_risk]
+           msg = zip(['returns','risk','sharpe'],msg)
+           logging.debug(msg)
+           logging.debug (HELPER.CAGR(ret['Adj Close']))
 
    def demo_stock_2() :
        a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)
        b = STOCK_TIMESERIES.flatten('Adj Close',b)
        print (b.describe())
        print (a)
-   stock_list = prep()
+   #stock_list = prep(*ini_list)
+   stock_list = ['AAPL','IBM']
+   stock_list = ['IBM','AAPL','^GSPC']
    demo_stock()
    #demo_stock2()
-   demo_nasdaq()
+   #demo_nasdaq()

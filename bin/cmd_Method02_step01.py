@@ -93,13 +93,19 @@ def prep(*ini_list) :
 def load(file_list, value_list) :
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
+        if len(data) < 7*FINANCE.YEAR :
+           logging.info("{} of length {} rejected for being less than {}".format(name,len(data),7*FINANCE.YEAR))
+           continue
         data = MONTECARLO.find(data['Adj Close'], period=FINANCE.YEAR)
         #filter stocks that have less than a year
         sharpe = data.get('sharpe',0)
-        if sharpe == 0 : continue
+        if sharpe == 0 :
+           continue
         #filter stocks that have negative returns
         returns = data.get('returns',0)
-        if returns <= 0 : continue
+        if returns <= 0 : 
+           logging.info("{} of returns {} rejected for being unprofitable".format(name,returns))
+           continue
         key_list = data.keys()
         value_list = map(lambda x : data[x], key_list)
         value_list = map(lambda x : round(x,2), value_list)
@@ -108,7 +114,6 @@ def load(file_list, value_list) :
         ret[name] = data
     return ret
 
-@cpu
 def action(file_list, ini_list) : 
     for sector, _stock_list in prep(*ini_list) :
         logging.debug(sector)
@@ -141,7 +146,7 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')

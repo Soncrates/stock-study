@@ -20,7 +20,7 @@ from libSharpe import PORTFOLIO, HELPER as MONTECARLO
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
-def prep(*ini_list) :
+def prep_Portfolio(*ini_list) :
     ret = {}
     for path, section, key, weight in INI.loadList(*ini_list) :
         if section not in ret :
@@ -30,16 +30,11 @@ def prep(*ini_list) :
 
 def prep_Enrich(*ini_list) :
     ret = {}
-    ini_list = filter(lambda x : 'background' in x, ini_list)
-    ini_list = filter(lambda x : 'yahoo' in x, ini_list)
+    ini_list = filter(lambda x : 'stock_background' in x, ini_list)
     for path, section, key, stock_list in INI.loadList(*ini_list) :
-        if section == 'Sector' : pass
-        elif section == 'Industry' : pass
-        elif section == 'Category' : pass
-        else : continue
         for stock in stock_list :
             if stock not in ret : ret[stock] = {}
-            ret[stock][section] = key
+            ret[stock]['Sector'] = key
     return ret
 
 @trace
@@ -74,7 +69,8 @@ def transformMonteCarlo(file_list,stock_list) :
     name_list, _ret = load(file_list,stock_list)
     value_list = map(lambda x : _ret[x], name_list)
     #value_list = map(lambda data : data.sort_index(inplace=True), value_list)
-    value_list = map(lambda data : MONTECARLO.find(data, span=0, period=FINANCE.YEAR), value_list)
+    #value_list = map(lambda data : MONTECARLO.find(data, span=0, period=FINANCE.YEAR), value_list)
+    value_list = map(lambda data : MONTECARLO.find(data, period=FINANCE.YEAR), value_list)
     sharpe = dict(zip(name_list,value_list))
     ret = FINANCE.findDailyReturns(_ret)
     return name_list, ret, sharpe
@@ -128,7 +124,7 @@ class PORTFOLIO_HELPER :
     def removeMeta(cls, data) :
         temp = filter(lambda x : x in data, cls.meta)
         return data.T.drop(list(temp))
-
+@trace
 def enrichWithSectorEnumeration(enrich, portfolio) :
     stock_diverse_keys = ['weight', 'ticker']
     column_list = PORTFOLIO_HELPER.findStocks(portfolio)
@@ -164,6 +160,8 @@ class WEIGHTS_HELPER :
 
     @classmethod
     def add(cls, data, stock, weights) :
+        logging.info(stock)
+        logging.info(weights)
         ret = deepcopy(data.get(stock,{}))
         value_list = map(lambda x : ret.get(x,0),cls.meta)
         value_list = map(lambda x : x*weights[stock],value_list)
@@ -179,7 +177,7 @@ class WEIGHTS_HELPER :
         value_list = map(lambda x : round(float(x),2), value_list)
         ret = dict(zip(key_list,value_list))
         return ret
-
+@trace
 def addWeights(data, enrich, weights) :
     ret_stocks = {}
     ret_weights = {}
@@ -199,10 +197,12 @@ def addWeights(data, enrich, weights) :
            ret_stocks[sector] = {}
 
         ret = WEIGHTS_HELPER.humanReadable(stock_data)
+        logging.info(ret)
         ret_stocks[sector][stock] = ret
         if sector not in ret_weights :
            ret_weights[sector] = WEIGHTS_HELPER.default()
         for key in WEIGHTS_HELPER.weighted_meta :
+            logging.info((key))
             w = ret_weights[sector][key] + ret[key]
             ret_weights[sector][key] = w
 
@@ -247,7 +247,7 @@ def process(file_list, portfolio_ini, ini_list) :
 
     if not isinstance(portfolio_ini, list) :
        portfolio_ini = [portfolio_ini]
-    portfolio_list = prep(*portfolio_ini)
+    portfolio_list = prep_Portfolio(*portfolio_ini)
     logging.info(portfolio_list)
     _returns = Group()
     _enriched = Group()
@@ -258,8 +258,10 @@ def process(file_list, portfolio_ini, ini_list) :
     for stock_list, weights, graphBySector, dataBySector, names in lambdaFind(local_enrich, portfolio_list) :
         name_list, timeseries = load(file_list,stock_list)
         value_list = map(lambda x : timeseries[x], name_list)
-        value_list = map(lambda data : MONTECARLO.find(data, span=0, period=FINANCE.YEAR), value_list)
+        value_list = map(lambda data : MONTECARLO.find(data, period=FINANCE.YEAR), value_list)
+        logging.info(value_list[0])
         _portfolio = dict(zip(name_list, value_list))
+        logging.info(_portfolio)
         sharpe_weights, sharpe_stocks = addWeights(_portfolio,local_enrich,weights)
         data = FINANCE.findDailyReturns(timeseries)
         portfolio_sharpe = PORTFOLIO.findWeightedSharpe(data, weights, risk_free_rate=0.02, period=FINANCE.YEAR)
