@@ -182,6 +182,7 @@ if __name__ == '__main__' :
    file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method02_step02.ini".format(env.pwd_parent)
    target_sector = '_0_2'
+   #target_sector = '_1_2'
    ini_list = filter(lambda x : "method02_step01" in x, ini_list)
 
    main(file_list,ini_list,save_file)

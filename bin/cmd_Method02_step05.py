@@ -33,8 +33,14 @@ Write results and basic statistics data about each sub section into ini file
 def prep(ini_list, portfolio_list) :
     logging.info(ini_list)
     logging.info(portfolio_list)
+
+    target_sector = 'target_sector'
+    target_sector = globals().get(target_sector,'_')
+    target_files = 'file_list'
+    target_files = globals().get(target_files,[])
+
     for path, sector_enum, key, value in INI.loadList(*ini_list) :
-        if not key.endswith("_0_2")  : 
+        if not key.endswith(target_sector)  : 
             continue
         logging.debug((key,value))
         for _path, portfolio_name, stock_name, weight in INI.loadList(*portfolio_list) :
@@ -45,7 +51,7 @@ def prep(ini_list, portfolio_list) :
             #weight = round(weight,3)
             yield sector_enum, portfolio_name, stock_name, weight
 
-def action(input_file, file_list, ini_list) : 
+def action(input_file, ini_list) : 
     portfolio_list = filter(lambda name : 'step03' in name, ini_list)
     logging.info(portfolio_list)
     ret = {}
@@ -68,8 +74,8 @@ def action(input_file, file_list, ini_list) :
 
 @log_exception
 @trace
-def main(input_file, file_list, ini_list,local_dir) : 
-    for name, section_list in action(input_file, file_list, ini_list) :
+def main(input_file, ini_list,local_dir) : 
+    for name, section_list in action(input_file, ini_list) :
         output_file = "{}/portfolio_{}.ini".format(local_dir, name)
         output_file = output_file.replace(" ", "_")
         ret = INI.init()
@@ -94,5 +100,7 @@ if __name__ == '__main__' :
    ini_list = env.list_filenames('local/method02*.ini')
    input_file = filter(lambda x : 'step04' in x, ini_list)
    local_dir = "{}/local".format(env.pwd_parent)
+   target_sector = '_0_2'
+   #target_sector = '_1_2'
 
-   main(input_file, file_list,ini_list,local_dir)
+   main(input_file, ini_list,local_dir)

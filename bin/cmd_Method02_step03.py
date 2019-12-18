@@ -29,6 +29,7 @@ def prep(*ini_list) :
            risk[section] = {}
            sharpe[section] = {}
         if section == key :
+           value = sorted(list(set(value)))
            stock_list[key] = value
         key = key.replace(section,'')
         if 'risk' in key :
@@ -58,7 +59,7 @@ def load(file_list, stock_list) :
 
 class HELPER() :
     @classmethod
-    def lambdaAction(cls, stock_list,data_list) :
+    def listPortfolio(cls, stock_list,data_list) :
         meta = ['returns', 'risk', 'sharpe']
         stock_list = filter(lambda x : x not in meta, stock_list)
         max_sharp, min_dev = PORTFOLIO.find(data_list, stocks=stock_list, portfolios=5, period=FINANCE.YEAR)
@@ -66,7 +67,7 @@ class HELPER() :
         yield max_sharpe, min_dev
 
     @classmethod
-    def lambdaAction(cls, stock_list,data_list) :
+    def validateParams(cls, stock_list) :
         _size = len(stock_list)
         default_combo = 10
         num_portfolios = 5000
@@ -83,7 +84,11 @@ class HELPER() :
            num_portfolios = 1000
         elif _size > 12  :
            num_portfolios = 2000
+        return default_combo, num_portfolios
 
+    @classmethod
+    def listPortfolio(cls, stock_list,data_list) :
+        default_combo, num_portfolios = cls.validateParams(stock_list)
         ret = pd.DataFrame()
         for subset in combinations(stock_list,default_combo) :
             max_sharpe, min_dev = PORTFOLIO.find(data_list, stocks=subset, portfolios=num_portfolios, period=FINANCE.YEAR)
@@ -111,7 +116,7 @@ def action(file_list, ini_list) :
         logging.debug(risk)
         logging.debug(sharpe)
         stock_list, data_list = load(file_list,_stock_list)
-        for results in HELPER.lambdaAction(stock_list,data_list) :
+        for results in HELPER.listPortfolio(stock_list,data_list) :
             columns = results.columns.values
             _i = 0
             for index, row in results.iterrows() :

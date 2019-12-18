@@ -29,24 +29,6 @@ portfolios are now divided into 9 groups :
 
 Write results and basic statistics data about each sub section into ini file
 '''
-def prep_init() :
-    key_list = ['Basic_Materials','Communication_Services','Consumer_Cyclical','Consumer_Defensive','Empty','Energy','Financial_Services','Healthcare','Industrials','Real_Estate','Technology','Utilities']
-    ret = {}
-    for key in key_list :
-        ret[key] = {}
-    default = { 'risk' : 0, 'returns': 0, 'sharpe' : 0 }
-    return ret, {}, default
-def lambdaFindSector(default,values,section) :
-    key = filter(lambda k : k in section, values.keys() )
-    if len(key) == 0 :
-       ret = default
-    else :
-       key = key[0]
-       ret = values.get(key,default)
-    if section not in ret :
-          ret[section] = {}
-    return ret 
-
 
 def prep(ini_list) :
     key_list = ['Basic_Materials','Communication_Services','Consumer_Cyclical','Consumer_Defensive','Empty','Energy','Financial_Services','Healthcare','Industrials','Real_Estate','Technology','Utilities']
@@ -87,10 +69,11 @@ def load(file_list, stock_list) :
         finally : pass
     return name_list, data_list
 
-def prep(ini_list) :
-    key_list = ['Basic_Materials','Communication_Services','Consumer_Cyclical','Consumer_Defensive','Empty','Energy','Financial_Services','Healthcare','Industrials','Real_Estate','Technology','Utilities']
+def prep() :
+    target = "portfolio_list"
+    portfolio_list = globals().get(target,[])
+    key_list = ['Basic Materials','Communication Services','Consumer Cyclical','Consumer Defensive','Energy','Financial Services','Healthcare','Industrials','Real Estate','Technology','Utilities']
     not_stock = ['returns', 'risk', 'sharpe']
-    portfolio_list = filter(lambda x : 'portfolio' in x, ini_list)
     ret = []
     for key in key_list :
         temp = filter(lambda x : key in x, portfolio_list)
@@ -99,9 +82,11 @@ def prep(ini_list) :
     logging.info(portfolio_list)
     ret = {}
     for path, sector_enum, key, value in INI.loadList(*portfolio_list) :
+        logging.info(sector_enum)
         if key in not_stock : 
            continue
         sector = filter(lambda x : x in sector_enum, key_list)
+        logging.info(sector)
         if isinstance(sector,list) and len(sector) > 0 :
             sector = sector[0]
         if sector not in ret :
@@ -143,7 +128,7 @@ def action(input_file, file_list, ini_list) :
             logging.info((i,j, sector_name,value))
 
 def action(input_file, file_list, ini_list) : 
-    sector_data = prep(ini_list) 
+    sector_data = prep() 
     sector_list = sorted(sector_data)
 
     combined = []
@@ -195,7 +180,7 @@ def action(input_file, file_list, ini_list) :
     yield "combined_risk", min_dev
     return
 @log_exception
-def main(env, input_file, file_list, ini_list,output_file) : 
+def main(input_file, file_list, ini_list,output_file) : 
     ret = INI.init()
     for name, section_list in action(input_file, file_list, ini_list) :
         INI.write_section(ret,name,**section_list)
@@ -212,9 +197,10 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
+   portfolio_list = env.list_filenames('local/portfolio*.ini')
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
-   input_file = env.list_filenames('local/*step04.ini')
+   input_file = env.list_filenames('local/method02*.ini')
    output_file = "{}/local/method02_step06.ini".format(env.pwd_parent)
 
-   main(env, input_file, file_list,ini_list,output_file)
+   main(input_file, file_list,ini_list,output_file)
