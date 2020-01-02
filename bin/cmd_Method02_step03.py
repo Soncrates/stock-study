@@ -74,16 +74,17 @@ class HELPER() :
         if _size < default_combo :
            default_combo = _size - 1
         elif _size >= 20  :
-           default_combo = 16
+           default_combo = _size - 4
            num_portfolios = 100
         elif _size >= 18  :
-           default_combo = 14
+           default_combo = _size - 3
            num_portfolios = 500
         elif _size >= 15  :
-           default_combo = 12
+           default_combo = _size - 2
            num_portfolios = 1000
         elif _size > 12  :
            num_portfolios = 2000
+        logging.info(('stock count', _size, 'combos', default_combo, 'num_portfolios',num_portfolios))
         return default_combo, num_portfolios
 
     @classmethod
