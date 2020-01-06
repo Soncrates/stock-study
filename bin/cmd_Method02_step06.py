@@ -72,11 +72,12 @@ def load(file_list, stock_list) :
 def prep() :
     target = "portfolio_list"
     portfolio_list = globals().get(target,[])
-    key_list = ['Basic Materials','Communication Services','Consumer Cyclical','Consumer Defensive','Energy','Financial Services','Healthcare','Industrials','Real Estate','Technology','Utilities']
+    target = "sector_list"
+    sector_list = globals().get(target,[])
     not_stock = ['returns', 'risk', 'sharpe']
     ret = []
-    for key in key_list :
-        temp = filter(lambda x : key in x, portfolio_list)
+    for sector in sector_list :
+        temp = filter(lambda x : sector in x, portfolio_list)
         ret += temp
     portfolio_list = ret
     logging.info(portfolio_list)
@@ -202,5 +203,6 @@ if __name__ == '__main__' :
    file_list = env.list_filenames('local/historical_prices/*pkl')
    input_file = env.list_filenames('local/method02*.ini')
    output_file = "{}/local/method02_step06.ini".format(env.pwd_parent)
+   sector_list = ['Basic Materials','Communication Services','Consumer Cyclical','Consumer Defensive','Energy','Financial Services','Healthcare','Industrials','Real Estate','Technology','Utilities']
 
    main(input_file, file_list,ini_list,output_file)

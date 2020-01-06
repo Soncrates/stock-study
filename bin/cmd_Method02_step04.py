@@ -30,16 +30,20 @@ portfolios are now divided into 9 groups :
 Write results and basic statistics data about each sub section into ini file
 '''
 def prep_init() :
-    key_list = ['Basic Materials','Communication Services','Consumer Cyclical','Consumer Defensive','Energy','Financial Services','Healthcare','Industrials','Real Estate','Technology','Utilities']
+    target = 'sector_list'
+    sector_list = globals().get(target,[])
+    logging.info(sector_list)
     ret = {}
-    for key in key_list :
+    for key in sector_list :
         ret[key] = {}
     default = { 'risk' : 0, 'returns': 0, 'sharpe' : 0 }
     return ret, {}, default
+
 def lambdaFindSector(default,values,section) :
     key = filter(lambda k : k in section, values.keys() )
     if len(key) == 0 :
        ret = default
+       logging.warn("Unrecognized section : {}".format(section))
     else :
        key = key[0]
        ret = values.get(key,default)
@@ -77,11 +81,15 @@ class HELPER() :
 
     @classmethod
     def partitionByRisk(cls, data) :
-        return cls._partition(data, 'risk')
+        ret = cls._partition(data, 'risk')
+        logging.info(ret)
+        return ret
 
     @classmethod
     def partitionBySharpe(cls, data) :
-        return cls._partition(data, 'sharpe')
+        ret =  cls._partition(data, 'sharpe')
+        logging.info(ret)
+        return ret
 
     @classmethod
     def partition(cls, data) : 
@@ -90,6 +98,10 @@ class HELPER() :
         low_risk = cls.partitionBySharpe(risk.get(0,None))
         middle_risk = cls.partitionBySharpe(risk.get(1,None))
         high_risk = cls.partitionBySharpe(risk.get(2,None))
+        if len(low_risk) == 0 :
+           logging.warn("Partition yielded no results")
+           logging.warn(risk)
+           low_risk = risk
         ret = dict(zip([0,1,2],[low_risk,middle_risk,high_risk]))
         for _risk in sorted(ret) :
             _ret = ret[_risk]
@@ -125,7 +137,7 @@ def action(file_list, ini_list) :
     for sector, portfolio_list in prep(*ini_list) :
         portfolio_list = pd.DataFrame(portfolio_list)
         logging.debug(portfolio_list)
-        logging.debug(sector)
+        logging.info(sector)
         ret = {}
         for key, data in HELPER.partition(portfolio_list) :
             results = HELPER.transform(key,data)
@@ -140,11 +152,13 @@ def action(file_list, ini_list) :
 @log_exception
 @trace
 def main(file_list, ini_list,save_file) : 
+    logging.info("loading results {}".format(ini_list))
     ret = INI.init()
     for key, value in action(file_list, ini_list) :
         logging.debug(value)
         INI.write_section(ret,key,**value)
     ret.write(open(save_file, 'w'))
+    logging.info("results saved to {}".format(save_file))
 
 if __name__ == '__main__' :
    import sys
@@ -162,4 +176,5 @@ if __name__ == '__main__' :
    file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method02_step04.ini".format(env.pwd_parent)
 
+   sector_list = ['Basic Materials','Communication Services','Consumer Cyclical','Consumer Defensive','Energy','Financial Services','Healthcare','Industrials','Real Estate','Technology','Utilities']
    main(file_list,ini_list,save_file)

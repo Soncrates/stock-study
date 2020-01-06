@@ -129,11 +129,13 @@ def action(file_list, ini_list) :
 @log_exception
 @trace
 def main(file_list, ini_list,save_file) : 
+    logging.info("loading results {}".format(ini_list))
     ret = INI.init()
     for key, value in action(file_list, ini_list) :
         logging.info(value)
         INI.write_section(ret,key,**value)
     ret.write(open(save_file, 'w'))
+    logging.info("results saved to {}".format(save_file))
 
 if __name__ == '__main__' :
    import logging

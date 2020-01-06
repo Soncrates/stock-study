@@ -75,6 +75,7 @@ def action(input_file, ini_list) :
 @log_exception
 @trace
 def main(input_file, ini_list,local_dir) : 
+    logging.info("loading results from {}".format(ini_list))
     for name, section_list in action(input_file, ini_list) :
         output_file = "{}/portfolio_{}.ini".format(local_dir, name)
         output_file = output_file.replace(" ", "_")
@@ -83,6 +84,7 @@ def main(input_file, ini_list,local_dir) :
         value_list = map(lambda key : section_list[key], name_list)
         for i, name in enumerate(name_list) :
             INI.write_section(ret,name,**value_list[i])
+        logging.info("saving results to file {}".format(output_file))
         ret.write(open(output_file, 'w'))
 
 if __name__ == '__main__' :
