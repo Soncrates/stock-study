@@ -9,7 +9,8 @@ from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER as MONTECARLO
 
 from libDebug import trace, cpu
-from cmd_Method03_step01 import HELPER_THIRDS, HELPER_HALVES
+from cmd_Method03_step01 import HELPER_THIRDS, HELPER_HALVES, HELPER
+from cmd_Method03_step02 import HELPER2
 '''
 Method 02 step 01 - Divide and Conquer
 
@@ -30,81 +31,37 @@ Each sector is now divided into 9 groups :
 
 Write results and basic statistics data about each sub section into ini file
 '''
-class HELPER() :
 
-    @classmethod
-    def transform(cls, key, data) :
-        stock_list = data.T.columns.values
-        stock_list = sorted(list(stock_list))
-        ret = { key + "_stocks" : stock_list } 
+def _prep(*ini_list) :
+    ret = {}
+    target = "stocks"
+    for path, section, key, value in INI.loadList(*ini_list) :
+        key = key.replace(section+"_","")
+        ret[key] = value
+        if target not in key :
+            continue
+        logging.debug(key)
+        prefix = key.replace(target,"")
+        ret = HELPER2.transform(prefix,ret)
+        if HELPER2.sharpe_cap(ret) :
+           ret = {}
+           continue
+        logging.info((section,ret))
+        yield section, ret.get(target,[])
+        ret = {}
 
-        column_list = ['mean', 'std', 'min', 'max']
-
-        temp = data.describe()['sharpe'] 
-        value_list = map(lambda key : round(temp[key],2), column_list)
-        key_list = map(lambda k : '{}_sharpe_{}'.format(key,k), column_list)
-        temp = dict(zip(key_list,value_list))
-        ret.update(temp)
-
-        temp = data.describe()['risk'] 
-        value_list = map(lambda key : round(temp[key],2), column_list)
-        key_list = map(lambda k : '{}_risk_{}'.format(key,k), column_list)
-        temp = dict(zip(key_list,value_list))
-        ret.update(temp)
-        return ret
-
-    @classmethod
-    def _debug(cls, data) :
-        for v in data.values() :
-            if isinstance(v,dict) :
-              yield sorted(data)
-              break
-            else :
-              yield sorted(v.T.columns.values)
-
-def _prep() :
+def prep() :
     target = 'ini_list'
     ini_list = globals().get(target,[])
     logging.info("loading results {}".format(ini_list))
     ret = {}
-    for path, section, key, value in INI.loadList(*ini_list) :
-        key = key.replace(section+"_","")
-        ret[key] = value
-        target = "stocks"
-        if target not in key : 
-            continue
-        logging.debug(key)
-        prefix = key.replace(target,"")
-        _ret = {}
-        for key in sorted(ret) :
-            new = key.replace(prefix,"")
-            _ret[new] = ret[key]
-        target = 'sharpe_max'
-        v = _ret.get(target,["0.0"])
-        v = float(v[0])
-        if v < 1.0 :
-           ret = {}
-           continue
-        logging.info((section,_ret))
-        target = 'stocks'
-        yield section, _ret.get(target,[])
-        ret = {}
-def prep() :
-    ret = {}
-    for section, stocks in _prep() :
+    for section, stocks in _prep(*ini_list) :
         if section not in ret :
            ret[section] = []
         ret[section] = ret[section] + stocks
     for section in ret :
         value = sorted(ret[section])
         yield section, value
-
-def round_values(**data) :
-    key_list = data.keys()
-    value_list = map(lambda x : data[x], key_list)
-    value_list = map(lambda x : round(x,2), value_list)
-    ret = dict(zip(key_list,value_list))
-    return ret
 
 def load(value_list) :
     target = "file_list"
@@ -124,16 +81,9 @@ def load(value_list) :
         if returns <= 0 : 
            logging.info("{} of returns {} rejected for being unprofitable".format(name,returns))
            continue
-        msg = round_values(**data)
+        msg = HELPER.round_values(**data)
         logging.info((name, msg))
         ret[name] = data
-    return ret
-
-def rename_keys(sector, **data) : 
-    key_list = sorted(data)
-    value_list = map(lambda x : data[x], key_list)
-    key_list = map(lambda x : "{}_{}".format(sector,x), key_list)
-    ret = dict(zip(key_list,value_list))
     return ret
 
 def action() : 
@@ -151,7 +101,7 @@ def action() :
         for key, data in partition(stock_list) :
             logging.warn(len(data))
             results = HELPER.transform(key,data)
-            results = rename_keys(sector, **results)
+            results = HELPER.rename_keys(sector, **results)
             ret.update(results)
         yield sector, ret
 

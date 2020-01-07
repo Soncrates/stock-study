@@ -196,19 +196,28 @@ class HELPER() :
             else :
               yield sorted(v.T.columns.values)
 
+    @classmethod
+    def round_values(cls, **data) : 
+        key_list = data.keys()
+        value_list = map(lambda x : data[x], key_list)
+        value_list = map(lambda x : round(x,2), value_list)
+        ret = dict(zip(key_list,value_list))
+        return ret
+
+    @classmethod
+    def rename_keys(cls, sector, **data) : 
+        key_list = sorted(data)
+        value_list = map(lambda x : data[x], key_list)
+        key_list = map(lambda x : "{}_{}".format(sector,x), key_list)
+        ret = dict(zip(key_list,value_list))
+        return ret
+
 def prep() :
     target = 'ini_list'
     ini_list = globals().get(target,[])
     logging.info("loading results {}".format(ini_list))
     for path, section, key, stock_list in INI.loadList(*ini_list) :
         yield key, stock_list
-
-def round_values(**data) : 
-    key_list = data.keys()
-    value_list = map(lambda x : data[x], key_list)
-    value_list = map(lambda x : round(x,2), value_list)
-    ret = dict(zip(key_list,value_list))
-    return ret
 
 def load(value_list) :
     target = "file_list"
@@ -228,16 +237,9 @@ def load(value_list) :
         if returns <= 0 : 
            logging.info("{} of returns {} rejected for being unprofitable".format(name,returns))
            continue
-        msg = round_values(**data)
+        msg = HELPER.round_values(**data)
         logging.info((name, msg))
         ret[name] = data
-    return ret
-
-def rename_keys(sector, **data) : 
-    key_list = sorted(data)
-    value_list = map(lambda x : data[x], key_list)
-    key_list = map(lambda x : "{}_{}".format(sector,x), key_list)
-    ret = dict(zip(key_list,value_list))
     return ret
 
 def action() : 
@@ -249,7 +251,7 @@ def action() :
         for key, data in HELPER_THIRDS.partition(stock_list) :
             logging.info(len(data))
             results = HELPER.transform(key,data)
-            results = rename_keys(sector, **results)
+            results = HELPER.rename_keys(sector, **results)
             ret.update(results)
         yield sector, ret
 
