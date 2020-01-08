@@ -136,7 +136,11 @@ def load(value_list) :
     return ret
 
 def action(**kvargs) : 
+    ret = {}
     for sector, stocks in prep() :
+        if sector not in ret :
+           ret[sector] = {}
+        ret_pf = ret[sector]
         data_list = load(stocks)
         portfolio_list = HELPER4.listPortfolios(stocks,data_list)
         skip = set()
@@ -146,7 +150,9 @@ def action(**kvargs) :
                 continue
             skip.add(key)
             portfolio = portfolio.dropna(how="all")
-            yield key, portfolio
+            ret_pf[key] = portfolio
+    for sector in sorted(ret) :
+        yield sector, ret[sector]
 
 @log_exception
 @trace
@@ -157,6 +163,20 @@ def main(save_file) :
         INI.write_section(ret,key,**value)
     ret.write(open(save_file, 'w'))
     logging.info("results saved to {}".format(save_file))
+@log_exception
+@trace
+def main(local_dir) :
+    for name, section_list in action() :
+        output_file = "{}/portfolio_{}.ini".format(local_dir, name)
+        output_file = output_file.replace(" ", "_")
+        ret = INI.init()
+        name_list = sorted(section_list.keys())
+        value_list = map(lambda key : section_list[key], name_list)
+        for i, name in enumerate(name_list) :
+            INI.write_section(ret,name,**value_list[i])
+        logging.info("saving results to file {}".format(output_file))
+        ret.write(open(output_file, 'w'))
+
 
 if __name__ == '__main__' :
    import sys
@@ -170,9 +190,9 @@ if __name__ == '__main__' :
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    file_list = env.list_filenames('local/historical_prices/*pkl')
-   save_file = "{}/local/method03_step04.ini".format(env.pwd_parent)
+   local_dir = "{}/local".format(env.pwd_parent)
    ini_list = env.list_filenames('local/*.ini')
    ini_list = filter(lambda x : 'method03' in x, ini_list)
    ini_list = filter(lambda x : 'step03' in x, ini_list)
 
-   main(save_file)
+   main(local_dir)

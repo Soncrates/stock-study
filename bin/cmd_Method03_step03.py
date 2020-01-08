@@ -113,7 +113,6 @@ def action() :
             ret.update(results)
         yield sector, ret
 
-
 @log_exception
 @trace
 def main(save_file) : 
