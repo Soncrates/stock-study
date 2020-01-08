@@ -57,8 +57,7 @@ class HELPER_THIRDS() :
         return ret
     @classmethod
     def _partition(cls, data) :
-        _data = pd.DataFrame(data).T
-        risk = cls.partitionByRisk(_data)
+        risk = cls.partitionByRisk(data)
         low_risk = cls.partitionBySharpe(risk.get(0,None))
         middle_risk = cls.partitionBySharpe(risk.get(1,None))
         high_risk = cls.partitionBySharpe(risk.get(2,None))
@@ -81,21 +80,9 @@ class HELPER_THIRDS() :
     def partition(cls, data) :
         for msg in HELPER._debug(data) :
             logging.info((len(msg),msg))
+        data = pd.DataFrame(data).T
         for key, data in cls._partition(data) :
-            if len(data) > 27 :
-               stock_list = data.T.columns.values
-               stock_list = load(stock_list)
-               for _key, _data in cls.partition(stock_list) :
-                   _key = "{}_{}".format(key,_key)
-                   yield _key, _data
-            elif len(data) > 12 :
-               stock_list = data.T.columns.values
-               stock_list = load(stock_list)
-               for _key, _data in HELPER_HALVES.partition(stock_list) :
-                   _key = "{}_{}".format(key,_key)
-                   yield _key, _data
-            else :
-               yield key, data
+            yield key, data
 
 class HELPER_HALVES() :
     @classmethod
@@ -124,8 +111,7 @@ class HELPER_HALVES() :
 
     @classmethod
     def _partition(cls, data) :
-        _data = pd.DataFrame(data).T
-        risk = cls.partitionByRisk(_data)
+        risk = cls.partitionByRisk(data)
         low_risk = cls.partitionBySharpe(risk.get(0,None))
         high_risk = cls.partitionBySharpe(risk.get(1,None))
         if len(low_risk) == 0 :
@@ -148,21 +134,9 @@ class HELPER_HALVES() :
     def partition(cls, data) :
         for msg in HELPER._debug(data) :
             logging.info((len(msg),msg))
+        data = pd.DataFrame(data).T
         for key, data in cls._partition(data) :
-            if len(data) > 27 :
-               stock_list = data.T.columns.values
-               stock_list = load(stock_list)
-               for _key, _data in HELPER_THIRDS.partition(stock_list) :
-                   _key = "{}_{}".format(key,_key)
-                   yield _key, _data
-            elif len(data) > 12 :
-               stock_list = data.T.columns.values
-               stock_list = load(stock_list)
-               for _key, _data in cls.partition(stock_list) :
-                   _key = "{}_{}".format(key,_key)
-                   yield _key, _data
-            else :
-               yield key, data
+            yield key, data
 
 class HELPER() :
 
@@ -212,6 +186,22 @@ class HELPER() :
         ret = dict(zip(key_list,value_list))
         return ret
 
+    @classmethod
+    def is_stock_invalid(cls, name, data) :
+        if len(data) < 7*FINANCE.YEAR :
+           logging.info("{} of length {} rejected for being less than {}".format(name,len(data),7*FINANCE.YEAR))
+           return True, None
+        ret = MONTECARLO.find(data['Adj Close'], period=FINANCE.YEAR)
+        sharpe = ret.get('sharpe',0)
+        if sharpe <= 0.8 :
+           logging.info("{} of sharpe ratio {} rejected for being less stable than SPY".format(name,sharpe))
+           return True, None
+        returns = ret.get('returns',0)
+        if returns <= 0.02 : 
+           logging.info("{} of returns {} rejected for being less profitable than bonds".format(name,returns))
+           return True, None
+        return False, ret
+
 def prep() :
     target = 'ini_list'
     ini_list = globals().get(target,[])
@@ -224,32 +214,45 @@ def load(value_list) :
     file_list = globals().get(target,[])
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        if len(data) < 7*FINANCE.YEAR :
-           logging.info("{} of length {} rejected for being less than {}".format(name,len(data),7*FINANCE.YEAR))
-           continue
-        data = MONTECARLO.find(data['Adj Close'], period=FINANCE.YEAR)
-        #filter stocks that have less than a year
-        sharpe = data.get('sharpe',0)
-        if sharpe == 0 :
-           continue
-        #filter stocks that have negative returns
-        returns = data.get('returns',0)
-        if returns <= 0 : 
-           logging.info("{} of returns {} rejected for being unprofitable".format(name,returns))
-           continue
+        flag, data = HELPER.is_stock_invalid(name, data) 
+        if flag :
+            continue
+        ret[name] = data
         msg = HELPER.round_values(**data)
         logging.info((name, msg))
-        ret[name] = data
     return ret
 
+def _partition(*stock_list) :
+    flag = len(stock_list)
+    if flag > 27 :
+       return HELPER_THIRDS.partition
+    elif flag > 12 :
+       return HELPER_HALVES.partition
+    return None
+
+def _action(stock_list) : 
+    partition = _partition(*stock_list)
+    if partition is None :
+       yield "0", stock_list
+       return
+    for key, data in partition(stock_list) :
+        _stock_list = data.T.columns.values
+        _stock_list = load(_stock_list)
+        for _key, _data in _action(_stock_list) :
+            _key = "{}_{}".format(key,_key)
+            yield _key, _data
+            
 def action() : 
     for sector, _stock_list in prep() :
         logging.debug(sector)
         logging.debug(_stock_list)
         stock_list = load(_stock_list)
+
         ret = {}
-        for key, data in HELPER_THIRDS.partition(stock_list) :
+        for key, data in _action(stock_list) :
             logging.info(len(data))
+            data = load(data)
+            data = pd.DataFrame(data).T
             results = HELPER.transform(key,data)
             results = HELPER.rename_keys(sector, **results)
             ret.update(results)

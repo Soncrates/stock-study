@@ -85,38 +85,46 @@ def load(value_list) :
     file_list = globals().get(target,[])
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        if len(data) < 7*FINANCE.YEAR :
-           logging.info("{} of length {} rejected for being less than {}".format(name,len(data),7*FINANCE.YEAR))
-           continue
-        data = MONTECARLO.find(data['Adj Close'], period=FINANCE.YEAR)
-        #filter stocks that have less than a year
-        sharpe = data.get('sharpe',0)
-        if sharpe == 0 :
-           continue
-        #filter stocks that have negative returns
-        returns = data.get('returns',0)
-        if returns <= 0 : 
-           logging.info("{} of returns {} rejected for being unprofitable".format(name,returns))
-           continue
+        flag, data = HELPER.is_stock_invalid(name, data)
+        if flag :
+            continue
+        ret[name] = data
         msg = HELPER.round_values(**data)
         logging.info((name, msg))
-        ret[name] = data
     return ret
 
-def action() : 
-    for sector, stocks in prep() :
-        logging.info((sector,len(stocks),stocks))
-        stock_list = load(stocks)
-        if len(stocks) <= 12 :
-           yield sector, stock_list 
-           continue
+def _partition(*stock_list) :
+    flag = len(stock_list)
+    if flag > 27 :
+       return HELPER_THIRDS.partition
+    elif flag > 12 :
+       return HELPER_HALVES.partition
+    return None
+
+
+def _action(stock_list) :
+    partition = _partition(*stock_list)
+    if partition is None :
+       yield "0", stock_list
+       return
+    for key, data in partition(stock_list) :
+        _stock_list = data.T.columns.values
+        _stock_list = load(_stock_list)
+        for _key, _data in _action(_stock_list) :
+            _key = "{}_{}".format(key,_key)
+            yield _key, _data
+
+def action() :
+    for sector, _stock_list in prep() :
+        logging.debug(sector)
+        logging.debug(_stock_list)
+        stock_list = load(_stock_list)
+
         ret = {}
-        partition = HELPER_HALVES.partition
-        if len(stock_list) > 40 :
-           partition = HELPER_THIRDS.partition
-        logging.info(partition)
-        for key, data in partition(stock_list) :
-            logging.warn(len(data))
+        for key, data in _action(stock_list) :
+            logging.info(len(data))
+            data = load(data)
+            data = pd.DataFrame(data).T
             results = HELPER.transform(key,data)
             results = HELPER.rename_keys(sector, **results)
             ret.update(results)

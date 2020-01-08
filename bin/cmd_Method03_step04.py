@@ -35,16 +35,38 @@ Write results and basic statistics data about each sub section into ini file
 '''
 class HELPER4() :
     @classmethod
+    def truncateStocks(cls, ret, size) :
+        if len(ret) <= size :
+           return ret
+        data = load(ret)
+        data = pd.DataFrame(data).T
+        data = data.sort_values(['risk']).head(size)
+        ret = data.T.columns.values
+        return ret
+
+    @classmethod
+    def listStocks(cls, stock_list) :
+        count = len(stock_list)-1
+        while count > 2 :
+            data = load(stock_list)
+            for subset in combinations(stock_list,count) :
+                logging.info((len(subset),sorted(subset)))
+                yield data, sorted(subset)
+            stock_list = cls.truncateStocks(stock_list,count)
+            count = len(stock_list)-1
+
+    @classmethod
     def listPortfolios(cls, stock_list,data_list) :
+        stock_list = cls.truncateStocks(stock_list,20)
         ret = pd.DataFrame()
-        for subset in combinations(stock_list,len(stock_list)-1) :
-            max_sharpe, min_dev = PORTFOLIO.find(data_list, stocks=subset, portfolios=1000, period=FINANCE.YEAR)
+        for data, subset in cls.listStocks(stock_list) :
+            max_sharpe, min_dev = PORTFOLIO.find(data, stocks=subset, portfolios=1000, period=FINANCE.YEAR)
             ret = ret.append(max_sharpe)
             ret = ret.append(min_dev)
             size = len(ret)
             if size > 1000 :
-               min_risk = ret.sort_values(['risk']).head(100)
-               max_sharpe = ret.sort_values(['sharpe']).tail(100)
+               min_risk = ret.sort_values(['risk']).head(50)
+               max_sharpe = ret.sort_values(['sharpe']).tail(50)
                ret = pd.DataFrame()
                ret = ret.append(min_risk)
                ret = ret.append(max_sharpe)
@@ -105,42 +127,26 @@ def load(value_list) :
     file_list = globals().get(target,[])
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
-        if len(data) < 7*FINANCE.YEAR :
-           logging.info("{} of length {} rejected for being less than {}".format(name,len(data),7*FINANCE.YEAR))
-           continue
-        data = MONTECARLO.find(data['Adj Close'], period=FINANCE.YEAR)
-        #filter stocks that have less than a year
-        sharpe = data.get('sharpe',0)
-        if sharpe == 0 :
-           continue
-        #filter stocks that have negative returns
-        returns = data.get('returns',0)
-        if returns <= 0 : 
-           logging.info("{} of returns {} rejected for being unprofitable".format(name,returns))
-           continue
+        flag, data = HELPER.is_stock_invalid(name, data)
+        if flag :
+            continue
+        ret[name] = data
         msg = HELPER.round_values(**data)
         logging.info((name, msg))
-        ret[name] = data
     return ret
 
-def _action(**kvargs) : 
+def action(**kvargs) : 
     for sector, stocks in prep() :
         data_list = load(stocks)
-        portfolio = HELPER4.listPortfolios(stocks,data_list)
-        ret = HELPER4.data_cap(portfolio,**kvargs)
-        yield sector, ret
-
-def action() :
-    for sector, stocks in _action() :
-        data_list = load(stocks)
-        portfolio = HELPER4.listPortfolios(stocks,data_list)
-        ret = HELPER4.data_cap(portfolio,cap=10)
-        portfolio_list = HELPER4.listPortfolios(ret,data_list)
-        logging.info(portfolio_list)
+        portfolio_list = HELPER4.listPortfolios(stocks,data_list)
+        skip = set()
         for index, portfolio in portfolio_list.iterrows():
+            key = "{}_{}".format(sector,index)
+            if key in skip :
+                continue
+            skip.add(key)
             portfolio = portfolio.dropna(how="all")
-            logging.info(portfolio)
-            yield "{}_{}".format(sector,index), portfolio
+            yield key, portfolio
 
 @log_exception
 @trace
@@ -160,8 +166,8 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method03_step04.ini".format(env.pwd_parent)
