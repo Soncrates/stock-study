@@ -1,13 +1,24 @@
 #!/usr/bin/env python
 
 import logging
-import sys
+import sys, os
 from libCommon import INI, log_exception
 from libFinance import STOCK_TIMESERIES
 from cmd_Scrape_BackGround import DICT_HELPER
 from libDebug import trace
 
-def prep(*ini_list) :
+def prep() :
+    target = 'data_store'
+    data_store = globals().get(target,'')
+    if not isinstance(data_store,str) :
+       data_store = str(data_store)
+    logging.info('making data store {}'.format(data_store))
+    os.mkdir(data_store)
+    target = 'ini_list'
+    ini_list = globals().get(target,[])
+    if not isinstance(ini_list,list) :
+       ini_list = list(ini_list)
+    logging.info('loading config files {}'.format(ini_list))
     ret = DICT_HELPER.init()
     for path, section, key, stock in INI.loadList(*ini_list) :
         ret.append(key,*stock)
@@ -20,12 +31,13 @@ def prep(*ini_list) :
 
 @log_exception
 @trace
-def main(ini_list, local_dir, save_file) : 
-    data, stock_list = prep(*ini_list)
+def main(local_dir, save_file) : 
+    data, stock_list = prep()
 
     config = INI.init()
     INI.write_section(config,"MERGED",**data)
     config.write(open(save_file, 'w'))
+    logging.info("writing config file {}".format(save_file))
 
     reader = STOCK_TIMESERIES.init()
     dud = []
@@ -55,9 +67,10 @@ if __name__ == '__main__' :
 
    local_dir = '{}/local'.format(env.pwd_parent)
    save_file = '{}/local/stock_background.ini'.format(env.pwd_parent)
+   data_store = '{}/historical_prices'.format(local_dir)
 
    ini_list = env.list_filenames('local/*.ini')
    ini_list = filter(lambda x : 'scrape_background' in x, ini_list)
 
-   main(ini_list, local_dir, save_file)
+   main(local_dir, save_file)
 

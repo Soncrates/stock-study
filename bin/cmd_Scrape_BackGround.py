@@ -123,6 +123,7 @@ class YAHOO() :
       @classmethod
       @trace
       def scrape(cls, stock_list) :
+          logging.info("start {}".format(cls))
           ret = DICT_HELPER.init()
           _sector = 'Sector'
           for row in stock_list :
@@ -160,6 +161,7 @@ class FINANCEMODELLING() :
       @classmethod
       @trace
       def scrape(cls, stock_list) :
+          logging.info("start {}".format(cls))
           _stock_list = map(lambda x : x.get('symbol', None), FINANCEMODELLING_STOCK_LIST.get())
           stock_list = set(_stock_list).intersection(set(stock_list))
           stock_list = sorted(list(stock_list))
@@ -199,9 +201,7 @@ class STOCKMONITOR() :
       def __init__(self, url_list) :
           self.url_list = url_list
       def __str__(self) :
-          msg = self.url_list.values()
-          msg = '\n'.join(sorted(msg))
-          return msg
+          return type(self)
 
       @classmethod
       def init(cls) :
@@ -210,7 +210,9 @@ class STOCKMONITOR() :
           url_list = map(lambda x : cls.url.format(x), cls.url_list)
           url_list = dict(zip(key_list,url_list))
           ret = cls(url_list)
-          logging.info(ret)
+          msg = ret.url_list.values()
+          msg = '\n'.join(sorted(msg))
+          logging.info(msg)
           return ret
       @classmethod
       def get(cls,url) :
@@ -223,6 +225,7 @@ class STOCKMONITOR() :
       @classmethod
       @trace
       def scrape(cls) :
+          logging.info("start {}".format(cls))
           obj = STOCKMONITOR.init()
           ret = DICT_HELPER.init()
           for sector in sorted(obj.url_list) : 
@@ -241,6 +244,9 @@ def handle_alias(*stock_list,**alias) :
     left_overs = sorted(list(left_overs))
     logging.info(ret)
     retry = map(lambda x : alias[x].values(), ret)
+    retry = map(lambda x : list(x), retry)
+    if not isinstance(retry,list) :
+       retry = list(retry)
     retry = reduce(lambda a, b : a+b, retry)
     return ret, retry, left_overs 
 
@@ -294,10 +300,7 @@ if __name__ == '__main__' :
    from libCommon import ENVIRONMENT
 
    env = ENVIRONMENT()
-   for key in sorted(vars(env)) :
-       print (key,vars(env)[key])
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   print(log_filename)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
