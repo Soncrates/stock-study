@@ -2,8 +2,12 @@ from time import time as now, sleep
 import inspect
 import logging
 import sys
-import cProfile, pstats, StringIO
+import cProfile, pstats
 import functools
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 from libCommon import TIMER
 

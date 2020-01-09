@@ -180,13 +180,13 @@ if __name__ == "__main__" :
 
    ret_list = FINANCEMODELLING_STOCK_LIST.get()
    for ret in ret_list :
-       print ret
+       print (ret)
    stock_list = ['AAPL','GOOG','SPY', 'SRCpA','SRC-A', 'SRC$A', 'SRCA']
-   print worker(5,*stock_list)
+   print (worker(5,*stock_list))
    for stock in stock_list :
-       print stock
+       print (stock)
        ret = reader(stock)
-       print ret
+       print (ret)
    for index in FINANCEMODELLING_INDEX.get() :
-       print index
+       print (index)
 

@@ -1,21 +1,22 @@
 #!/bin/bash
+python=python3
 function generate {
 	python cmd_Build_Images.py $1 $2
 	python cmd_Build_Report.py $2 $3
 }
 
 function portfolio {
-  python cmd_Method03_step01.py
+  set -x
+  $python cmd_Method03_step01.py
   # Execution speed : minutes : 6.0, seconds : 16.88
-  python cmd_Method03_step02.py
+  $python cmd_Method03_step02.py
   # Execution speed : seconds : 33.67
-  python cmd_Method03_step03.py
-  # Execution speed : seconds : 33.67
-  python cmd_Method02_step04.py
+  $python cmd_Method03_step03.py
   # Execution speed : minutes : 36.0, seconds : 5.12
 }
 
-#portfolio
+set -eu
+portfolio
 
 generate ../local/portfolio_Basic_Materials.ini ../local/report_Basic_Materials.ini ../local/portfolio_Basic_Materials.pdf
 generate ../local/portfolio_Communication_Services.ini ../local/report_Communication_Services.ini ../local/portfolio_Communication_Service.pdf

@@ -2,6 +2,7 @@
 
 import re
 import logging
+from functools import reduce
 from libCommon import INI, log_exception
 from libNASDAQ import NASDAQ
 from libWeb import WEB_UTIL
@@ -36,6 +37,8 @@ class DICT_HELPER() :
         return self.data[key]
     def __str__(self):
         msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
+        if not isinstance(msg,list) :
+           msg = list(msg)
         msg.append("Total : {}".format(len(self.values())))
         return "\n".join(msg)
     def append(self, key, *value_list):
@@ -291,7 +294,10 @@ if __name__ == '__main__' :
    from libCommon import ENVIRONMENT
 
    env = ENVIRONMENT()
+   for key in sorted(vars(env)) :
+       print (key,vars(env)[key])
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
+   print(log_filename)
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 

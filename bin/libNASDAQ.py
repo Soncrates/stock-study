@@ -182,7 +182,7 @@ class NASDAQ() :
           other, csv = self.other()
           _list = []
           #_list += listed + traded + other
-          _list += listed + other
+          _list += list(listed) + list(other)
           ret = set([])
           etf = set([])
           alias = {}
@@ -190,9 +190,11 @@ class NASDAQ() :
               curr = NASDAQ.thresh_ETF(row,ret,etf)
               exchange = filter(lambda x : 'Exchange' in x , row.keys())
               exchange = map(lambda x : row.get(x,x) , exchange)
+              if not isinstance(exchange,list) :
+                 exchange = list(exchange)
               if len(exchange) > 0 :
                  exchange = exchange[0]
-              if isinstance(exchange,basestring) :
+              if isinstance(exchange,str) :
                  if 'NYSE' not in exchange :
                     logging.warn(exchange)
                     continue
@@ -247,9 +249,17 @@ class NASDAQ() :
       def _thresh_test(cls,row,live,test) :
           ret = live
           flag = filter(lambda x : 'Test' in x , row.keys())
+          if not isinstance(flag,list) :
+             flag = list(flag)
           flag = map(lambda x : row.pop(x,x) , flag)
+          if not isinstance(flag,list) :
+             flag = list(flag)
           flag = filter(lambda x : x is not None, flag)
+          if not isinstance(flag,list) :
+             flag = list(flag)
           flag = filter(lambda x : 'Y' in x, flag)
+          if not isinstance(flag,list) :
+             flag = list(flag)
           flag = len(flag) > 0
           if flag :
              ret = test
@@ -260,6 +270,8 @@ class NASDAQ() :
           flag = filter(lambda x : 'ETF' in x , row.keys())
           flag = map(lambda x : row.get(x,x) , flag)
           flag = filter(lambda x : 'Y' in x , flag)
+          if not isinstance(flag,list) :
+              flag = list(flag)
           flag = len(flag) > 0
           if flag :
              ret = etf
@@ -267,18 +279,24 @@ class NASDAQ() :
       @classmethod
       def thresh_alias(cls,row) :
           stock_list = filter(lambda x : 'Symbol' in x , row.keys())
+          if not isinstance(stock_list,list) :
+             stock_list = list(stock_list)
           stock_name = map(lambda x : row.get(x,x), stock_list)
           stock_name = list(set(stock_name))
           if len(stock_name) == 1 :
              return stock_name[0], {}
           stock_name = sorted(stock_name)
           nasdaq = filter(lambda x : 'NASDAQ' in x , stock_list)
+          if not isinstance(nasdaq,list) :
+             nasdaq = list(nasdaq)
           stock_list = list(set(stock_list) - set(nasdaq))
           stock_value = map(lambda x : row.get(x,x), stock_list)
           stock_alt = dict(zip(stock_list,stock_value))
           logging.info(nasdaq)
           logging.debug(stock_alt)
           nasdaq = map(lambda x : row.get(x,x), nasdaq)
+          if not isinstance(nasdaq,list) :
+             nasdaq = list(nasdaq)
           return nasdaq[0], stock_alt
 
 if __name__ == '__main__' :
@@ -300,5 +318,5 @@ if __name__ == '__main__' :
    #print obj()
 
    stock, etf, alias = obj.stock_list()
-   print stock[:10]
+   print (stock[:10])
    #obj.fund_list()

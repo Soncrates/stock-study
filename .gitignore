@@ -9,3 +9,5 @@
 *.swp
 report*ini
 portfolio*ini
+dist/
+bin/stock_study.egg-info

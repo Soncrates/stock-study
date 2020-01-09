@@ -73,6 +73,8 @@ class ENVIRONMENT(object) :
           self.pwd_parent = os.path.dirname(self.pwd)
           self.path = sys.path
           self.name = sys.argv[0].split('.')[0]
+          if len(self.name) == 0 :
+             self.name = sys.argv[1].split('.')[0]
           self.argv = sys.argv[1:]
           self.version = sys.version
           self.version_info = sys.version_info
@@ -266,6 +268,8 @@ if __name__ == "__main__" :
    import logging
 
    env = ENVIRONMENT()
+   for key in sorted(vars(env)) :
+       print((key,vars(env)[key]))
    file_list = env.list_filenames('local/historical_prices/*pkl')
 
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
@@ -282,15 +286,15 @@ if __name__ == "__main__" :
 
    t1 = TIMER.enumerate(313969)
    t2 = TIMER.enumerate(3600)
-   print t1
-   print t2
-   print TIMER._str(**t1)
-   print TIMER._str(**t2)
-   print(ini_list[0])
+   print (t1)
+   print (t2)
+   print (TIMER._str(**t1))
+   print (TIMER._str(**t2))
+   print (ini_list[0])
    print (file_list[0])
    print(env)
 
    _nasdaq = env.list_filenames('local/nasdaq.csv')[0]
    row = CSV.grep(_nasdaq, 'AAPL', 'USB') 
-   print row
+   print (row)
 

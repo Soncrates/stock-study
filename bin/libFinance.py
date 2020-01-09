@@ -126,7 +126,7 @@ class STOCK_TIMESERIES :
       def init(cls, **kwargs) :
           target = 'end'
           end = kwargs.get(target, datetime.datetime.utcnow())
-          if isinstance(end, basestring) :
+          if isinstance(end, str) :
              end = datetime.datetime.strptime(end, '%Y-%m-%d')
           target = 'start'
           start = kwargs.get(target, datetime.timedelta(days=365*10))
