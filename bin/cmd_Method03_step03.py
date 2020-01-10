@@ -138,6 +138,8 @@ def prep() :
     for section, stocks in _prep(*ini_list) :
         if section not in ret :
            ret[section] = []
+        if not isinstance(stocks,list) :
+           stocks = list(stocks)
         ret[section] = ret[section] + stocks
     for section in ret :
         value = sorted(ret[section])
@@ -225,6 +227,8 @@ def main(local_dir) :
         name_list = sorted(section_list.keys())
         value_list = map(lambda key : section_list[key], name_list)
         for i, name in enumerate(name_list) :
+            if not isinstance(value_list) :
+               value_list = list(value_list)
             INI.write_section(ret,name,**value_list[i])
         logging.info("saving results to file {}".format(output_file))
         ret.write(open(output_file, 'w'))

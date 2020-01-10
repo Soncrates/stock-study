@@ -1,8 +1,15 @@
 #!/bin/bash
 python=python3
+function validate {
+  SECTOR=$1
+  INPUT_PORTFOLIO = ../local/portfolio_${SECTOR}.ini
+  OUTPUT_REPORT = ../local/report_${SECTOR}.ini
+  INPUT_PDF = ../local/report_${SECTOR}.ini
+  OUTPUT_PDF = ./local/portfolio_${SECTOR}.pdf
+}
 function generate {
-	python cmd_Build_Images.py $1 $2
-	python cmd_Build_Report.py $2 $3
+  $python cmd_Build_Images.py $INPUT_PORTFOLIO $OUTPUT_REPORT
+  $python cmd_Build_Report.py $INPUT_PDF $OUTPUT_PDF
 }
 
 function portfolio {
@@ -18,14 +25,25 @@ function portfolio {
 set -eu
 portfolio
 
-generate ../local/portfolio_Basic_Materials.ini ../local/report_Basic_Materials.ini ../local/portfolio_Basic_Materials.pdf
-generate ../local/portfolio_Communication_Services.ini ../local/report_Communication_Services.ini ../local/portfolio_Communication_Service.pdf
-generate ../local/portfolio_Consumer_Cyclical.ini ../local/report_Consumer_Cyclical.ini ../local/portfolio_Consumer_Cyclical.pdf
-generate ../local/portfolio_Consumer_Defensive.ini ../local/report_Consumer_Defensive.ini ../local/portfolio_Consumer_Defensive.pdf
-generate ../local/portfolio_Energy.ini ../local/report_Energy.ini ../local/portfolio_Energy.pdf
-generate ../local/portfolio_Financial_Services.ini ../local/report_Financial_Services.ini ../local/portfolio_Financial_Services.pdf
-generate ../local/portfolio_Healthcare.ini ../local/report_Healthcare.ini ../local/portfolio_Healthcare.pdf
-generate ../local/portfolio_Industrials.ini ../local/report_Industrials.ini ../local/portfolio_Industrials.pdf
-generate ../local/portfolio_Real_Estate.ini ../local/report_Real_Estate.ini ../local/portfolio_Real_Estate.pdf
-generate ../local/portfolio_Technology.ini ../local/report_Technology.ini ../local/portfolio_Technology.pdf
-generate ../local/portfolio_Utilities.ini ../local/report_Utilities.ini ../local/portfolio_Utilities.pdf
+validate Basic_Materials
+generate 
+validate Communication_Services
+generate
+validate Consumer_Cyclical
+generate
+validate Consumer_Defensive
+generate
+validate Energy
+generate
+validate Financial_Services
+generate
+validate Healthcare
+generate
+validate Industrials
+generate
+validate Real_Estate
+generate
+validate Technology
+generate
+validate Utilities
+generate

@@ -75,6 +75,8 @@ def prep() :
     for section, stocks in _prep(*ini_list) :
         if section not in ret :
            ret[section] = []
+        if not isinstance(stocks,list) :
+           stocks = list(stocks)
         ret[section] = ret[section] + stocks
     for section in ret :
         value = sorted(ret[section])
