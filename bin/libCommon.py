@@ -150,13 +150,22 @@ class INI(object) :
                   if len(value) == 0 : continue
                   yield name, key, value
       @classmethod
+      def _validate(cls, data) :
+          if isinstance(data,str) :
+             return data
+          return str(data)
+      @classmethod
+      def validate(cls, data) :
+          if isinstance(data,list) :
+             return ",".join(data)
+          return cls._validate(data)
+      @classmethod
       def write_section(cls, config,section,**data) :
           config.add_section(section)
+          logging.debug(section)
           for key in sorted(data.keys()) :
-              logging.debug((section,key))
-              value = data[key]
-              if isinstance(value,list) :
-                 value = ",".join(value)
+              value = cls.validate(data[key])
+              logging.info((key,type(value)))
               config.set(section,key,value)
 
 class FTP:

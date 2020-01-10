@@ -167,6 +167,8 @@ class STOCK_TIMESERIES :
           return name, data
       @classmethod
       def read(cls, file_list, stock_list) :
+          if not isinstance(stock_list,list) :
+             stock_list = list(stock_list)
           if stock_list is None or len(stock_list) == 0 :
              for path in file_list :
                  name, ret = STOCK_TIMESERIES.load(path)
@@ -175,6 +177,8 @@ class STOCK_TIMESERIES :
               
           for path in file_list :
               flag_maybe = filter(lambda x : x in path, stock_list)
+              if not isinstance(flag_maybe,list) :
+                 flag_maybe = list(flag_maybe)
               flag_maybe = len(flag_maybe) > 0
               if not flag_maybe : continue
               name, ret = STOCK_TIMESERIES.load(path)

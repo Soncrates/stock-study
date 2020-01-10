@@ -1,5 +1,9 @@
 import logging
 import warnings
+try:
+    xrange
+except NameError:
+    xrange = range
 
 import numpy as np
 import pandas as pd
@@ -175,6 +179,8 @@ class PORTFOLIO :
              warnings.warn("prices are not in a dataframe", RuntimeWarning)
              data = pd.DataFrame(data)
           stocks = filter(lambda x : x in data, stocks)
+          if not isinstance(stocks,list) :
+             stocks = list(stocks)
           flag = len(stocks) == 0
           if flag :
              data = None 
@@ -222,7 +228,7 @@ if __name__ == "__main__" :
 
    def prep(*ini_list) :
        ini_list = filter(lambda x : "benchmark" in x , ini_list)
-       print ini_list
+       print (ini_list)
        for path, section, key, stock_list in INI.loadList(*ini_list) :
            if section == 'Index' : pass
            else : continue
@@ -234,16 +240,16 @@ if __name__ == "__main__" :
    reader = STOCK_TIMESERIES.init()
    for name, stock_list in prep(*ini_list) :
        for stock in stock_list :
-           print (stock,name)
+           print ((stock,name))
            data = reader.extract_from_yahoo(stock)
            if data is None : continue
            ret = data[['Adj Close']]
-           print ret.head(2)
-           print ret.tail(2)
-           print ret.mean()
-           print ret.std()
-           print ret.mean()[0]
-           print ret.std()[0]
-           print HELPER.find(ret,period=FINANCE.YEAR,span=0)
-           print HELPER.find(ret,period=FINANCE.YEAR)
-           print (stock,name)
+           print (ret.head(2))
+           print (ret.tail(2))
+           print (ret.mean())
+           print (ret.std())
+           print (ret.mean()[0])
+           print (ret.std()[0])
+           print (HELPER.find(ret,period=FINANCE.YEAR,span=0))
+           print (HELPER.find(ret,period=FINANCE.YEAR))
+           print ((stock,name))
