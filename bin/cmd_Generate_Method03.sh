@@ -2,10 +2,10 @@
 python=python3
 function validate {
   SECTOR=$1
-  INPUT_PORTFOLIO = ../local/portfolio_${SECTOR}.ini
-  OUTPUT_REPORT = ../local/report_${SECTOR}.ini
-  INPUT_PDF = ../local/report_${SECTOR}.ini
-  OUTPUT_PDF = ./local/portfolio_${SECTOR}.pdf
+  INPUT_PORTFOLIO=../local/portfolio_${SECTOR}.ini
+  OUTPUT_REPORT=../local/report_${SECTOR}.ini
+  INPUT_PDF=../local/report_${SECTOR}.ini
+  OUTPUT_PDF=../local/portfolio_${SECTOR}.pdf
 }
 function generate {
   $python cmd_Build_Images.py $INPUT_PORTFOLIO $OUTPUT_REPORT
@@ -15,11 +15,12 @@ function generate {
 function portfolio {
   set -x
   $python cmd_Method03_step01.py
-  # Execution speed : minutes : 6.0, seconds : 16.88
+  # Execution speed : minutes : 4.0, seconds : 21.81
   $python cmd_Method03_step02.py
-  # Execution speed : seconds : 33.67
+  # Execution speed : minutes : 1.0, seconds : 20.53
   $python cmd_Method03_step03.py
-  # Execution speed : minutes : 36.0, seconds : 5.12
+  # Execution speed : minutes : 50.0, seconds : 28.9
+
 }
 
 set -eu

@@ -140,6 +140,8 @@ class INI(object) :
           if ',' in value :
               value = value.split(',')
               value = map(lambda key : key.strip(), value)
+              if not isinstance(value,list) :
+                 value = list(value)
               return value
           return [value]
       @classmethod
