@@ -20,28 +20,41 @@ from libSharpe import PORTFOLIO, HELPER as MONTECARLO
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
-def prep_Portfolio(*ini_list) :
+def prep_Portfolio() :
+    target = 'input_file'
+    portfolio_ini = globals().get(target,[])
+    if not isinstance(portfolio_ini,list) :
+       portfolio_ini = list(portfolio_ini)
+    logging.info('reading file {}'.format(portfolio_ini))
     ret = {}
-    for path, section, key, weight in INI.loadList(*ini_list) :
+    for path, section, key, weight in INI.loadList(*portfolio_ini) :
         if section not in ret :
            ret[section] = {}
         ret[section][key] = float(weight[0])
     return ret
 
-def prep_Enrich(*ini_list) :
+def prep_Enrich() :
+    target = 'stock_background'
+    stock_background = globals().get(target,[])
+    if not isinstance(stock_background,list) :
+       stock_background = list(stock_background)
+    logging.info('reading file {}'.format(stock_background))
     ret = {}
-    ini_list = filter(lambda x : 'stock_background' in x, ini_list)
-    for path, section, key, stock_list in INI.loadList(*ini_list) :
+    for path, section, key, stock_list in INI.loadList(*stock_background) :
         for stock in stock_list :
             if stock not in ret : ret[stock] = {}
             ret[stock]['Sector'] = key
     return ret
 
 @trace
-def prep_benchmark(*ini_list) :
+def prep_benchmark() :
+    target = 'benchmark'
+    benchmark = globals().get(target,[])
+    if not isinstance(benchmark,list) :
+       benchmark = list(benchmark)
+    logging.info('reading file {}'.format(benchmark))
     ret = {}
-    ini_list = filter(lambda x : 'benchmark' in x, ini_list)
-    for path, section, key, stock_list in INI.loadList(*ini_list) :
+    for path, section, key, stock_list in INI.loadList(*benchmark) :
         if section not in ['MOTLEYFOOL', 'Index'] : continue
         if section == 'MOTLEYFOOL' :
            if 'NASDAQ' not in key : continue
@@ -51,7 +64,12 @@ def prep_benchmark(*ini_list) :
         ret[key] = stock_list
     return ret
 
-def load(file_list, stock_list) :
+def load(stock_list) :
+    target = 'file_list'
+    file_list = globals().get(target,[])
+    if not isinstance(file_list,list) :
+       file_list = list(file_list)
+
     name_list = []
     data_list = pd.DataFrame() 
     if len(stock_list) == 0 :
@@ -65,8 +83,8 @@ def load(file_list, stock_list) :
         finally : pass
     return name_list, data_list
 
-def transformMonteCarlo(file_list,stock_list) :
-    name_list, _ret = load(file_list,stock_list)
+def transformMonteCarlo(stock_list) :
+    name_list, _ret = load(stock_list)
     value_list = map(lambda x : _ret[x], name_list)
     #value_list = map(lambda data : data.sort_index(inplace=True), value_list)
     #value_list = map(lambda data : MONTECARLO.find(data, span=0, period=FINANCE.YEAR), value_list)
@@ -231,23 +249,21 @@ class Group :
         if graph is not None :
             self.graph.append(graph)
 
-def process(file_list, portfolio_ini, ini_list) :
-    local_enrich = prep_Enrich(*ini_list)
-    bench_list = prep_benchmark(*ini_list)
+def process() :
+    local_enrich = prep_Enrich()
+    bench_list = prep_benchmark()
 
     SNP = 'SNP500'
     snp = bench_list[SNP]
     gcps = snp[0]
-    name_list, snp_returns, snp_sharpe = transformMonteCarlo(file_list,snp)
+    name_list, snp_returns, snp_sharpe = transformMonteCarlo(snp)
     snp_returns.rename(columns={gcps:SNP},inplace=True)
 
     FUNDS = 'NASDAQMUTFUND'
     funds = bench_list[FUNDS]
-    fund_name_list, fund_returns, fund_sharpe = transformMonteCarlo(file_list,funds)
+    fund_name_list, fund_returns, fund_sharpe = transformMonteCarlo(funds)
 
-    if not isinstance(portfolio_ini, list) :
-       portfolio_ini = [portfolio_ini]
-    portfolio_list = prep_Portfolio(*portfolio_ini)
+    portfolio_list = prep_Portfolio()
     logging.info(portfolio_list)
     _returns = Group()
     _enriched = Group()
@@ -256,7 +272,7 @@ def process(file_list, portfolio_ini, ini_list) :
     sharpe_list = {}
     portfolio_name_list = []
     for stock_list, weights, graphBySector, dataBySector, names in lambdaFind(local_enrich, portfolio_list) :
-        name_list, timeseries = load(file_list,stock_list)
+        name_list, timeseries = load(stock_list)
         value_list = map(lambda x : timeseries[x], name_list)
         value_list = map(lambda data : MONTECARLO.find(data, period=FINANCE.YEAR), value_list)
         logging.info(value_list[0])
@@ -293,15 +309,15 @@ def process(file_list, portfolio_ini, ini_list) :
 
 @log_exception
 @trace
-def main(env, file_list, input_file, ini_list, output_file) :
-   returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = process(file_list, input_file, ini_list )
+def main(local_dir, output_file) :
+   returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = process()
    summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
-   path = "{pwd_parent}/local/portfolio_sharpe.png".format(**vars(env))
+   path = "{}/portfolio_sharpe.png".format(local_dir)
    save(path,loc="lower right")
    summary_path_list.append(path)
    LINE.plot(summary, title="Returns")
-   path = "{pwd_parent}/local/portfolio_summary.png".format(**vars(env))
+   path = "{}/portfolio_summary.png".format(local_dir)
    save(path)
    summary_path_list.append(path)
 
@@ -314,7 +330,7 @@ def main(env, file_list, input_file, ini_list, output_file) :
        #title = title.replace('_diversified_','')
        #BAR.plot(graph,xlabel='Percentage',title=title)
        BAR.plot(graph,xlabel='Percentage')
-       path = "{}/local/{}.png".format(env.pwd_parent,name_list[i])
+       path = "{}/{}.png".format(local_dir,name_list[i])
        save(path)
        local_diversify_list.append(path)
 
@@ -327,7 +343,7 @@ def main(env, file_list, input_file, ini_list, output_file) :
        #title = title.replace('_returns_','')
        #LINE.plot(graph, title=title)
        LINE.plot(graph)
-       path = "{}/local/{}.png".format(env.pwd_parent,name_list[i])
+       path = "{}/{}.png".format(local_dir,name_list[i])
        save(path, ncol=3)
        local_returns_list.append(path)
 
@@ -354,6 +370,7 @@ def main(env, file_list, input_file, ini_list, output_file) :
           values = values.to_dict()
        INI.write_section(config,key,**values)
    config.write(open(output_file, 'w'))
+   logging.info('saving file {}'.format(output_file))
 
 if __name__ == '__main__' :
 
@@ -369,8 +386,11 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
+   stock_background = filter(lambda x : 'stock_background' in x, ini_list)
+   benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    file_list = env.list_filenames('local/historical_prices/*pkl')
 
+   local_dir = "{pwd_parent}/local".format(**vars(env))
    input_file = env.list_filenames('local/method*portfolios.ini')
    output_file = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
    if len(env.argv) > 0 :
@@ -378,4 +398,4 @@ if __name__ == '__main__' :
    if len(env.argv) > 1 :
       output_file = env.argv[1]
 
-   main(env, file_list, input_file, ini_list, output_file)
+   main(local_dir, output_file)
