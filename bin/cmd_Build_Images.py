@@ -407,9 +407,9 @@ if __name__ == '__main__' :
    stock_background = filter(lambda x : 'stock_background' in x, ini_list)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    file_list = env.list_filenames('local/historical_prices/*pkl')
-   data_store = '{}/images'.format(local_dir)
 
    local_dir = "{pwd_parent}/local".format(**vars(env))
+   data_store = '{}/images'.format(local_dir)
    input_file = env.list_filenames('local/method*portfolios.ini')
    if len(input_file) > 0 :
       input_file = input_file[0]
