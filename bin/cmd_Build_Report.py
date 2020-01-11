@@ -154,6 +154,8 @@ def main(input_file, ini_list, csv_list, output_file) :
     doc = StockTemplate.initPortrait(output_file)
 
     nasdaq_enrichment = filter(lambda x : 'nasdaq.csv', csv_list)
+    if not isinstance(nasdaq_enrichment,list) :
+       nasdaq_enrichment = list(nasdaq_enrichment)
     if len(nasdaq_enrichment) > 0 :
        nasdaq_enrichment = nasdaq_enrichment[0]
 

@@ -11,7 +11,7 @@ class HELPER :
       RETURNS = '_returns_'
 class LINE :
       @classmethod
-      def plot(cls, lines,**kwargs) :
+      def validate(cls, **kwargs) :
           target = 'style'
           style = kwargs.get(target,'o')
           target = 'xlabel'
@@ -20,6 +20,11 @@ class LINE :
           ylabel = kwargs.get(target,None)
           target = 'title'
           title = kwargs.get(target,None)
+          logging.info((cls,style, xlabel, ylabel, title))
+          return style, xlabel, ylabel, title
+      @classmethod
+      def plot(cls, lines,**kwargs) :
+          style, xlabel, ylabel, title = cls.validate(**kwargs)
           cls._plot(lines)
           if xlabel is not None : plt.xlabel(xlabel)
           if ylabel is not None : plt.ylabel(ylabel)
@@ -42,7 +47,7 @@ class LINE :
               yield data[key], key
 class BAR :
       @classmethod
-      def plot(cls, bar, **kwargs) :
+      def validate(cls, **kwargs) :
           target = 'style'
           style = kwargs.get(target,'o')
           target = 'xlabel'
@@ -55,6 +60,11 @@ class BAR :
           height = kwargs.get(target,7)
           target = 'width'
           width = kwargs.get(target,height*HELPER.GOLDEN_RATIO)
+          logging.info((cls, style, xlabel, ylabel, title, height, width))
+          return style, xlabel, ylabel, title, height, width
+      @classmethod
+      def plot(cls, bar, **kwargs) :
+          style, xlabel, ylabel, title, height, width = cls.validate(**kwargs)
           plt.figure(figsize=(width, height))
           cls._plot(bar)
           if xlabel is not None : plt.xlabel(xlabel)
@@ -63,6 +73,8 @@ class BAR :
       @classmethod
       def _plot(cls, bar) :
           label, data, pos = cls._xy(bar)
+          logging.info((data,type(data)))
+          logging.info((pos,type(pos)))
           plt.barh(pos, data, align='center', alpha=0.5)
           plt.yticks(pos, label)
       @classmethod
@@ -83,6 +95,8 @@ class BAR :
           y_pos = np.arange(len(label_list))
           label_list = filter(lambda label : label is not None, label_list)
           label_list = map(lambda label : cls._label(label), label_list)
+          if not isinstance(label_list,list) :
+             label_list = list(label_list)
           return label_list, data_list, y_pos
       @classmethod
       def _label(cls, ret) :
@@ -93,11 +107,8 @@ class BAR :
           return ret
 
 class POINT :
-
       @classmethod
-      def plot(cls, points, **kwargs) :
-          logging.debug(points)
-          logging.debug(type(points))
+      def validate(cls, **kwargs) :
           target = 'x'
           x_column_name = kwargs.get(target,'returns')
           target = 'y'
@@ -112,11 +123,19 @@ class POINT :
           title = kwargs.get(target,None)
           target = 'labels'
           label_dict = kwargs.get(target,{})
+          logging.info((cls, x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict))
+          return x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict
+      @classmethod
+      def plot(cls, points, **kwargs) :
+          logging.debug((points,type(points)))
+          x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict = cls.validate(**kwargs)
           cls._plot(points, label_dict, x_column_name, y_column_name, style)
-          if xlabel is not None : plt.xlabel(xlabel)
-          if title is not None : plt.title(title)
-          if ylabel is not None : plt.ylabel(ylabel)
-
+          if xlabel is not None : 
+             plt.xlabel(xlabel)
+          if title is not None : 
+             plt.title(title)
+          if ylabel is not None : 
+             plt.ylabel(ylabel)
       @classmethod
       def _plot(cls, points, label_dict, column_x, column_y, style) :
           for x, y, label in cls._xy(points,column_x,column_y) :

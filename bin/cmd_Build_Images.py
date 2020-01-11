@@ -22,12 +22,13 @@ from libSharpe import PORTFOLIO, HELPER as MONTECARLO
 '''
 def prep_Portfolio() :
     target = 'input_file'
-    portfolio_ini = globals().get(target,[])
+    portfolio_ini = globals().get(target,'')
     if not isinstance(portfolio_ini,list) :
-       portfolio_ini = list(portfolio_ini)
+       portfolio_ini = [portfolio_ini]
     logging.info('reading file {}'.format(portfolio_ini))
     ret = {}
     for path, section, key, weight in INI.loadList(*portfolio_ini) :
+        logging.info((section,key))
         if section not in ret :
            ret[section] = {}
         ret[section][key] = float(weight[0])
@@ -62,36 +63,42 @@ def prep_benchmark() :
         if section == 'Index' :
            if '500' not in key : continue
         ret[key] = stock_list
+    logging.debug(ret)
     return ret
 
-def load(stock_list) :
+def load(_stock_list) :
+    stock_list = []
+    data_list = pd.DataFrame() 
+    if len(_stock_list) == 0 :
+       return stock_list, data_list
+       
     target = 'file_list'
     file_list = globals().get(target,[])
     if not isinstance(file_list,list) :
        file_list = list(file_list)
 
-    name_list = []
-    data_list = pd.DataFrame() 
-    if len(stock_list) == 0 :
-       return name_list, data_list
-       
-    for name, stock in STOCK_TIMESERIES.read(file_list, stock_list) :
+    for stock, data in STOCK_TIMESERIES.read(file_list, _stock_list) :
         try :
-            data_list[name] = stock['Adj Close']
-            name_list.append(name)
+            data_list[stock] = data['Adj Close']
+            stock_list.append(stock)
         except Exception as e : logging.error(e, exc_info=True) 
         finally : pass
-    return name_list, data_list
+    return stock_list, data_list
 
-def transformMonteCarlo(stock_list) :
-    name_list, _ret = load(stock_list)
-    value_list = map(lambda x : _ret[x], name_list)
+def transformMonteCarlo(_stock_list) :
+    logging.info(_stock_list)
+    stock_list, data_list = load(_stock_list)
+    logging.info(data_list)
+    value_list = map(lambda x : data_list[x], stock_list)
     #value_list = map(lambda data : data.sort_index(inplace=True), value_list)
     #value_list = map(lambda data : MONTECARLO.find(data, span=0, period=FINANCE.YEAR), value_list)
     value_list = map(lambda data : MONTECARLO.find(data, period=FINANCE.YEAR), value_list)
-    sharpe = dict(zip(name_list,value_list))
-    ret = FINANCE.findDailyReturns(_ret)
-    return name_list, ret, sharpe
+    if not isinstance(value_list,list) :
+       value_list = list(value_list)
+    sharpe = dict(zip(stock_list,value_list))
+    logging.info(data_list)
+    ret = FINANCE.findDailyReturns(data_list)
+    return stock_list, ret, sharpe
 
 class HELPER_BASIC :
     name_format_1 = "portfolio_diversified_{}"
@@ -275,6 +282,8 @@ def process() :
         name_list, timeseries = load(stock_list)
         value_list = map(lambda x : timeseries[x], name_list)
         value_list = map(lambda data : MONTECARLO.find(data, period=FINANCE.YEAR), value_list)
+        if not isinstance(value_list,list) :
+           value_list = list(value_list)
         logging.info(value_list[0])
         _portfolio = dict(zip(name_list, value_list))
         logging.info(_portfolio)
@@ -392,6 +401,8 @@ if __name__ == '__main__' :
 
    local_dir = "{pwd_parent}/local".format(**vars(env))
    input_file = env.list_filenames('local/method*portfolios.ini')
+   if len(input_file) > 0 :
+      input_file = input_file[0]
    output_file = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
    if len(env.argv) > 0 :
       input_file = env.argv[0]
