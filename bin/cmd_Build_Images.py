@@ -20,6 +20,14 @@ from libSharpe import PORTFOLIO, HELPER as MONTECARLO
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
+def prep() :
+    target = 'data_store'
+    data_store = globals().get(target,'')
+    if not isinstance(data_store,str) :
+       data_store = str(data_store)
+    logging.info('making data store {}'.format(data_store))
+    ENVIRONMENT.mkdir(data_store)
+
 def prep_Portfolio() :
     target = 'input_file'
     portfolio_ini = globals().get(target,'')
@@ -257,6 +265,7 @@ class Group :
             self.graph.append(graph)
 
 def process() :
+    prep()
     local_enrich = prep_Enrich()
     bench_list = prep_benchmark()
 
@@ -322,11 +331,11 @@ def main(local_dir, output_file) :
    returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = process()
    summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
-   path = "{}/portfolio_sharpe.png".format(local_dir)
+   path = "{}/images/portfolio_sharpe.png".format(local_dir)
    save(path,loc="lower right")
    summary_path_list.append(path)
    LINE.plot(summary, title="Returns")
-   path = "{}/portfolio_summary.png".format(local_dir)
+   path = "{}/images/portfolio_summary.png".format(local_dir)
    save(path)
    summary_path_list.append(path)
 
@@ -339,7 +348,7 @@ def main(local_dir, output_file) :
        #title = title.replace('_diversified_','')
        #BAR.plot(graph,xlabel='Percentage',title=title)
        BAR.plot(graph,xlabel='Percentage')
-       path = "{}/{}.png".format(local_dir,name_list[i])
+       path = "{}/images/{}.png".format(local_dir,name_list[i])
        save(path)
        local_diversify_list.append(path)
 
@@ -352,7 +361,7 @@ def main(local_dir, output_file) :
        #title = title.replace('_returns_','')
        #LINE.plot(graph, title=title)
        LINE.plot(graph)
-       path = "{}/{}.png".format(local_dir,name_list[i])
+       path = "{}/images/{}.png".format(local_dir,name_list[i])
        save(path, ncol=3)
        local_returns_list.append(path)
 
@@ -398,6 +407,7 @@ if __name__ == '__main__' :
    stock_background = filter(lambda x : 'stock_background' in x, ini_list)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    file_list = env.list_filenames('local/historical_prices/*pkl')
+   data_store = '{}/images'.format(local_dir)
 
    local_dir = "{pwd_parent}/local".format(**vars(env))
    input_file = env.list_filenames('local/method*portfolios.ini')
