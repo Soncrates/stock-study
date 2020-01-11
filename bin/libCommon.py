@@ -74,7 +74,7 @@ class ENVIRONMENT(object) :
           self.path = sys.path
           self.name = sys.argv[0].split('.')[0]
           if len(self.name) == 0 :
-             self.name = sys.argv[1].split('.')[0]
+             self.name = sys.argv[0].split('.')[1]
           self.argv = sys.argv[1:]
           self.version = sys.version
           self.version_info = sys.version_info
@@ -92,6 +92,12 @@ class ENVIRONMENT(object) :
              target = 'extension'
              extension = kvargs.get(target, '*.*')
           return extension
+      @classmethod
+      def mkdir(cls, path) :
+          mydir = os.path.dirname(path)
+          if os.path.exists(mydir):
+             return
+          os.mkdir(path)
       @classmethod
       def find(cls, path1, path2) :
           ret = glob(path1)
