@@ -152,24 +152,44 @@ class PORTFOLIO_HELPER :
     set_meta = set(meta)
     @classmethod
     def findStocks(cls, data) :
-        return set(data.T.index) - cls.set_meta
+        logging.info(data)
+        logging.info(data.T)
+        ret = set(data.T.index) - cls.set_meta
+        ret = list(ret)
+        logging.info(ret)
+        return ret
     @classmethod
     def removeMeta(cls, data) :
+        logging.info(data)
         temp = filter(lambda x : x in data, cls.meta)
-        return data.T.drop(list(temp))
-@trace
+        if not isinstance(temp,list) :
+           temp = list(temp)
+        ret = data.drop(columns=temp)
+        logging.debug(ret)
+        logging.debug(ret.T)
+        return ret.T
+    @classmethod
+    def weight(cls, data) :
+        logging.debug((type(data),data))
+        ret = round(data,2)
+        logging.info((type(ret),ret))
+        if not isinstance(ret,float) :
+           ret = float(ret)
+        #ret = ret.values
+        logging.debug((type(ret),ret))
+        return ret
+
 def enrichWithSectorEnumeration(enrich, portfolio) :
     stock_diverse_keys = ['weight', 'ticker']
     column_list = PORTFOLIO_HELPER.findStocks(portfolio)
-    logging.info(column_list)
+    logging.info(type(portfolio))
     ret_weights = {}
     ret_stocks = {}
     for column in column_list :
         sector = enrich.get(column, {}).get('Sector',None)
         if sector is None :
            sector = enrich.get(column, {}).get('Category','Unknown')
-        weight_1 = portfolio[column]
-        weight = round(weight_1,2)
+        weight = PORTFOLIO_HELPER.weight(portfolio[column])
         logging.debug(( column, sector, weight))
         if sector not in ret_weights :
            ret_weights[sector] = 0.0
@@ -177,10 +197,14 @@ def enrichWithSectorEnumeration(enrich, portfolio) :
         ret_weights[sector] = round(ret_weights[sector],2)
         if sector not in ret_stocks :
            ret_stocks[sector] = []
-        value = dict(zip(stock_diverse_keys,[round(weight_1*100,2), column]))
+        value = dict(zip(stock_diverse_keys,[round(weight*100,2), column]))
         ret_stocks[sector].append(value)
 
     weights = PORTFOLIO_HELPER.removeMeta(portfolio)
+    logging.info((sector, len(column_list), column_list))
+    logging.debug(weights['weights'])
+    logging.debug(ret_weights)
+    logging.debug(ret_stocks)
     return column_list, weights['weights'], ret_weights, ret_stocks
 
 class WEIGHTS_HELPER :
@@ -230,12 +254,12 @@ def addWeights(data, enrich, weights) :
            ret_stocks[sector] = {}
 
         ret = WEIGHTS_HELPER.humanReadable(stock_data)
-        logging.info(ret)
+        logging.debug(ret)
         ret_stocks[sector][stock] = ret
         if sector not in ret_weights :
            ret_weights[sector] = WEIGHTS_HELPER.default()
         for key in WEIGHTS_HELPER.weighted_meta :
-            logging.info((key))
+            logging.debug((key))
             w = ret_weights[sector][key] + ret[key]
             ret_weights[sector][key] = w
 
@@ -323,6 +347,7 @@ def process() :
     returns['description_summary'] = _sharpe().get('name',[])
     returns['description_details'] = _sharpe().get('description',[])
     diversified = _enriched()
+    logging.info(diversified)
     return returns, diversified, summary_list, sharpe_list, portfolio_name_list
 
 @log_exception
@@ -372,13 +397,15 @@ def main(local_dir, output_file) :
        captions = [ "portfolio diversity {}", "portfolio returns {}"]
        captions = map(lambda x : x.format(portfolio_name_list[i]), captions)
        captions = map(lambda x : x.replace('_', ' '), captions)
+       if not isinstance(captions,list) :
+          captions = list(captions)
        section = { "images" : images, "captions" : captions }
        section['description1'] = diversified['description'][i]
        section['description2'] = returns['description_summary'][i]
        section['description3'] = returns['description_details'][i]
        section['name'] = portfolio_name_list[i]
        key = "portfolio_{}".format(i)
-       portfolio[key]  = section
+       portfolio[key] = section
 
    config = INI.init()
    INI.write_section(config,"summary",**summary)

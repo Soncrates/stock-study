@@ -28,7 +28,7 @@ class HELPER :
              ret = ret.replace('legend_','')
              flag = True
           ret = ret.replace('_',' ')
-          logging.info((flag,ret,label))
+          logging.debug((flag,ret,label))
           return ret, flag
       @staticmethod
       def wrap(ret) :
@@ -53,7 +53,7 @@ class LINE :
           ylabel = kwargs.get(target,None)
           target = 'title'
           title = kwargs.get(target,None)
-          logging.info((cls,style, xlabel, ylabel, title))
+          logging.debug((cls,style, xlabel, ylabel, title))
           return style, xlabel, ylabel, title
       @classmethod
       def plot(cls, lines,**kwargs) :
@@ -79,7 +79,7 @@ class BAR :
           height = kwargs.get(target,7)
           target = 'width'
           width = kwargs.get(target,height*HELPER.GOLDEN_RATIO)
-          logging.info((cls, style, xlabel, ylabel, title, height, width))
+          logging.debug((cls, style, xlabel, ylabel, title, height, width))
           return style, xlabel, ylabel, title, height, width
       @classmethod
       def plot(cls, bar, **kwargs) :
@@ -130,7 +130,7 @@ class POINT :
           title = kwargs.get(target,None)
           target = 'labels'
           label_dict = kwargs.get(target,{})
-          logging.info((cls, x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict))
+          logging.debug((cls, x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict))
           return x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict
       @classmethod
       def plot(cls, points, **kwargs) :
