@@ -15,7 +15,12 @@ from libReport import StockTemplate, ReturnsTemplate, SectorTemplate
 
 class PREP :
     @classmethod
-    def prep(cls, *ini_list) :
+    def prep(cls) :
+        target = 'input_list'
+        ini_list = globals().get(target,[])
+        if not isinstance(ini_list,list) :
+           ini_list = [ini_list]
+        logging.info('Reading input file {}'.format(ini_list))
         ret = {}
         for path, section, key, value_list in INI.loadList(*ini_list) :
             if section not in ret :
@@ -25,6 +30,8 @@ class PREP :
 
     @classmethod
     def _modifyDescription(cls, arg_list) :
+        if not isinstance(arg_list,list) :
+           arg_list = list(arg_list)
         if len(arg_list) == 0 :
              return arg_list
         for i, value in enumerate(arg_list) : 
@@ -36,13 +43,23 @@ class PREP :
 
 class DIVERSE :
     @classmethod
-    def add(cls, arg_list, nasdaq_enrichment) :
+    def validate(cls) :
+        target = 'nasdaq_enrichment'
+        ret = globals().get(target,[])
+        if not isinstance(ret,list) :
+           ret = list(ret)
+        if len(ret) > 0 :
+           ret = ret[0]
+        logging.info('Reading input file {}'.format(ret))
+        return ret
+    @classmethod
+    def add(cls, arg_list) :
         ret = []
-        for description in cls._add(arg_list,nasdaq_enrichment) :
+        for description in cls._add(arg_list) :
             ret.append(description)
         return ret
     @classmethod
-    def _add(cls, arg_list, nasdaq_enrichment) :
+    def _add(cls, arg_list) :
         if not isinstance(arg_list,list) :
            return
         for i, value in enumerate(arg_list) :
@@ -56,13 +73,14 @@ class DIVERSE :
                    header = header.replace('_', ' ')
                    header = Paragraph(header, StockTemplate.h2)
                    yield header
-                   for content in cls._addContent(content_list, nasdaq_enrichment) :
+                   for content in cls._addContent(content_list) :
                        yield content
 
     @classmethod
-    def _addContent(cls, arg_list, nasdaq_enrichment) :
+    def _addContent(cls, arg_list) :
         if not isinstance(arg_list,list) :
            return
+        nasdaq_enrichment = cls.validate()
         arg_list = sorted(arg_list, key = lambda i: i['weight']) 
         logging.debug(arg_list)
         column_A, column_B = [], []
@@ -149,25 +167,13 @@ class RETURNS :
 
 @log_exception
 @trace
-def main(input_file, ini_list, csv_list, output_file) :
+def main(output_file) :
 
     doc = StockTemplate.initPortrait(output_file)
-
-    nasdaq_enrichment = filter(lambda x : 'nasdaq.csv', csv_list)
-    if not isinstance(nasdaq_enrichment,list) :
-       nasdaq_enrichment = list(nasdaq_enrichment)
-    if len(nasdaq_enrichment) > 0 :
-       nasdaq_enrichment = nasdaq_enrichment[0]
-
-    if not isinstance(input_file,list) :
-       input_file = [input_file]
-
-    input_file = PREP.prep(*input_file)
-    logging.debug(input_file)
-
     toc = StockTemplate.initToc()
-
     ret = [ toc, PageBreak(), Paragraph('Portfolio Summary', StockTemplate.h1) ]
+
+    input_file = PREP.prep()
     target = 'summary'
     summary = input_file.get(target,{})
     target = 'images'
@@ -179,9 +185,8 @@ def main(input_file, ini_list, csv_list, output_file) :
     ret.append(tbl)
     ret.append(PageBreak())
  
-    key_list = input_file.keys()
+    key_list = sorted(input_file.keys())
     portfolio_list = filter(lambda x : 'portfolio' in x, key_list)
-    portfolio_list = sorted(portfolio_list)
     for target in portfolio_list :
         summary = input_file.get(target,{})
         local_target = 'name'
@@ -203,7 +208,7 @@ def main(input_file, ini_list, csv_list, output_file) :
         target_list = sorted(target_list)
         description_list = map(lambda key : summary.get(key,None), target_list)
         description_list = PREP._modifyDescription(description_list)
-        diverse_list = DIVERSE.add(description_list,nasdaq_enrichment) 
+        diverse_list = DIVERSE.add(description_list) 
         target_list = filter(lambda key : 'description' in key, summary)
         target_list = filter(lambda key : 'description1' not in key, target_list)
         target_list = sorted(target_list)
@@ -233,6 +238,7 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    csv_list = env.list_filenames('local/*.csv')
+   nasdaq_enrichment = filter(lambda x : 'nasdaq.csv', csv_list)
 
    input_file = env.list_filenames('local/report_generator.ini')
    output_file = "{pwd_parent}/local/image.pdf".format(**vars(env))
@@ -241,4 +247,4 @@ if __name__ == '__main__' :
    if len(env.argv) > 1 :
       output_file = env.argv[1]
 
-   main(input_file,ini_list, csv_list, output_file)
+   main(output_file)

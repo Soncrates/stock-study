@@ -9,6 +9,39 @@ class HELPER :
       GOLDEN_RATIO = 1.62
       LEGEND = 'legend_'
       RETURNS = '_returns_'
+      @staticmethod
+      def labels(xlabel, ylabel,title) :
+          if title is not None : 
+             plt.title(title)
+          if xlabel is not None : 
+             plt.xlabel(xlabel)
+          if ylabel is not None : 
+             plt.ylabel(ylabel)
+      @staticmethod
+      def transform(label) :
+          flag = False
+          ret = label
+          if 'portfolio' in ret :
+             ret = ret.replace('_returns_','_')
+             flag = True
+          if 'legend_' in ret :
+             ret = ret.replace('legend_','')
+             flag = True
+          ret = ret.replace('_',' ')
+          logging.info((flag,ret,label))
+          return ret, flag
+      @staticmethod
+      def wrap(ret) :
+          from textwrap import wrap
+          if '_' not in ret : return ret
+          ret =  ret.replace('_',' ')
+          ret = '\n'.join(wrap(ret, 15))
+          return ret
+      @staticmethod
+      def _xy(data) :
+          for key in sorted(data.keys()) :
+              yield data[key], key
+          
 class LINE :
       @classmethod
       def validate(cls, **kwargs) :
@@ -25,26 +58,12 @@ class LINE :
       @classmethod
       def plot(cls, lines,**kwargs) :
           style, xlabel, ylabel, title = cls.validate(**kwargs)
-          cls._plot(lines)
-          if xlabel is not None : plt.xlabel(xlabel)
-          if ylabel is not None : plt.ylabel(ylabel)
-          if title is not None : plt.title(title)
-      @classmethod
-      def _plot(cls, lines) :
-          for data, label in cls._xy(lines) :
-              if 'portfolio' in label :
-                 label = label.replace('_returns_','_')
-              if 'legend_' in label :
-                 label = label.replace('legend_','')
-              label = label.replace('_',' ')
+          for data, label in HELPER._xy(lines) :
+              label, flag = HELPER.transform(label)
               logging.debug(data.head(3))
               logging.debug(data.tail(3))
-              logging.info(label)
               data.plot(label=label)
-      @classmethod
-      def _xy(cls, data) :
-          for key in sorted(data.keys()) :
-              yield data[key], key
+          HELPER.labels(xlabel, ylabel,title)
 class BAR :
       @classmethod
       def validate(cls, **kwargs) :
@@ -66,17 +85,12 @@ class BAR :
       def plot(cls, bar, **kwargs) :
           style, xlabel, ylabel, title, height, width = cls.validate(**kwargs)
           plt.figure(figsize=(width, height))
-          cls._plot(bar)
-          if xlabel is not None : plt.xlabel(xlabel)
-          if ylabel is not None : plt.ylabel(ylabel)
-          if title is not None : plt.title(title)
-      @classmethod
-      def _plot(cls, bar) :
           label, data, pos = cls._xy(bar)
           logging.info((data,type(data)))
           logging.info((pos,type(pos)))
-          plt.barh(pos, data, align='center', alpha=0.5)
+          plt.barh(pos, data, align='center', alpha=0.5,linewidth=0)
           plt.yticks(pos, label)
+          HELPER.labels(xlabel, ylabel,title)
       @classmethod
       def _xy(cls, data) :
           label_list = []
@@ -94,17 +108,10 @@ class BAR :
               data_list.append(key)
           y_pos = np.arange(len(label_list))
           label_list = filter(lambda label : label is not None, label_list)
-          label_list = map(lambda label : cls._label(label), label_list)
+          label_list = map(lambda label : HELPER.wrap(label), label_list)
           if not isinstance(label_list,list) :
              label_list = list(label_list)
           return label_list, data_list, y_pos
-      @classmethod
-      def _label(cls, ret) :
-          from textwrap import wrap
-          if '_' not in ret : return ret
-          ret =  ret.replace('_',' ')
-          ret = '\n'.join(wrap(ret, 15))
-          return ret
 
 class POINT :
       @classmethod
@@ -127,29 +134,19 @@ class POINT :
           return x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict
       @classmethod
       def plot(cls, points, **kwargs) :
+          column_x, column_y, style, xlabel, ylabel, title, label_dict = cls.validate(**kwargs)
           logging.debug((points,type(points)))
-          x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict = cls.validate(**kwargs)
-          cls._plot(points, label_dict, x_column_name, y_column_name, style)
-          if xlabel is not None : 
-             plt.xlabel(xlabel)
-          if title is not None : 
-             plt.title(title)
-          if ylabel is not None : 
-             plt.ylabel(ylabel)
-      @classmethod
-      def _plot(cls, points, label_dict, column_x, column_y, style) :
           for x, y, label in cls._xy(points,column_x,column_y) :
               #plt.scatter(x,y)
               #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
               label = label_dict.get(label,label)
-              if 'portfolio' in label or 'legend_' in label :
-                 label = label.replace('_returns_','_')
-                 label = label.replace('legend_','')
-                 label = label.replace('_',' ')
+              label, flag = HELPER.transform(label)
+              if flag :
                  plt.plot(x,y,style, label=label)
                  continue
               plt.plot(x,y,style)
               plt.annotate(label, (x,y))
+          HELPER.labels(xlabel, ylabel,title)
       @classmethod
       def _xy(cls, data,x,y) :
           for key in sorted(data.keys()) :
