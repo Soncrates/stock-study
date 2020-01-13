@@ -3,19 +3,6 @@ import datetime
 import logging
 import numpy as np
 
-if sys.version_info < (3, 0):
-   import pandas as pd
-   import pandas_datareader as web
-   from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
-else :
-   '''
-       import pandas_datareader as web
-         ModuleNotFoundError: No module named 'pandas_datareader'
-   '''
-   import pandas as pd
-   import pandas_datareader as web
-   from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
-   
 '''
   TIME_SERIES - perhaps the only legit class in the entire library
               - defaults to pulling 10 years of stock data
