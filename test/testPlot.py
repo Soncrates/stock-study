@@ -1,6 +1,11 @@
+import sys
+sys.path.append(sys.path[0].replace('test','bin'))
+
 import pandas as pd
 from pandas import DataFrame as df
 import matplotlib.pyplot as plt
+
+from libCommon import log_exception
 
 def load_file(filename) :
     data = pd.read_pickle(filename)
@@ -12,14 +17,6 @@ def load_file(filename) :
     name = filename.split("/")[-1]
     name = name.split(".")[0]
     return name, data
-def main(file_list, stock_list) :
-    for path in file_list :
-        name, ret = load_file(path)
-        if name not in stock_list :
-           del ret
-           continue
-        yield name, ret 
-
 class STEP_01 :
       @staticmethod
       def returns(label,**stocks) :
@@ -79,38 +76,60 @@ def save(path) :
    plt.cla()
    plt.close()
 
-if __name__ == "__main__" :
-   from glob import glob
-   import os,sys
+def action(stock_list) :
+    target = 'file_list'
+    file_list = globals().get(target,[])
+    for path in file_list :
+        name, ret = load_file(path)
+        if name not in stock_list :
+           del ret
+           continue
+        yield name, ret 
 
-   pwd = os.getcwd()
-   pwd = pwd.replace('/test','')
-   ini_list = glob('{}/*.ini'.format(pwd))
-   file_list = glob('{}/historical_prices/*pkl'.format(pwd))
-   file_list = sorted(file_list)
     
+def main(local_dir) :
    stock_list = ["SPY", "HD", "PYPL", "SBUX", "UNH", "WEC"]
    target_01 = 'Adj Close'
    target_02 = 'Volume'
    stocks = {}
-   for name, data in main(file_list, stock_list) :
+   for name, data in action(stock_list) :
        data = data[[target_01,target_02]]
        stocks[name] = data
        pct = data.pct_change()
 
    STEP_01.returns(target_01, **stocks)
-   save("{}/step_01_{}.png".format(pwd,target_01))
+   save("{}/step_01_{}.png".format(local_dir,target_01))
    STEP_02.returns(target_01, **stocks)
-   save("{}/step_02_{}.png".format(pwd,target_01))
+   save("{}/step_02_{}.png".format(local_dir,target_01))
    STEP_03.returns(target_01, **stocks)
-   save("{}/step_03_{}.png".format(pwd,target_01))
+   save("{}/step_03_{}.png".format(local_dir,target_01))
    STEP_04.returns(target_01, **stocks)
-   save("{}/step_04_{}.png".format(pwd,target_01))
+   save("{}/step_04_{}.png".format(local_dir,target_01))
    STEP_01.volume(target_02, **stocks)
-   save("{}/step_01_{}.png".format(pwd,target_02))
+   save("{}/step_01_{}.png".format(local_dir,target_02))
    STEP_02.volume(target_02, **stocks)
-   save("{}/step_02_{}.png".format(pwd,target_02))
+   save("{}/step_02_{}.png".format(local_dir,target_02))
    STEP_03.volume(target_02, **stocks)
-   save("{}/step_03_{}.png".format(pwd,target_02))
+   save("{}/step_03_{}.png".format(local_dir,target_02))
    STEP_04.volume(target_02, **stocks)
-   save("{}/step_04_{}.png".format(pwd,target_02))
+   save("{}/step_04_{}.png".format(local_dir,target_02))
+
+if __name__ == '__main__' :
+   import os,sys
+   import logging
+   from libCommon import ENVIRONMENT
+
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
+   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
+   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+
+   ini_list = env.list_filenames('local/*.ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
+
+   local_dir = '{pwd_parent}/local'.format(**vars(env))
+   test_dir = 'testResults'
+   env.mkdir(test_dir)
+   main(test_dir)
+
