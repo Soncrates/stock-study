@@ -8,12 +8,14 @@ from cmd_Scrape_BackGround import DICT_HELPER
 from libDebug import trace
 
 def prep() :
+    target = 'env'
+    env = globals().get(target,None)
     target = 'data_store'
     data_store = globals().get(target,'')
     if not isinstance(data_store,str) :
        data_store = str(data_store)
     logging.info('making data store {}'.format(data_store))
-    ENVIRONMENT.mkdir(data_store)
+    env.mkdir(data_store)
     target = 'ini_list'
     ini_list = globals().get(target,[])
     if not isinstance(ini_list,list) :

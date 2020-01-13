@@ -21,12 +21,14 @@ from libSharpe import PORTFOLIO, HELPER as MONTECARLO
    Graph portfolios to determine perfomance, risk, diversification
 '''
 def prep() :
+    target = 'env'
+    env = globals().get(target,None)
     target = 'data_store'
     data_store = globals().get(target,'')
     if not isinstance(data_store,str) :
        data_store = str(data_store)
     logging.info('making data store {}'.format(data_store))
-    ENVIRONMENT.mkdir(data_store)
+    env.mkdir(data_store)
 
 def prep_Portfolio() :
     target = 'input_file'

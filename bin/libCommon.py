@@ -94,9 +94,16 @@ class ENVIRONMENT(object) :
              target = 'extension'
              extension = kvargs.get(target, '*.*')
           return extension
-      @classmethod
-      def mkdir(cls, path) :
-          mydir = os.path.dirname(path)
+      def mkdir(self, path) :
+          _path = [self.pwd, self.pwd_parent]
+          _path = [self.pwd]
+          _path = map(lambda x : '{}/{}'.format(x,path),_path)
+          if not isinstance(_path,list) :
+             _path = list(_path)
+          if len(_path) > 0 :
+             _path = _path[0]
+          logging.info(_path)
+          mydir = os.path.dirname(_path)
           if os.path.exists(mydir):
              return
           os.mkdir(path)
@@ -111,6 +118,8 @@ class ENVIRONMENT(object) :
           extension = ENVIRONMENT.parse(*largs, **kvargs)
           path1 = '{}/{}'.format(self.pwd,extension)
           path2 = '{}/{}'.format(self.pwd_parent,extension)
+          logging.info(path1)
+          logging.info(path2)
           ret = ENVIRONMENT.find(path1, path2)
           logging.debug(ret)
           return ret
