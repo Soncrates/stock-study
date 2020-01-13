@@ -40,7 +40,25 @@ class HELPER :
       @staticmethod
       def _xy(data) :
           for key in sorted(data.keys()) :
+              logging.info(data[key])
               yield data[key], key
+      @classmethod
+      def minmax(cls, data,x,y) :
+          x_max = 0
+          x_min = 1
+          y_max = 0
+          y_min = 1
+          for key in sorted(data.keys()) :
+              pt = data[key]
+              if pt[x] > x_max :
+                 x_max = pt[x]
+              if pt[x] < x_min :
+                 x_min = pt[x]
+              if pt[y] > y_max :
+                 y_max = pt[y]
+              if pt[y] < y_min :
+                 y_min = pt[y]
+          return x_max, x_min, y_max, y_min
           
 class LINE :
       @classmethod
@@ -64,6 +82,17 @@ class LINE :
               logging.debug(data.tail(3))
               data.plot(label=label)
           HELPER.labels(xlabel, ylabel,title)
+      @classmethod
+      def plot_sharpe(cls,ratio=1) :
+          if ratio < 0 :
+             ratio = 1
+          x = range(0,2,1)
+          y = map(lambda y : y*ratio, x)
+          ret = pd.Series(y)
+          logging.info(ret)
+          return ret
+              
+
 class BAR :
       @classmethod
       def validate(cls, **kwargs) :
@@ -122,6 +151,8 @@ class POINT :
           y_column_name = kwargs.get(target,'risk')
           target = 'style'
           style = kwargs.get(target,'o')
+          target = 'alpha'
+          alpha = kwargs.get(target,1)
           target = 'xlabel'
           xlabel = kwargs.get(target,None)
           target = 'ylabel'
@@ -130,23 +161,24 @@ class POINT :
           title = kwargs.get(target,None)
           target = 'labels'
           label_dict = kwargs.get(target,{})
-          logging.debug((cls, x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict))
-          return x_column_name, y_column_name, style, xlabel, ylabel, title, label_dict
+          logging.debug((cls, x_column_name, y_column_name, style, alpha, xlabel, ylabel, title, label_dict))
+          return x_column_name, y_column_name, style, alpha, xlabel, ylabel, title, label_dict
       @classmethod
       def plot(cls, points, **kwargs) :
-          column_x, column_y, style, xlabel, ylabel, title, label_dict = cls.validate(**kwargs)
+          column_x, column_y, style, alpha, xlabel, ylabel, title, label_dict = cls.validate(**kwargs)
           logging.debug((points,type(points)))
           for x, y, label in cls._xy(points,column_x,column_y) :
-              #plt.scatter(x,y)
-              #ax = point.plot(x='x', y='y', ax=ax, style='bx', label='point')
               label = label_dict.get(label,label)
               label, flag = HELPER.transform(label)
               if flag :
                  plt.plot(x,y,style, label=label)
                  continue
-              plt.plot(x,y,style)
+              plt.plot(x,y,style,alpha=alpha)
               plt.annotate(label, (x,y))
           HELPER.labels(xlabel, ylabel,title)
+          x_max, x_min, y_max, y_min = HELPER.minmax(points,column_x,column_y)
+          plt.xlim(x_min*0.9,x_max*1.1)
+          plt.ylim(y_min*0.9,y_max*1.1)
       @classmethod
       def _xy(cls, data,x,y) :
           for key in sorted(data.keys()) :
@@ -195,6 +227,8 @@ if __name__ == '__main__' :
        reader = STOCK_TIMESERIES.init()
        values = map(lambda ticker : reader.extract_from_yahoo(ticker), tickers)
        values = map(lambda data : pd.DataFrame(data)['Adj Close'], values)
+       if not isinstance(values,list) :
+          values = list(values)
        ret = dict(zip(tickers, values))
        ret = pd.DataFrame(ret, columns=tickers)
        return ret
@@ -208,14 +242,18 @@ if __name__ == '__main__' :
 
    def demo_sharpe(data, path) :
        pt_list = map(lambda name : "legend_" + name, ticker_list)
+       if not isinstance(pt_list,list) :
+          pt_list = list(pt_list)
        labels = dict(zip(ticker_list,pt_list))
        labels['^GSPC'] = 'SNP500'
-
-       data = map(lambda stock : MONTECARLO.find(data[stock], span=2*FINANCE.YEAR, period=FINANCE.YEAR), data)
-       data = dict(zip(ticker_list, data))
+       logging.info(type(data))
+       _data = map(lambda stock : MONTECARLO.find(data[stock], span=2*FINANCE.YEAR, period=FINANCE.YEAR), data)
+       if not isinstance(_data,list) :
+          _data = list(_data)
+       data = dict(zip(ticker_list, _data))
        data = pd.DataFrame(data, columns=ticker_list)
        logging.debug(data)
-       POINT.plot(data,labels=labels,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
+       POINT.plot(data,labels=labels,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio",alpha=0.3)
        save(path, loc="lower right")
 
    ticker_list = ["FB", "AMZN", "AAPL", "NFLX", "GOOG", "BTZ", "^GSPC"]
@@ -224,4 +262,8 @@ if __name__ == '__main__' :
    path = "{pwd_parent}/local/example_returns.png".format(**vars(env))
    demo_returns(data, path)
    path = "{pwd_parent}/local/example_sharpes.png".format(**vars(env))
+   ret = LINE.plot_sharpe(ratio=1) 
+   ret.plot.line(style='b:', label='sharpe 1',alpha=0.3)
+   ret = LINE.plot_sharpe(ratio=2) 
+   ret.plot.line(style='r:',label='sharpe 2',alpha=0.3)
    demo_sharpe(data, path)

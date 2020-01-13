@@ -221,7 +221,8 @@ class FTP:
 class CSV :
       @classmethod
       def rows(cls, path) :
-          with open(path, 'rb') as csvfile:
+          logging.info("reading file {}".format(path))
+          with open(path, 'rt') as csvfile:
                obj = csv.reader(csvfile)
                for row in obj :
                    yield row
@@ -237,10 +238,14 @@ class CSV :
       @classmethod
       def _grep(cls, key, row) :
           flag_list = filter(lambda t : key == t, row)
+          if not isinstance(flag_list,list) :
+             flag_list = list(flag_list)
           if len(flag_list) > 0 :
              return key, row
           alt_key = key.replace('-P','-') 
           flag_list = filter(lambda t : alt_key == t, row)
+          if not isinstance(flag_list,list) :
+             flag_list = list(flag_list)
           if len(flag_list) > 0 :
              return key, row
           return None, None

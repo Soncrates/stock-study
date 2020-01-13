@@ -356,6 +356,11 @@ def main(local_dir, output_file) :
    returns, diversified, summary, portfolio_sharpe_list, portfolio_name_list = process()
    summary_path_list = []
    POINT.plot(portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
+   SHARPE = LINE.plot_sharpe(ratio=1)
+   SHARPE.plot.line(style='b:', label='sharpe 1',alpha=0.3)
+   SHARPE = LINE.plot_sharpe(ratio=2)
+   SHARPE.plot.line(style='r:',label='sharpe 2',alpha=0.3)
+
    path = "{}/images/portfolio_sharpe.png".format(local_dir)
    save(path,loc="lower right")
    summary_path_list.append(path)

@@ -16,7 +16,7 @@ from libReport import StockTemplate, ReturnsTemplate, SectorTemplate
 class PREP :
     @classmethod
     def prep(cls) :
-        target = 'input_list'
+        target = 'input_file'
         ini_list = globals().get(target,[])
         if not isinstance(ini_list,list) :
            ini_list = [ini_list]
@@ -42,15 +42,23 @@ class PREP :
         return arg_list
 
 class DIVERSE :
+    input_file = None
     @classmethod
     def validate(cls) :
+        if not (cls.input_file is None) :
+           logging.info('Reading input file {}'.format(cls.input_file))
+           return cls.input_file
+
         target = 'nasdaq_enrichment'
         ret = globals().get(target,[])
+        logging.info(sorted(globals()))
         if not isinstance(ret,list) :
            ret = list(ret)
+        logging.info(ret)
         if len(ret) > 0 :
            ret = ret[0]
         logging.info('Reading input file {}'.format(ret))
+        cls.input_file = ret
         return ret
     @classmethod
     def add(cls, arg_list) :
@@ -60,6 +68,7 @@ class DIVERSE :
         return ret
     @classmethod
     def _add(cls, arg_list) :
+        logging.info(type(arg_list))
         if not isinstance(arg_list,list) :
            return
         for i, value in enumerate(arg_list) :
@@ -78,9 +87,10 @@ class DIVERSE :
 
     @classmethod
     def _addContent(cls, arg_list) :
+        logging.info(type(arg_list))
         if not isinstance(arg_list,list) :
            return
-        nasdaq_enrichment = cls.validate()
+        _enrichment_file = cls.validate()
         arg_list = sorted(arg_list, key = lambda i: i['weight']) 
         logging.debug(arg_list)
         column_A, column_B = [], []
@@ -89,7 +99,9 @@ class DIVERSE :
             content[target] = "{}%".format(content[target]).rjust(8,' ')
             column_A.append(content['weight'])
             column_B.append(content['ticker'])
-        column_C = CSV.grep(nasdaq_enrichment, *column_B)
+        if not isinstance(column_B,list) :
+            column_B = list(column_B)
+        column_C = CSV.grep(_enrichment_file, *column_B)
         for key in column_C :
             description = '({0}) {2}'.format(*column_C[key])[:85]
             description = description.split(' - ')
@@ -97,13 +109,21 @@ class DIVERSE :
             column_C[key] = description
         missing_detail = "({0}) No info available for {0}"
         column_B = map(lambda key : column_C.get(key,missing_detail.format(key)),column_B)  
+        if not isinstance(column_B,list) :
+            column_B = list(column_B)
         for column in column_B :
             if 'No info' not in column : 
                 logging.info(column)
                 continue
             logging.warn(column)
         column_B = map(lambda x : Paragraph(x,StockTemplate.ticker), column_B)
+        if not isinstance(column_B,list) :
+            column_B = list(column_B)
         column_A = map(lambda x : Paragraph(x,StockTemplate.bullet), column_A)
+        if not isinstance(column_A,list) :
+            column_A = list(column_A)
+        logging.info(len(column_A))
+        logging.info(len(column_B))
 
         row_list = []
         for i, dummy in enumerate(column_A) :
@@ -123,6 +143,8 @@ class RETURNS :
     def add(cls, arg_list) :
         row_list = []
         for value in cls._add(arg_list) :
+            if not isinstance(value,list) :
+               value = list(value)
             row_list.append(value)
         #height = [0.1*inch] * len(row_list)
         widths = [0.5*inch] * len(row_list[0])
@@ -153,16 +175,24 @@ class RETURNS :
             row = deepcopy(ReturnsTemplate.defaultRow)
             row.update(general[key])
             row = ReturnsTemplate.transformRow(row)
+            if not isinstance(row,list) :
+               row = list(row)
             summary_row = [header] + row
             summary_row = map( lambda cell : Paragraph(cell, StockTemplate._bulletID), summary_row)
+            if not isinstance(summary_row,list) :
+               summary_row = list(summary_row)
             yield summary_row
 
             for stock in detail[key].keys() :
                 row = deepcopy(ReturnsTemplate.defaultRow)
                 row.update(detail[key][stock])
                 row = ReturnsTemplate.transformRow(row)
+                if not isinstance(row,list) :
+                   row = list(row)
                 detail_row = [stock] + row
                 detail_row = map(lambda t : Paragraph(t, StockTemplate._bullet), detail_row)
+                if not isinstance(detail_row,list) :
+                   detail_row = list(detail_row)
                 yield detail_row
 
 @log_exception
@@ -238,6 +268,7 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    csv_list = env.list_filenames('local/*.csv')
+   logging.info(csv_list)
    nasdaq_enrichment = filter(lambda x : 'nasdaq.csv', csv_list)
 
    input_file = env.list_filenames('local/report_generator.ini')
