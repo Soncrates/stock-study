@@ -107,7 +107,7 @@ class cpu(WRAPPER):
            return self.f(*largs, **kvargs)
         _t = cProfile.Profile()
         ret = _t.runcall(self.f, *largs, **kvargs)
-        _s = StringIO.StringIO()
+        _s = StringIO()
         _ps = pstats.Stats(_t, stream=_s).sort_stats(*cpu.sortby)
         _ps.print_stats()
         logging.debug( _s.getvalue())
