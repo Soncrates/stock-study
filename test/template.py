@@ -1,35 +1,35 @@
 #!/usr/bin/python
 
+import sys
+sys.path.append(sys.path[0].replace('test','bin'))
 import logging
 
-def main(file_list, ini_list) :
-    try :
-        return _main(file_list, ini_list)
-    except Exception as e :
-        logging.error(e, exc_info=True)
+from libCommon import log_exception
+from libDebug import trace
 
-def _main(file_list, ini_list) : pass
+@log_exception
+@trace
+def main() : 
+    target = 'ini_list'
+    ini_list = globals().get(target,[])
+    logging.info(ini_list)
+    target = 'file_list'
+    file_list = globals().get(target,[])
+    logging.info(file_list)
 
 if __name__ == '__main__' :
 
-   from glob import glob
-   import os,sys
-   from libCommon import TIMER
+   import sys
+   import logging
+   from libCommon import ENVIRONMENT
 
-   pwd = os.getcwd()
-
-   dir = pwd.replace('bin','log')
-   name = sys.argv[0].split('.')[0]
-   log_filename = '{}/{}.log'.format(dir,name)
+   env = ENVIRONMENT()
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   local = pwd.replace('bin','local')
-   ini_list = glob('{}/*.ini'.format(local))
-   file_list = glob('{}/historical_prices/*pkl'.format(local))
+   ini_list = env.list_filenames('local/*ini')
+   file_list = env.list_filenames('local/historical_prices/*pkl')
 
-   logging.info("started {}".format(name))
-   elapsed = TIMER.init()
-   main(file_list,ini_list)
-   logging.info("finished {} elapsed time : {}".format(name,elapsed()))
+   main()
 
