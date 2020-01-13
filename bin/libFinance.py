@@ -17,8 +17,6 @@ else :
    from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
    
 '''
-  NASDAQ - wrapper class around pandas built-in nasdaq reader
-         , creates csv of all nasdaq stocks and funds
   TIME_SERIES - perhaps the only legit class in the entire library
               - defaults to pulling 10 years of stock data
               - Stock data saved as pkl files
@@ -78,48 +76,6 @@ Gain/Loss Ratio	1.08	1.28
 
 
 '''
-
-class NASDAQ :
-      path = 'nasdaq.csv'
-      def __init__(self, results) :
-          self.results = results
-      def __call__(self) :
-          if self.results is None : return
-          for name, alt_name, row in NASDAQ.extract(self.results) :
-              stock = row.get(name)
-              if not isinstance(stock,str) :
-                 stock = row.get(alt_name)
-              stock = NASDAQ.transform(stock)
-              yield stock
-      @classmethod
-      def transform(cls, stock) :
-          if '-' not in stock :
-             return stock
-          stock = stock.split('-')
-          stock = '-P'.join(stock)
-          return stock
-      @classmethod
-      def init(cls, **kwargs) :
-          target = 'filename'
-          filename = kwargs.get(target, None)
-          target = 'retry_count'
-          retry_count = kwargs.get(target,3)
-          target = 'timeout'
-          timeout = kwargs.get(target,30)
-
-          results = get_nasdaq_symbols(retry_count, timeout)
-          if filename is not None :
-             results.to_csv(filename)
-          ret = cls(results)
-          return ret
-      @classmethod
-      def extract(cls, results) :
-          symbol_list = filter(lambda x : 'Symbol' in x, results.columns)
-          for index, row in results.iterrows():
-              symbol_value = map(lambda x : row[x],symbol_list)
-              ret = dict(zip(symbol_list,symbol_value))
-              logging.info(ret)
-              yield symbol_list[1], symbol_list[0], ret
 
 class STOCK_TIMESERIES :
       @classmethod
@@ -375,12 +331,6 @@ if __name__ == "__main__" :
    ini_list = env.list_filenames('local/*.ini')
    ini_list = filter(lambda x : 'background' in x, ini_list)
    ini_list = filter(lambda x : 'stock_' in x, ini_list)
-   _nasdaq = env.list_filenames('local/'+NASDAQ.path)[0]
-   def demo_nasdaq() :
-       nasdaq = NASDAQ.init(filename=_nasdaq)
-       for stock in nasdaq() :
-           logging.debug(stock)
-           if stock == 'AAPL' : break
 
    def prep(*ini_list) :
        for path, section, key, value in INI.loadList(*ini_list) :

@@ -70,6 +70,7 @@ if __name__ == '__main__' :
    local_dir = '{}/local'.format(env.pwd_parent)
    save_file = '{}/local/stock_background.ini'.format(env.pwd_parent)
    data_store = '{}/historical_prices'.format(local_dir)
+   data_store = '../local/historical_prices'
 
    ini_list = env.list_filenames('local/*.ini')
    ini_list = filter(lambda x : 'scrape_background' in x, ini_list)

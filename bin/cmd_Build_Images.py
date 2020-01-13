@@ -444,6 +444,7 @@ if __name__ == '__main__' :
 
    local_dir = "{pwd_parent}/local".format(**vars(env))
    data_store = '{}/images'.format(local_dir)
+   data_store = '../local/images'
    input_file = env.list_filenames('local/method*portfolios.ini')
    if len(input_file) > 0 :
       input_file = input_file[0]
