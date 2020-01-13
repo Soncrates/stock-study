@@ -79,9 +79,11 @@ class ENVIRONMENT(object) :
           self.version = sys.version
           self.version_info = sys.version_info
       def __str__(self) :
-          ret = self.__dict__
-          key_list = sorted(ret.keys())
-          ret = map(lambda key : "{} : {}".format(key,ret.get(key)), key_list)
+          values = self.__dict__
+          key_list = sorted(values.keys())
+          ret = map(lambda key : "{} : {}".format(key,values.get(key)), key_list)
+          if not isinstance(ret,list) :
+             ret = list(ret)
           ret = "\n".join(ret)
           return ret
       @classmethod
