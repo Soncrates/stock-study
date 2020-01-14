@@ -1,5 +1,6 @@
 import logging
 import warnings
+#warnings.warn("period must be positive", RuntimeWarning)
 try:
     xrange
 except NameError:
@@ -9,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from libFinance import HELPER as FINANCE
+from libDebug import cpu
 '''
 Sharpe Ratio
 
@@ -27,6 +29,12 @@ The Sharpe ratio determines the expected realized return over that minimum.
 Within the risk-reward framework of portfolio theory, higher risk investments should produce high returns. 
 
 As a result, a high Sharpe ratio indicates superior risk-adjusted performance.
+
+'''
+'''
+class SHARPE : unused, 
+class HELPER :
+class PORTFOLIO :
 
 '''
 class SHARPE :
@@ -80,16 +88,16 @@ class HELPER :
       @classmethod
       def validate(cls, data, risk_free_rate, period, span) :
           if period < 0 :
-             warnings.warn("period must be positive", RuntimeWarning)
+             logging.warn("period must be positive")
              period = 0
           if span < 0 :
-             warnings.warn("span must be positive", RuntimeWarning)
+             logging.warn("span must be positive")
              span = 0
           if risk_free_rate < 0 :
-             warnings.warn("risk_free_rate must be positive", RuntimeWarning)
+             logging.warn("risk_free_rate must be positive")
              risk_free_rate = 0
           if not isinstance(data,pd.DataFrame) :
-             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
+             logging.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
           return data, risk_free_rate, period, span
 
@@ -110,6 +118,9 @@ class PORTFOLIO :
 
       @classmethod
       def _sharpe(cls, cov_matrix, mean, period, risk_free_rate, weights) :
+          logging.debug((type(weights),weights))
+          logging.debug((type(cov_matrix),cov_matrix))
+
           magic = np.dot(cov_matrix, weights)
           magic_number = np.dot(weights.T,magic)
 
@@ -127,6 +138,8 @@ class PORTFOLIO :
       def _find(cls, data, stocks, num_portfolios, risk_free_rate, period) :
           data.sort_index(inplace=True)
           returns = FINANCE.findDailyReturns(data)
+          logging.info(returns)
+          logging.info(stocks)
 
           #set up array to hold results
           #We have increased the size of the array to hold the weight values for each stock
@@ -151,9 +164,10 @@ class PORTFOLIO :
           return ret
 
       @classmethod
+      @cpu
       def findWeightedSharpe(cls, data, weights, risk_free_rate=0.02, period=252) :
           if not isinstance(data,pd.DataFrame) :
-             warnings.warn("prices are not in a dataframe {}".format(type(data)), RuntimeWarning)
+             logging.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
 
           #calculate mean daily return and covariance of daily returns
@@ -167,16 +181,16 @@ class PORTFOLIO :
       @classmethod
       def validate(cls, data, stocks, portfolios, risk_free_rate, period) :
           if portfolios < 0 :
-             warnings.warn("portfolios must be positive", RuntimeWarning)
+             logging.warn("portfolios must be positive")
              portfolios = 0
           if period < 0 :
-             warnings.warn("period must be positive", RuntimeWarning)
+             logging.warn("period must be positive")
              period = 0
           if risk_free_rate < 0 :
-             warnings.warn("risk_free_rate must be positive", RuntimeWarning)
+             logging.warn("risk_free_rate must be positive")
              risk_free_rate = 0
           if not isinstance(data,pd.DataFrame) :
-             warnings.warn("prices are not in a dataframe", RuntimeWarning)
+             logging.warn("prices are not in a dataframe")
              data = pd.DataFrame(data)
           stocks = filter(lambda x : x in data, stocks)
           if not isinstance(stocks,list) :

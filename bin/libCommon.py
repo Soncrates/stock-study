@@ -16,31 +16,19 @@ if sys.version_info < (3, 0):
    import ConfigParser
 else:
     import configparser as ConfigParser
-
-if sys.version_info < (3, 0):
-   import pandas as pd
-   import pandas_datareader as web
-   from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
-else :
-   '''
-       import pandas_datareader as web
-         ModuleNotFoundError: No module named 'pandas_datareader'
-   '''
-   import pandas as pd
-   import pandas_datareader as web
-   from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
    
+#import warnings
+#warnings.warn("period must be positive", RuntimeWarning)
+
 '''
   Kitchen Sink
+  CSV - Some web scraping returns csv files 
+  ENVIRONMENT - scraping platform for data (USER,pwd, VERSION etc)
+  FTP - web scraping 
   INI - Each program reads the ini file(s) produced by the previous program and produces its own.
         This chaining allows for more rapid development both in execution and debugging.
-  NASDAQ - wrapper class around pandas built-in nasdaq reader
-         , creates csv of all nasdaq stocks and funds
   TIMER - performance metric tracking
           TODO - create a decorator that can log performance of a function.
-  TIME_SERIES - perhaps the only legit class in the entire library
-              - defaults to pulling 10 years of stock data
-              - Stock data saved as pkl files
 '''
 def combinations(stock_list,size=5) :
     logging.debug(sorted(stock_list))

@@ -2,9 +2,10 @@ import sys
 import datetime
 import logging
 import numpy as np
+import pandas as pd
 
 '''
-  TIME_SERIES - perhaps the only legit class in the entire library
+  STOCK_SERIES - perhaps the only legit class in the entire library
               - defaults to pulling 10 years of stock data
               - Stock data saved as pkl files
 
