@@ -3,6 +3,9 @@ import datetime
 import logging
 import numpy as np
 import pandas as pd
+import pandas_datareader as web
+
+from libCommon import log_on_exception
 
 '''
   STOCK_SERIES - perhaps the only legit class in the entire library
@@ -87,10 +90,9 @@ class STOCK_TIMESERIES :
       def extract_from_yahoo(self, stock) :
           ret = self._extract_from(stock, 'yahoo') 
           return ret
+      @log_on_exception
       def _extract_from(self, stock, service) :
-          try :
-             return web.DataReader(stock, service, self.start, self.end) 
-          except Exception as e : logging.error(e, exc_info=True)
+          return web.DataReader(stock, service, self.start, self.end) 
 
       @classmethod
       def save(cls, filename, stock, data) :
@@ -160,11 +162,24 @@ class HELPER :
       RESAMPLE_QUARTER = '3M'
       RESAMPLE_MONTH = 'M'
       @classmethod
-      def findDailyReturns(cls, data, period=0) :
+      def transformDailyReturns(cls, data) :
           #ret = data / data.iloc[0]
           ret = data.pct_change()
           ret.iloc[0] = 0  # set first day pseudo-price
           ret = ret.replace([np.inf, -np.inf], np.nan)
+          logging.info(ret.head(3))
+          logging.info(ret.tail(3))
+          return ret
+      @classmethod
+      def findDailyReturns(cls, data, period=0) :
+          if not isinstance(data,pd.DataFrame) :
+             logging.warn("prices are not in a dataframe {}".format(type(data)))
+             data = pd.DataFrame(data)
+          logging.debug(data.head(3))
+          logging.debug(data.tail(3))
+          logging.info((type(data),data.shape))
+
+          ret = cls.transformDailyReturns(data)
           height, width = ret.shape
           if width == 1 :
              ret = ret.dropna(how="all")
@@ -175,20 +190,20 @@ class HELPER :
              return None
           #ret.sort_index(inplace=True)
           #ret = 1 + ret
-          logging.debug(ret.head(3))
-          logging.debug(ret.tail(3))
+          logging.info(ret.head(3))
+          logging.info(ret.tail(3))
           return ret
       @classmethod
       def graphReturns(cls, data) :
           #data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
           ret = cls.findDailyReturns(data)
-          ret = cls.transformReturns(ret)
+          ret = cls.transformGraphReturns(ret)
           ret = ret.rolling(HELPER.MONTH).mean()
           logging.debug(ret.head(3))
           logging.debug(ret.tail(3))
           return ret
       @classmethod
-      def transformReturns(cls, ret) :
+      def transformGraphReturns(cls, ret) :
           ret = 1 + ret
           ret = ret.cumprod()
           return ret

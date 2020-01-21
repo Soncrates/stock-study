@@ -22,7 +22,7 @@ def prep() :
        ini_list = list(ini_list)
     logging.info('loading config files {}'.format(ini_list))
     ret = DICT_HELPER.init()
-    target = ['Index','MOTLEYFOOL']
+    target = ['Index','MOTLEYFOOL','PERSONAL']
     for path, section, key, stock in INI.loadList(*ini_list) :
         if section not in target :
             continue

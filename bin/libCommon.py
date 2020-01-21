@@ -37,13 +37,25 @@ def combinations(stock_list,size=5) :
         logging.debug(sorted(list(ret)))
         yield list(ret)
 
+# TODO : rename exit_on_exception
 def log_exception(func):
-    def exception_guard(*args, **kwargs):
+    def exit_program(*args, **kwargs):
         try:
            return func(*args, **kwargs)
         except Exception as e :
            logging.error(e, exc_info=True)
            sys.exit(e)
+    return exit_program
+
+def log_on_exception(func):
+    def exception_guard(*args, **kwargs):
+        ret = None
+        try:
+           ret = func(*args, **kwargs)
+        except Exception as e :
+           logging.error(e, exc_info=True)
+        finally :
+           return ret
     return exception_guard
 
 class ENVIRONMENT(object) :

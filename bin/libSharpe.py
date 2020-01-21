@@ -138,7 +138,7 @@ class PORTFOLIO :
       def _find(cls, data, stocks, num_portfolios, risk_free_rate, period) :
           data.sort_index(inplace=True)
           returns = FINANCE.findDailyReturns(data)
-          logging.info(returns)
+          logging.debug(returns)
           logging.info(stocks)
 
           #set up array to hold results
