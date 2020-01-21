@@ -5,7 +5,7 @@ import logging
 import sys
 import pandas as pd
 
-from libCommon import ENVIRONMENT, INI, log_exception
+from libCommon import ENVIRONMENT, INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER as MONTECARLO
 
@@ -159,7 +159,7 @@ def action(file_list, ini_list) :
         results = HELPER.transform(sector,stock_list)
         yield sector, results
 
-@log_exception
+@exit_on_exception
 @trace
 def main(file_list, ini_list,save_file) : 
     logging.info("loading results {}".format(ini_list))

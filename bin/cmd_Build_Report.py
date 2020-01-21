@@ -9,7 +9,7 @@ from reportlab.platypus import PageBreak
 from reportlab.platypus import Paragraph
 from reportlab.platypus import Table
 
-from libCommon import INI, CSV, log_exception
+from libCommon import INI, CSV, exit_on_exception
 from libDebug import trace
 from libReport import StockTemplate, ReturnsTemplate, SectorTemplate
 
@@ -195,7 +195,7 @@ class RETURNS :
                    detail_row = list(detail_row)
                 yield detail_row
 
-@log_exception
+@exit_on_exception
 @trace
 def main(output_file) :
 

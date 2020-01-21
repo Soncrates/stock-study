@@ -4,7 +4,7 @@ import math
 import logging
 import pandas as pd
 
-from libCommon import INI, log_exception
+from libCommon import INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES
 from libSharpe import HELPER
 
@@ -72,7 +72,7 @@ def action(input_file, ini_list) :
         for j, value in enumerate(portfolio_list[i]) :
             logging.info((i,j, sector_name,value))
 
-@log_exception
+@exit_on_exception
 @trace
 def main(input_file, ini_list,local_dir) : 
     logging.info("loading results from {}".format(ini_list))

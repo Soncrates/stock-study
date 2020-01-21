@@ -4,7 +4,7 @@ import math
 import logging
 import pandas as pd
 
-from libCommon import INI, log_exception
+from libCommon import INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER, PORTFOLIO
 
@@ -180,7 +180,7 @@ def action(input_file, file_list, ini_list) :
     yield "combined_sharpe", max_sharp
     yield "combined_risk", min_dev
     return
-@log_exception
+@exit_on_exception
 def main(input_file, file_list, ini_list,output_file) : 
     ret = INI.init()
     for name, section_list in action(input_file, file_list, ini_list) :

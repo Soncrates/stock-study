@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, combinations, log_exception
+from libCommon import INI, combinations, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import PORTFOLIO
 
@@ -23,7 +23,7 @@ def prep(*ini_list) :
         config[key] = stock
     return Sector, Industry, Category
 
-@log_exception
+@exit_on_exception
 @trace
 def main(file_list, ini_list) :
     Sector, Industry, Category = prep(*ini_list)

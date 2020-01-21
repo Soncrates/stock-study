@@ -4,7 +4,7 @@ import math
 import logging
 import pandas as pd
 
-from libCommon import INI, log_exception
+from libCommon import INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER as MONTECARLO
 
@@ -202,16 +202,35 @@ class HELPER() :
            return True, None
         return False, ret
 
+class PREP() :
+    _singleton = None
+    def __init__(self, _env, data,file_list) :
+        self._env = _env
+        self.data = data
+        self.file_list = file_list
+    @classmethod
+    def singleton(cls, **kwargs) :
+        if not (cls._singleton is None) :
+           return cls._singleton
+        target = 'env'
+        _env = globals().get(target,None)
+        target = 'stock_background'
+        data = globals().get(target,[])
+        if not isinstance(data,list) :
+           data = list(data)
+        target = "file_list"
+        file_list = globals().get(target,[])
+        cls._singleton = cls(_env,data,file_list)
+        return cls._singleton
+
 def prep() :
-    target = 'ini_list'
-    ini_list = globals().get(target,[])
+    ini_list = PREP.singleton().data
     logging.info("loading results {}".format(ini_list))
     for path, section, key, stock_list in INI.loadList(*ini_list) :
         yield key, stock_list
 
 def load(value_list) :
-    target = "file_list"
-    file_list = globals().get(target,[])
+    file_list = PREP.singleton().file_list
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
         flag, data = HELPER.is_stock_invalid(name, data) 
@@ -258,7 +277,7 @@ def action() :
             ret.update(results)
         yield sector, ret
 
-@log_exception
+@exit_on_exception
 @trace
 def main(save_file) : 
     ret = INI.init()
@@ -281,7 +300,7 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    ini_list = filter(lambda x : 'background' in x, ini_list)
-   ini_list = filter(lambda x : 'stock_background' in x, ini_list)
+   stock_background = filter(lambda x : 'stock_background' in x, ini_list)
    file_list = env.list_filenames('local/historical_prices/*pkl')
    save_file = "{}/local/method03_step01.ini".format(env.pwd_parent)
 

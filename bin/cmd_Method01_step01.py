@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, combinations, log_exception
+from libCommon import INI, combinations, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE, BIN
 from libSharpe import HELPER as MONTECARLO
 from libNasdaq import getByNasdaq
@@ -13,7 +13,7 @@ Parition stocks by Sector Industry Fund
 Filter each Partition to top 8 performers based on Sharpe and Risk
 '''
 
-@log_exception
+@exit_on_exception
 @trace
 def main(file_list, ini_list) :
 

@@ -2,10 +2,10 @@
 
 import logging
 import sys
-from libCommon import log_exception
+from libCommon import exit_on_exception
 from libDebug import trace
 
-@log_exception
+@exit_on_exception
 @trace
 def main(file_list, ini_list) : pass
 

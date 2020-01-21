@@ -2,7 +2,7 @@
 
 import logging
 import sys, os
-from libCommon import INI, log_exception, ENVIRONMENT
+from libCommon import INI, exit_on_exception, ENVIRONMENT
 from libFinance import STOCK_TIMESERIES
 from cmd_Scrape_BackGround import DICT_HELPER
 from libDebug import trace
@@ -31,7 +31,7 @@ def prep() :
     stock_list = ret.values()
     return ret.data, stock_list
 
-@log_exception
+@exit_on_exception
 @trace
 def main(local_dir, save_file) : 
     data, stock_list = prep()

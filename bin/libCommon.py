@@ -37,8 +37,7 @@ def combinations(stock_list,size=5) :
         logging.debug(sorted(list(ret)))
         yield list(ret)
 
-# TODO : rename exit_on_exception
-def log_exception(func):
+def exit_on_exception(func):
     def exit_program(*args, **kwargs):
         try:
            return func(*args, **kwargs)

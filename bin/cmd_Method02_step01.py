@@ -4,7 +4,7 @@ import math
 import logging
 import pandas as pd
 
-from libCommon import INI, log_exception
+from libCommon import INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER as MONTECARLO
 
@@ -138,7 +138,7 @@ def action(file_list, ini_list) :
             ret.update(results)
         yield sector, ret
 
-@log_exception
+@exit_on_exception
 @trace
 def main(file_list, ini_list,save_file) : 
     logging.info("loading results {}".format(ini_list))

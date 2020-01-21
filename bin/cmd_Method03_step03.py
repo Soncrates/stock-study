@@ -4,7 +4,7 @@
 import logging
 import pandas as pd
 
-from libCommon import INI, log_exception, combinations
+from libCommon import INI, exit_on_exception, combinations
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import HELPER as MONTECARLO,PORTFOLIO
 
@@ -130,9 +130,29 @@ def _prep(*ini_list) :
         yield section, ret.get(target,[])
         ret = {}
 
+class PREP() :
+    _singleton = None
+    def __init__(self, _env, data,file_list) :
+        self._env = _env
+        self.data = data
+        self.file_list = file_list
+    @classmethod
+    def singleton(cls, **kwargs) :
+        if not (cls._singleton is None) :
+           return cls._singleton
+        target = 'env'
+        _env = globals().get(target,None)
+        target = 'ini_list'
+        data = globals().get(target,[])
+        if not isinstance(data,list) :
+           data = list(data)
+        target = "file_list"
+        file_list = globals().get(target,[])
+        cls._singleton = cls(_env,data,file_list)
+        return cls._singleton
+
 def prep() :
-    target = 'ini_list'
-    ini_list = globals().get(target,[])
+    ini_list = PREP.singleton().data
     logging.info("loading results {}".format(ini_list))
     ret = {}
     for section, stocks in _prep(*ini_list) :
@@ -146,8 +166,7 @@ def prep() :
         yield section, value
 
 def load(value_list) :
-    target = "file_list"
-    file_list = globals().get(target,[])
+    file_list = PREP.singleton().file_list
     ret = {}
     for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
         flag, data = HELPER3.is_stock_invalid(name, data)
@@ -208,7 +227,7 @@ def action() :
     for sector in sorted(ret) :
         yield sector, ret[sector]
 
-@log_exception
+@exit_on_exception
 @trace
 def main(save_file) : 
     ret = INI.init()
@@ -217,7 +236,7 @@ def main(save_file) :
         INI.write_section(ret,key,**value)
     ret.write(open(save_file, 'w'))
     logging.info("results saved to {}".format(save_file))
-@log_exception
+@exit_on_exception
 @trace
 def main(local_dir) :
     for name, section_list in action() :

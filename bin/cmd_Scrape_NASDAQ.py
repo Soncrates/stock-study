@@ -15,7 +15,7 @@ else :
    import pandas_datareader as web
    from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
-from libCommon import log_exception
+from libCommon import exit_on_exception
 from libDebug import trace
 
 '''
@@ -70,7 +70,7 @@ class NASDAQ :
           ret = cls(results)
           return ret
 
-@log_exception
+@exit_on_exception
 @trace
 def main(save_file) :
     nasdaq = NASDAQ.init(filename=save_file)

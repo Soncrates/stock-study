@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, combinations, log_exception
+from libCommon import INI, combinations, exit_on_exception
 from libFinance import STOCK_TIMESERIES
 from libSharpe import PORTFOLIO
 
@@ -42,7 +42,7 @@ def enrich(*ini_list) :
             ret[stock][section] = key
     return ret
 
-@log_exception
+@exit_on_exception
 @trace
 def main(file_list, ini_list) :
     local_enrich = enrich(*ini_list)

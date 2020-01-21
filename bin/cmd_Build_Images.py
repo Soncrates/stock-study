@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
-from libCommon import INI, log_exception
+from libCommon import INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save
@@ -441,7 +441,7 @@ def process() :
     logging.info(graph_summary_list)
     return returns, diversified, graph_summary_list, graph_sharpe_list, _portfolio_name_list
 
-@log_exception
+@exit_on_exception
 @trace
 def main(local_dir, output_file) :
    returns, diversified, graph_summary, graph_portfolio_sharpe_list, portfolio_name_list = process()

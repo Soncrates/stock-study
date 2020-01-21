@@ -3,7 +3,7 @@
 import re
 import logging
 from functools import reduce
-from libCommon import INI, log_exception
+from libCommon import INI, exit_on_exception
 from libNASDAQ import NASDAQ
 from libWeb import WEB_UTIL
 from libDebug import trace
@@ -250,7 +250,7 @@ def handle_alias(*stock_list,**alias) :
     retry = reduce(lambda a, b : a+b, retry)
     return ret, retry, left_overs 
 
-@log_exception
+@exit_on_exception
 @trace
 def main(save_file) :
     stock_list, etf_list, alias = NASDAQ.init().stock_list()
