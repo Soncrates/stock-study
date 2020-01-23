@@ -175,8 +175,6 @@ class HELPER :
           if not isinstance(data,pd.DataFrame) :
              logging.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
-          logging.debug(data.head(3))
-          logging.debug(data.tail(3))
           logging.info((type(data),data.shape))
 
           ret = cls.transformDailyReturns(data)
@@ -199,8 +197,6 @@ class HELPER :
           ret = cls.findDailyReturns(data)
           ret = cls.transformGraphReturns(ret)
           ret = ret.rolling(HELPER.MONTH).mean()
-          logging.debug(ret.head(3))
-          logging.debug(ret.tail(3))
           return ret
       @classmethod
       def transformGraphReturns(cls, ret) :
@@ -284,11 +280,9 @@ class BIN :
       @classmethod
       def descending(cls, data,target) :
           desc = data.describe()
-          logging.debug(desc)
           _bin1 =  desc[target]['75%']
           _bin2 =  desc[target]['50%']
           _bin3 =  desc[target]['25%']
-          logging.debug((_bin1,_bin2,_bin3))
           bin1 = data[data[target] > _bin1]
           bin2 = data[(data[target] <= _bin1) & (data[target] > _bin2)]
           bin3 = data[(data[target] <= _bin2) & (data[target] > _bin3)]
@@ -300,11 +294,9 @@ class BIN :
       @classmethod
       def ascending(cls, data,target) :
           desc = data.describe()
-          logging.debug(desc)
           _bin1 =  desc[target]['75%']
           _bin2 =  desc[target]['50%']
           _bin3 =  desc[target]['25%']
-          logging.debug((_bin1,_bin2,_bin3))
           bin4 = data[data[target] < _bin3]
           bin3 = data[(data[target] >= _bin3) & (data[target] < _bin2)]
           bin2 = data[(data[target] >= _bin2) & (data[target] < _bin1)]

@@ -31,10 +31,8 @@ else:
           TODO - create a decorator that can log performance of a function.
 '''
 def combinations(stock_list,size=5) :
-    logging.debug(sorted(stock_list))
     ret_list = iter_combo(stock_list,size)
     for ret in list(ret_list):
-        logging.debug(sorted(list(ret)))
         yield list(ret)
 
 def exit_on_exception(func):
@@ -120,7 +118,6 @@ class ENVIRONMENT(object) :
           logging.info(path1)
           logging.info(path2)
           ret = ENVIRONMENT.find(path1, path2)
-          logging.debug(ret)
           return ret
 
 class INI(object) :
@@ -140,7 +137,6 @@ class INI(object) :
           file_list = filter(lambda p : p.endswith('ini'), file_list)
           file_list = sorted(file_list)
           for ini_file in file_list :
-              logging.debug(ini_file)
               for name, key, value in INI._loadList(ini_file) :
                   yield ini_file, name, key, value
       @classmethod
@@ -164,7 +160,6 @@ class INI(object) :
       def read_section(cls, config) :
           for name in sorted(config._sections) :
               for key, value in config.items(name) :
-                  logging.debug((name,key))
                   if len(value) == 0 : continue
                   yield name, key, value
       @classmethod
@@ -180,7 +175,6 @@ class INI(object) :
       @classmethod
       def write_section(cls, config,section,**data) :
           config.add_section(section)
-          logging.debug(section)
           for key in sorted(data.keys()) :
               value = cls.validate(data[key])
               logging.info((key,type(value)))

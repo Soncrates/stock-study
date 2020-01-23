@@ -118,8 +118,6 @@ class PORTFOLIO :
 
       @classmethod
       def _sharpe(cls, cov_matrix, mean, period, risk_free_rate, weights) :
-          logging.debug((type(weights),weights))
-          logging.debug((type(cov_matrix),cov_matrix))
 
           magic = np.dot(cov_matrix, weights)
           magic_number = np.dot(weights.T,magic)
@@ -138,8 +136,6 @@ class PORTFOLIO :
       def _find(cls, data, stocks, num_portfolios, risk_free_rate, period) :
           data.sort_index(inplace=True)
           returns = FINANCE.findDailyReturns(data)
-          logging.debug(returns)
-          logging.info(stocks)
 
           #set up array to hold results
           #We have increased the size of the array to hold the weight values for each stock
@@ -161,6 +157,8 @@ class PORTFOLIO :
           #convert results array to Pandas DataFrame
           columns = cls.columns + stocks
           ret = pd.DataFrame(ret.T,columns=columns)
+          logging.info(ret.head(3))
+          logging.info(ret.tail(3))
           return ret
 
       @classmethod
@@ -190,7 +188,7 @@ class PORTFOLIO :
              logging.warn("risk_free_rate must be positive")
              risk_free_rate = 0
           if not isinstance(data,pd.DataFrame) :
-             logging.warn("prices are not in a dataframe")
+             logging.warn("prices are not in a dataframe ({})".format(type(data)))
              data = pd.DataFrame(data)
           stocks = filter(lambda x : x in data, stocks)
           if not isinstance(stocks,list) :
