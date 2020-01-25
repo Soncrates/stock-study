@@ -99,8 +99,7 @@ class DIVERSE :
             content[target] = "{}%".format(content[target]).rjust(8,' ')
             column_A.append(content['weight'])
             column_B.append(content['ticker'])
-        if not isinstance(column_B,list) :
-            column_B = list(column_B)
+        column_B = list(column_B)
         column_C = CSV.grep(_enrichment_file, *column_B)
         for key in column_C :
             description = '({0}) {2}'.format(*column_C[key])[:85]
@@ -109,19 +108,16 @@ class DIVERSE :
             column_C[key] = description
         missing_detail = "({0}) No info available for {0}"
         column_B = map(lambda key : column_C.get(key,missing_detail.format(key)),column_B)  
-        if not isinstance(column_B,list) :
-            column_B = list(column_B)
+        column_B = list(column_B)
         for column in column_B :
             if 'No info' not in column : 
                 logging.info(column)
                 continue
             logging.warn(column)
         column_B = map(lambda x : Paragraph(x,StockTemplate.ticker), column_B)
-        if not isinstance(column_B,list) :
-            column_B = list(column_B)
+        column_B = list(column_B)
         column_A = map(lambda x : Paragraph(x,StockTemplate.bullet), column_A)
-        if not isinstance(column_A,list) :
-            column_A = list(column_A)
+        column_A = list(column_A)
         logging.info(len(column_A))
         logging.info(len(column_B))
 
@@ -179,8 +175,7 @@ class RETURNS :
                row = list(row)
             summary_row = [header] + row
             summary_row = map( lambda cell : Paragraph(cell, StockTemplate._bulletID), summary_row)
-            if not isinstance(summary_row,list) :
-               summary_row = list(summary_row)
+            summary_row = list(summary_row)
             yield summary_row
 
             for stock in detail[key].keys() :
@@ -191,8 +186,7 @@ class RETURNS :
                    row = list(row)
                 detail_row = [stock] + row
                 detail_row = map(lambda t : Paragraph(t, StockTemplate._bullet), detail_row)
-                if not isinstance(detail_row,list) :
-                   detail_row = list(detail_row)
+                detail_row = list(detail_row)
                 yield detail_row
 
 @exit_on_exception

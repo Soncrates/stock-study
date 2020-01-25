@@ -27,6 +27,9 @@ class HELPER :
           if 'legend_' in ret :
              ret = ret.replace('legend_','')
              flag = True
+          if 'reference' in ret :
+             ret = ret.replace('reference','')
+             flag = True
           ret = ret.replace('_',' ')
           logging.debug((flag,ret,label))
           return ret, flag
@@ -59,6 +62,11 @@ class HELPER :
               if pt[y] < y_min :
                  y_min = pt[y]
           return x_max, x_min, y_max, y_min
+      @classmethod
+      def tick_right(cls) :
+          logging.warning('TODO : unimplemented')
+          #plt.yaxis.tick_right()
+          #plt.tick_right()
           
 class LINE :
       @classmethod
@@ -80,7 +88,10 @@ class LINE :
               label, flag = HELPER.transform(label)
               logging.debug(data.head(3))
               logging.debug(data.tail(3))
-              data.plot(label=label)
+              if flag :
+                 data.plot(label=label)
+              else :
+                 data.plot(label=label,alpha=0.6)
           HELPER.labels(xlabel, ylabel,title)
       @classmethod
       def plot_sharpe(cls,ratio=1) :
@@ -138,8 +149,7 @@ class BAR :
           y_pos = np.arange(len(label_list))
           label_list = filter(lambda label : label is not None, label_list)
           label_list = map(lambda label : HELPER.wrap(label), label_list)
-          if not isinstance(label_list,list) :
-             label_list = list(label_list)
+          label_list = list(label_list)
           return label_list, data_list, y_pos
 
 class POINT :
@@ -227,8 +237,7 @@ if __name__ == '__main__' :
        reader = STOCK_TIMESERIES.init()
        values = map(lambda ticker : reader.extract_from_yahoo(ticker), tickers)
        values = map(lambda data : pd.DataFrame(data)['Adj Close'], values)
-       if not isinstance(values,list) :
-          values = list(values)
+       values = list(values)
        ret = dict(zip(tickers, values))
        ret = pd.DataFrame(ret, columns=tickers)
        return ret
@@ -242,14 +251,12 @@ if __name__ == '__main__' :
 
    def demo_sharpe(data, path) :
        pt_list = map(lambda name : "legend_" + name, ticker_list)
-       if not isinstance(pt_list,list) :
-          pt_list = list(pt_list)
+       pt_list = list(pt_list)
        labels = dict(zip(ticker_list,pt_list))
        labels['^GSPC'] = 'SNP500'
        logging.info(type(data))
        _data = map(lambda stock : MONTECARLO.find(data[stock], span=2*FINANCE.YEAR, period=FINANCE.YEAR), data)
-       if not isinstance(_data,list) :
-          _data = list(_data)
+       _data = list(_data)
        data = dict(zip(ticker_list, _data))
        data = pd.DataFrame(data, columns=ticker_list)
        logging.debug(data)

@@ -5,7 +5,7 @@ import sys
 from libCommon import exit_on_exception
 from libDebug import trace, cpu
 
-class PREP() :
+class EXTRACT() :
     _singleton = None
     def __init__(self, _env, config_list, file_list, input_file, output_file) :
         self._env = _env
@@ -33,12 +33,23 @@ class PREP() :
         file_list = globals().get(target,[])
         cls._singleton = cls(_env,config_list,file_list, input_file, output_file)
         return cls._singleton
+class LOAD() :
+    @classmethod
+    def config(cls, **config) :
+        save_file = EXTRACT.singleton().output_file
+        ret = INI.init()
+        for key in sorted(config) :
+            value = config.get(key,[])
+            logging.info(value)
+            INI.write_section(ret,key,**value)
+        ret.write(open(save_file, 'w'))
+        logging.info("results saved to {}".format(save_file))
 
 @exit_on_exception
 @trace
 def main() : 
-    logging.info('reading from file {}'.format(PREP.singleton().input_file))
-    logging.info('writing to file {}'.format(PREP.singleton().output_file))
+    logging.info('reading from file {}'.format(EXTRACT.singleton().input_file))
+    #LOAD.config(**{})
 
 if __name__ == '__main__' :
    import sys

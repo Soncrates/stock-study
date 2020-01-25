@@ -79,8 +79,7 @@ class ENVIRONMENT(object) :
           values = self.__dict__
           key_list = sorted(values.keys())
           ret = map(lambda key : "{} : {}".format(key,values.get(key)), key_list)
-          if not isinstance(ret,list) :
-             ret = list(ret)
+          ret = list(ret)
           ret = "\n".join(ret)
           return ret
       @classmethod
@@ -95,8 +94,7 @@ class ENVIRONMENT(object) :
           _path = [self.pwd, self.pwd_parent]
           _path = [self.pwd]
           _path = map(lambda x : '{}/{}'.format(x,path),_path)
-          if not isinstance(_path,list) :
-             _path = list(_path)
+          _path = list(_path)
           if len(_path) > 0 :
              _path = _path[0]
           logging.info(_path)
@@ -152,8 +150,7 @@ class INI(object) :
           if ',' in value :
               value = value.split(',')
               value = map(lambda key : key.strip(), value)
-              if not isinstance(value,list) :
-                 value = list(value)
+              value = list(value)
               return value
           return [value]
       @classmethod
@@ -241,16 +238,14 @@ class CSV :
           return ret
       @classmethod
       def _grep(cls, key, row) :
-          flag_list = filter(lambda t : key == t, row)
-          if not isinstance(flag_list,list) :
-             flag_list = list(flag_list)
-          if len(flag_list) > 0 :
+          flag = filter(lambda t : key == t, row)
+          flag = list(flag)
+          if len(flag) > 0 :
              return key, row
           alt_key = key.replace('-P','-') 
-          flag_list = filter(lambda t : alt_key == t, row)
-          if not isinstance(flag_list,list) :
-             flag_list = list(flag_list)
-          if len(flag_list) > 0 :
+          flag = filter(lambda t : alt_key == t, row)
+          flag = list(flag)
+          if len(flag) > 0 :
              return key, row
           return None, None
 

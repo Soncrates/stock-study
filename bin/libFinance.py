@@ -122,11 +122,10 @@ class STOCK_TIMESERIES :
              return
               
           for path in file_list :
-              flag_maybe = filter(lambda x : x in path, stock_list)
-              if not isinstance(flag_maybe,list) :
-                 flag_maybe = list(flag_maybe)
-              flag_maybe = len(flag_maybe) > 0
-              if not flag_maybe : continue
+              flag = filter(lambda x : x in path, stock_list)
+              flag = list(flag)
+              flag = len(flag) > 0
+              if not flag : continue
               name, ret = STOCK_TIMESERIES.load(path)
               if name not in stock_list :
                  del ret
@@ -225,9 +224,12 @@ class HELPER :
       @classmethod
       def CAGR(cls, data):
           periods = len(data) / float(cls.YEAR)
-          first = data.head(1)[0]
-          last = data.tail(1)[0]
-          return cls._CAGR(first, last, periods)
+          _ret = data.dropna(how='all')
+          ret = map(lambda x : _ret.iloc[x], [0,-1])
+          ret = list(ret)
+          ret = cls._CAGR(ret[0], ret[1], periods)
+          ret = round(ret,4)
+          return ret
       @classmethod
       def _CAGR(cls, first, last, periods):
           return (last/first)**(1/periods)-1

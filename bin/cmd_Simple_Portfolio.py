@@ -127,7 +127,7 @@ class TRANSFORM_PORTFOLIO() :
     def _getList(cls, data, stocks, ret) :
         if ret is None :
            ret = pd.DataFrame()
-        max_sharpe, min_dev = PORTFOLIO.find(data, stocks=stocks, portfolios=500, period=FINANCE.YEAR)
+        max_sharpe, min_dev = PORTFOLIO.find(data, stocks=stocks, portfolios=10000, period=FINANCE.YEAR)
         ret = ret.append(max_sharpe)
         ret = ret.append(min_dev)
         return ret
@@ -137,9 +137,11 @@ class TRANSFORM_PORTFOLIO() :
         for data, subset in cls.getStocks(stock_list) :
             ret = cls._getList(data,subset,ret)
             ret = cls.truncate(ret)
-        if len(ret) > 10 :
-           min_risk = ret.sort_values(['risk']).head(5)
-           max_sharpe = ret.sort_values(['sharpe']).tail(5)
+        if len(ret) > 5 :
+           #min_risk = ret.sort_values(['risk']).head(5)
+           #max_sharpe = ret.sort_values(['sharpe']).tail(5)
+           min_risk = ret.sort_values(['risk']).head(2)
+           max_sharpe = ret.sort_values(['sharpe']).tail(2)
            ret = pd.DataFrame()
            ret = ret.append(min_risk)
            ret = ret.append(max_sharpe)
@@ -187,7 +189,7 @@ class OUTPUT() :
         logging.info('writing to file {}'.format(save_file))
 
 @exit_on_exception
-@cpu
+@trace
 def main() : 
     bySector, stock_list = EXTRACT.read()
     logging.info(bySector)
