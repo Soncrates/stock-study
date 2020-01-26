@@ -106,6 +106,7 @@ class StockTemplate(BaseDocTemplate):
         ret = Table(data=ret)
         ret.setStyle(cls.ts)
         return ret
+
     @classmethod
     def alter_aspect(cls, path, width) :
         im = utils.ImageReader(path)

@@ -420,6 +420,8 @@ def process() :
     text_CAGR_list = {}
     text_Initial_Balance_list = {}
     text_Final_Balance_list = {}
+    text_Stdev_list = {}
+    text_SharpeRatio_list = {}
     _portfolio_name_list = []
     for weights, names, prices, summary, returns in TRANSFORM_PORTFOLIO.find() :
         target_From = 'legend_{portfolio}'.format(**names)
@@ -438,6 +440,8 @@ def process() :
         text_CAGR_list[target_To] = summary.T[target_From]['CAGR']
         text_Initial_Balance_list[target_To] = 10000
         text_Final_Balance_list[target_To] = summary.T[target_From]['Final Balance']
+        text_Stdev_list[target_To] = summary.T[target_From]['risk']
+        text_SharpeRatio_list[target_To] = summary.T[target_From]['sharpe']
     graph_summary_list = pd.concat(graph_summary_list.values(),axis=1)
 
     diversified = _enriched()
@@ -461,6 +465,8 @@ def process() :
     text_Initial_Balance_list[target] = initial_Balance
     ratio = TRANSFORM_STOCK._summarizeBalance(snp_prices)[0]
     text_Final_Balance_list[target] = round(initial_Balance*ratio,2)
+    text_Stdev_list[target] = snp_sharpe.T['risk'][0]
+    text_SharpeRatio_list[target] = snp_sharpe.T['sharpe'][0]
 
     FUNDS = 'NASDAQMUTFUND'
     funds = bench_list[FUNDS]
@@ -476,6 +482,8 @@ def process() :
         text_Initial_Balance_list[name] = initial_Balance
         ratio = TRANSFORM_STOCK._summarizeBalance(funds_prices[name])
         text_Final_Balance_list[name] = round(initial_Balance*ratio,2)
+        text_Stdev_list[name] = funds_sharpe[name]['risk']
+        text_SharpeRatio_list[name] = funds_sharpe[name]['sharpe']
 
     '''
     Final Massage
@@ -498,9 +506,9 @@ def process() :
 
     diversified = _enriched()
 
-    summary_text = [text_CAGR_list,text_Initial_Balance_list, text_Final_Balance_list]
-    rows = ['CAGR','Initial Balance','Final Balance']
-    rows = dict(zip([0,1,2],rows))
+    summary_text = [text_CAGR_list,text_Initial_Balance_list, text_Final_Balance_list, text_Stdev_list, text_SharpeRatio_list]
+    rows = ['CAGR','Initial Balance','Final Balance','Stdev','Sharpe Ratio']
+    rows = dict(zip([0,1,2,3,4],rows))
     summary_text = pd.DataFrame(summary_text)
     summary_text.rename(index=rows,inplace=True)
     summary_text = summary_text.to_dict()
