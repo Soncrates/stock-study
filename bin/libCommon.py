@@ -97,10 +97,11 @@ class ENVIRONMENT(object) :
           _path = list(_path)
           if len(_path) > 0 :
              _path = _path[0]
-          logging.info(_path)
-          mydir = os.path.dirname(_path)
-          if os.path.exists(mydir):
+          if os.path.exists(_path):
+             logging.info('Already exists : {}'.format(_path))
              return
+          else :
+             logging.info('Creating directory {}'.format(_path))
           os.mkdir(path)
       @classmethod
       def find(cls, path1, path2) :
@@ -113,8 +114,8 @@ class ENVIRONMENT(object) :
           extension = ENVIRONMENT.parse(*largs, **kvargs)
           path1 = '{}/{}'.format(self.pwd,extension)
           path2 = '{}/{}'.format(self.pwd_parent,extension)
-          logging.info(path1)
-          logging.info(path2)
+          #logging.info(path1)
+          #logging.info(path2)
           ret = ENVIRONMENT.find(path1, path2)
           return ret
 
@@ -132,7 +133,7 @@ class INI(object) :
           return config
       @classmethod
       def loadList(cls, *file_list) :
-          file_list = filter(lambda p : p.endswith('ini'), file_list)
+          #file_list = filter(lambda p : p.endswith('ini'), file_list)
           file_list = sorted(file_list)
           for ini_file in file_list :
               for name, key, value in INI._loadList(ini_file) :
@@ -146,6 +147,7 @@ class INI(object) :
       @classmethod
       def _transform(cls, value) :
           if '{' in value :
+              # TODO : json.loads
               return value
           if ',' in value :
               value = value.split(',')
@@ -174,7 +176,7 @@ class INI(object) :
           config.add_section(section)
           for key in sorted(data.keys()) :
               value = cls.validate(data[key])
-              logging.info((key,type(value)))
+              #logging.info((key,type(value)))
               config.set(section,key,value)
 
 class FTP:

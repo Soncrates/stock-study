@@ -166,6 +166,7 @@ class NASDAQ() :
           ret = NASDAQ.to_dict(raw)
           ret = map(lambda row : HELPER_FUND.Type(row), ret)
           ret = map(lambda row : HELPER_FUND.Category(row), ret)
+          ret = list(ret)
           return ret, raw
       def bonds(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[0])
@@ -203,13 +204,13 @@ class NASDAQ() :
                  alias[stock] = stock_alt
           ret = sorted(list(ret))
           etf = sorted(list(etf))
-          logging.info(len(ret))
-          logging.info(len(etf))
+          logging.info(('Stocks',len(ret)))
+          logging.info(('ETF',len(etf)))
           return ret, etf, alias 
       def fund_list(self) :
           ret = {}
           fund_list, csv = self.funds()
-          logging.info(len(fund_list))
+          logging.info(('Funds',len(fund_list)))
           for fund in fund_list :
               target = 'Fund Family Name' 
               name = fund.pop(target,target)

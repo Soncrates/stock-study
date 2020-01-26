@@ -13,8 +13,14 @@ class EXTRACT() :
         self.file_list = file_list
         self.input_file = input_file
         self.output_file = output_file
+        msg = vars(self)
+        for i, key in enumerate(sorted(msg)) :
+            value = msg[key]
+            if isinstance(value,list) and len(value) > 10 :
+               value = value[:10]
+            logging.info((i,key, value))
     @classmethod
-    def singleton(cls, **kwargs) :
+    def instance(cls, **kwargs) :
         if not (cls._singleton is None) :
            return cls._singleton
         target = 'env'
@@ -33,10 +39,17 @@ class EXTRACT() :
         file_list = globals().get(target,[])
         cls._singleton = cls(_env,config_list,file_list, input_file, output_file)
         return cls._singleton
+    @classmethod
+    def config() :
+        ini_list = EXTRACT.instance().config_list
+        logging.info("loading results {}".format(ini_list))
+        for path, section, key, stock_list in INI.loadList(*ini_list) :
+            yield path, section, key, stock_list
+
 class LOAD() :
     @classmethod
     def config(cls, **config) :
-        save_file = EXTRACT.singleton().output_file
+        save_file = EXTRACT.instance().output_file
         ret = INI.init()
         for key in sorted(config) :
             value = config.get(key,[])
@@ -48,7 +61,7 @@ class LOAD() :
 @exit_on_exception
 @trace
 def main() : 
-    logging.info('reading from file {}'.format(EXTRACT.singleton().input_file))
+    logging.info('reading from file {}'.format(EXTRACT.instance().input_file))
     #LOAD.config(**{})
 
 if __name__ == '__main__' :
