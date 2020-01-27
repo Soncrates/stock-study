@@ -151,8 +151,8 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
-   output_file = '../local/fund.ini'
-   background_file = '../local/fund_background.ini'
+   output_file = '../local/fund_background.ini'
+   background_file = '../local/fund_names.ini'
 
    local_dir = '{}/local'.format(env.pwd_parent)
    data_store = '{}/historical_prices'.format(local_dir)

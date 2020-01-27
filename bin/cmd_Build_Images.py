@@ -20,57 +20,75 @@ from libSharpe import PORTFOLIO, HELPER as SHARPE
    Graph portfolios to determine perfomance, risk, diversification
 '''
 class EXTRACT() :
-    _enrich_cache = None
+    _background_cache = None
     _singleton = None
-    def __init__(self, _env, _data_store, _portfolio,_enrich,_benchmark,file_list) :
+    def __init__(self, _env, local_dir, _data_store, input_file,output_file,background,_benchmark,repo) :
         self._env = _env
+        self.local_dir = local_dir
         self._data_store = _data_store
-        self._portfolio = _portfolio
-        self._enrich = _enrich
+        self.input_file = input_file
+        self.output_file = output_file
+        self.background = background
         self._benchmark = _benchmark
-        self.file_list = file_list
+        self.repo = repo
+        msg = vars(self)
+        for i, key in enumerate(sorted(msg)) :
+            value = msg[key]
+            if isinstance(value,list) and len(value) > 10 :
+               value = value[:10]
+            logging.info((i,key, value))
+
     @classmethod
-    def singleton(cls, **kwargs) :
+    def instance(cls, **kwargs) :
         if not (cls._singleton is None) :
            return cls._singleton
         target = 'env'
         _env = globals().get(target,None)
+        target = "local_dir"
+        local_dir = globals().get(target,None)
         target = 'data_store'
         _data_store = globals().get(target,'')
         if not isinstance(_data_store,str) :
            _data_store = str(_data_store)
         target = 'input_file'
-        _portfolio = globals().get(target,'')
-        if not isinstance(_portfolio,list) :
-           _portfolio = [_portfolio]
-        target = 'stock_background'
-        _enrich = globals().get(target,[])
-        if not isinstance(_enrich,list) :
-           _enrich = list(_enrich)
+        input_file = globals().get(target,'')
+        if not isinstance(input_file,list) :
+           input_file = [input_file]
+        if len(_env.argv) > 0 :
+           input_file = _env.argv[0]
+        target = 'output_file'
+        output_file = globals().get(target,'')
+        if len(_env.argv) > 1 :
+           output_file = _env.argv[1]
+        target = 'background'
+        background = globals().get(target,[])
         target = 'benchmark'
         _benchmark = globals().get(target,[])
         if not isinstance(_benchmark,list) :
            _benchmark = list(_benchmark)
-        target = "file_list"
-        file_list = globals().get(target,[])
-        cls._singleton = cls(_env,_data_store,_portfolio,_enrich,_benchmark,file_list)
+        target = "repo_stock"
+        repo_stock = globals().get(target,[])
+        target = "repo_fund"
+        repo_fund = globals().get(target,[])
+        repo = repo_stock + repo_fund
+        cls._singleton = cls(_env,local_dir,_data_store,input_file,output_file,background,_benchmark,repo)
         return cls._singleton
     @classmethod
     def prep(cls) :
-        data_store = cls.singleton()._data_store
+        data_store = cls.instance()._data_store
         logging.info('making data store {}'.format(data_store))
-        cls.singleton()._env.mkdir(data_store)
+        cls.instance()._env.mkdir(data_store)
     @classmethod
-    def readStockData(cls, value_list) :
-        file_list = cls.singleton().file_list
+    def readRepoData(cls, value_list) :
+        repo = cls.instance().repo
         ret = {}
-        for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
+        for name, data in STOCK_TIMESERIES.read(repo, value_list) :
             logging.info((name,type(data),data.shape))
             ret[name] = data
         return ret
     @classmethod
     def readPrices(cls,stock_list) :
-        ret = cls.readStockData(stock_list)
+        ret = cls.readRepoData(stock_list)
         stock_list = sorted(ret)
         price_list = map(lambda stock : pd.DataFrame(ret[stock])['Adj Close'], stock_list)
         price_list = list(price_list)
@@ -81,10 +99,10 @@ class EXTRACT() :
         return ret
     @classmethod
     def readPortfolio(cls) :
-        portfolio = cls.singleton()._portfolio
+        portfolio = cls.instance().input_file
         logging.info('reading file {}'.format(portfolio))
         ret = {}
-        for path, section, key, weight in INI.loadList(*portfolio) :
+        for path, section, key, weight in INI.loadList(*[portfolio]) :
             if section.startswith('dep_') :
                continue
             if section not in ret :
@@ -93,17 +111,20 @@ class EXTRACT() :
         return ret
     @classmethod
     def readEnrich(cls) :
-        enrich = cls.singleton()._enrich
-        if not (cls._enrich_cache is None) :
+        enrich = cls.instance().background
+        if not (cls._background_cache is None) :
            logging.info('reading cache {}'.format(enrich))
-           return cls._enrich_cache
+           return cls._background_cache
         logging.info('reading file {}'.format(enrich))
         ret = {}
-        for path, section, key, stock_list in INI.loadList(*enrich) :
-            for stock in stock_list :
-                if stock not in ret : ret[stock] = {}
-                ret[stock]['Sector'] = key
-        cls._enrich_cache = ret
+        for path, section, key, ticker_list in INI.loadList(*enrich) :
+            if 'fund' in path :
+               key = '{} ({})'.format(section,key)
+            for ticker in ticker_list :
+                if ticker not in ret : 
+                   ret[ticker] = {}
+                ret[ticker]['Sector'] = key
+        cls._background_cache = ret
         return ret
     @classmethod
     def readSector(cls,stock) :
@@ -115,7 +136,7 @@ class EXTRACT() :
         return ret
     @classmethod
     def readBenchmark(cls) :
-        benchmark = cls.singleton()._benchmark
+        benchmark = cls.instance()._benchmark
         logging.info('reading file {}'.format(benchmark))
         ret = {}
         for path, section, key, stock_list in INI.loadList(*benchmark) :
@@ -293,6 +314,18 @@ class LOAD() :
     name_format_1 = "portfolio_diversified_{}"
     name_format_2 = "portfolio_returns_{}"
     name_format_3 = 'legend_{}'
+    @classmethod
+    def config(cls,summary,portfolio) :
+        save_file = EXTRACT.instance().output_file
+        ret = INI.init()
+        INI.write_section(ret,"summary",**summary)
+        for key in portfolio.keys() :
+            values = portfolio[key]
+            if not isinstance(values,dict) :
+               values = values.to_dict()
+            INI.write_section(ret,key,**values)
+        ret.write(open(save_file, 'w'))
+        logging.info('saving file {}'.format(save_file))
     @classmethod
     def getNames(cls, curr, name) :
         name_diversified = cls.name_format_1.format(curr)
@@ -518,9 +551,10 @@ def process() :
     logging.info(summary_text)
     return returns, diversified, graph_summary_list, graph_sharpe_list, summary_text, _portfolio_name_list
 
+
 @exit_on_exception
 @trace
-def main(local_dir, output_file) :
+def main() :
    returns, diversified, graph_summary, graph_portfolio_sharpe_list, summary_text, portfolio_name_list = process()
    summary_path_list = []
    POINT.plot(graph_portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
@@ -529,6 +563,7 @@ def main(local_dir, output_file) :
    SHARPE = LINE.plot_sharpe(ratio=2)
    SHARPE.plot.line(style='r:',label='sharpe ratio 2',alpha=0.3)
 
+   local_dir = EXTRACT.instance().local_dir
    path = "{}/images/portfolio_sharpe.png".format(local_dir)
    save(path,loc="lower right")
    summary_path_list.append(path)
@@ -581,15 +616,7 @@ def main(local_dir, output_file) :
        key = "portfolio_{}".format(i)
        portfolio[key] = section
 
-   config = INI.init()
-   INI.write_section(config,"summary",**summary)
-   for key in portfolio.keys() :
-       values = portfolio[key]
-       if not isinstance(values,dict) :
-          values = values.to_dict()
-       INI.write_section(config,key,**values)
-   config.write(open(output_file, 'w'))
-   logging.info('saving file {}'.format(output_file))
+   LOAD.config(summary,portfolio)
 
 if __name__ == '__main__' :
 
@@ -601,24 +628,22 @@ if __name__ == '__main__' :
 
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
-   stock_background = filter(lambda x : 'stock_background' in x, ini_list)
+   background = filter(lambda x : 'background' in x, ini_list)
+   background = list(background)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)
-   file_list = env.list_filenames('local/historical_prices/*pkl')
+   repo_stock = env.list_filenames('local/historical_prices/*pkl')
+   repo_fund = env.list_filenames('local/historical_prices_fund/*pkl')
 
    local_dir = "{pwd_parent}/local".format(**vars(env))
    data_store = '{}/images'.format(local_dir)
    data_store = '../local/images'
+   output_file = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
    input_file = env.list_filenames('local/method*portfolios.ini')
    if len(input_file) > 0 :
       input_file = input_file[0]
-   output_file = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
-   if len(env.argv) > 0 :
-      input_file = env.argv[0]
-   if len(env.argv) > 1 :
-      output_file = env.argv[1]
 
-   main(local_dir, output_file)
+   main()
