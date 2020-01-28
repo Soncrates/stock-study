@@ -112,12 +112,17 @@ class STOCK_TIMESERIES :
           name = name.split(".")[0]
           return name, data
       @classmethod
+      def bulk(cls, file_list ) :
+          for path in file_list :
+              ticker, ret = cls.load(path)
+              yield ticker, ret 
+      @classmethod
       def read(cls, file_list, stock_list) :
           if not isinstance(stock_list,list) :
              stock_list = list(stock_list)
           if stock_list is None or len(stock_list) == 0 :
              for path in file_list :
-                 name, ret = STOCK_TIMESERIES.load(path)
+                 name, ret = cls.load(path)
                  yield name, ret
              return
               
@@ -126,7 +131,7 @@ class STOCK_TIMESERIES :
               flag = list(flag)
               flag = len(flag) > 0
               if not flag : continue
-              name, ret = STOCK_TIMESERIES.load(path)
+              name, ret = cls.load(path)
               if name not in stock_list :
                  del ret
                  continue
@@ -135,7 +140,7 @@ class STOCK_TIMESERIES :
       def read_all(cls, file_list, stock_list) :
           name_list = []
           data = None
-          for stock_name, stock_data in STOCK_TIMESERIES.read(file_list, stock_list) :
+          for stock_name, stock_data in cls.read(file_list, stock_list) :
              try :
                name_list.append(stock_name)
                stock_data.columns = pd.MultiIndex.from_product([[stock_name], stock_data.columns])
