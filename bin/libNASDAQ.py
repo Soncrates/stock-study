@@ -7,7 +7,7 @@ from libCommon import FTP
 Web Scraping Utils
 
 '''
-class HELPER_PARTICIPANT() :
+class TRANSFORM_PARTICIPANT() :
       _type = {
               'A' : 'Agency Quote'
               , 'C' : 'Electronic Communications Network (ECN)'
@@ -26,7 +26,7 @@ class HELPER_PARTICIPANT() :
           replace = cls._type.get(value,value)
           row[target] = replace
           return row
-class HELPER_STOCK() :
+class TRANSFORM_STOCK() :
       market = { 'Q' : 'NASDAQ Global Select MarketSM'
                    , 'G' : 'NASDAQ Global MarketSM'
                    , 'S' : 'NASDAQ Capital Market'
@@ -75,7 +75,7 @@ class HELPER_STOCK() :
           replace = cls.exchange.get(value,value)
           row[target] = replace
           return row
-class HELPER_FUND() :
+class TRANSFORM_FUND() :
       _Type = { 'AN' : 'Annuities'
               , 'MF' : 'Mutual Fund'
               , 'MS' : 'Supplemental Mutual Fund'
@@ -117,10 +117,91 @@ class HELPER_FUND() :
           replace = cls._Category.get(value,value)
           row[target] = replace
           return row
+class NASDAQ_FILTER() :
+      @classmethod
+      def test(cls,data) :
+          test = []
+          ret = []
+          for row in data:
+              curr, row = cls._test(row,ret,test)
+              curr.append(row)
+          return ret, test
+      @classmethod
+      def _test(cls,row,live,test) :
+          ret = live
+          flag = filter(lambda x : 'Test' in x , row.keys())
+          flag = list(flag)
+          flag = map(lambda x : row.pop(x,x) , flag)
+          flag = list(flag)
+          flag = filter(lambda x : x is not None, flag)
+          flag = list(flag)
+          flag = filter(lambda x : 'Y' in x, flag)
+          flag = list(flag)
+          flag = len(flag) > 0
+          if flag :
+             ret = test
+          return ret, row
+      @classmethod
+      def ETF(cls,row,stock,etf) :
+          ret = stock
+          flag = filter(lambda x : 'ETF' in x , row.keys())
+          flag = map(lambda x : row.get(x,x) , flag)
+          flag = filter(lambda x : 'Y' in x , flag)
+          flag = list(flag)
+          flag = len(flag) > 0
+          if flag :
+             ret = etf
+          return ret
+      @classmethod
+      def alias(cls,row) :
+          stock_list = filter(lambda x : 'Symbol' in x , row.keys())
+          stock_list = list(stock_list)
+          stock_name = map(lambda x : row.get(x,x), stock_list)
+          stock_name = list(set(stock_name))
+          if len(stock_name) == 1 :
+             return stock_name[0], {}
+          stock_name = sorted(stock_name)
+          nasdaq = filter(lambda x : 'NASDAQ' in x , stock_list)
+          nasdaq = list(nasdaq)
+          stock_list = list(set(stock_list) - set(nasdaq))
+          stock_value = map(lambda x : row.get(x,x), stock_list)
+          stock_alt = dict(zip(stock_list,stock_value))
+          logging.info(nasdaq)
+          logging.debug(stock_alt)
+          nasdaq = map(lambda x : row.get(x,x), nasdaq)
+          nasdaq = list(nasdaq)
+          return nasdaq[0], stock_alt
 
+class NASDAQ_TRANSFORM() :
+      @classmethod
+      def stock_list(cls,row_list) :
+          stock = set([])
+          etf = set([])
+          alias = {}
+          for row in row_list :
+              curr = NASDAQ_FILTER.ETF(row,stock,etf)
+              exchange = filter(lambda x : 'Exchange' in x , row.keys())
+              exchange = map(lambda x : row.get(x,x) , exchange)
+              exchange = list(exchange)
+              if len(exchange) > 0 :
+                 exchange = exchange[0]
+              if isinstance(exchange,str) :
+                 if 'NYSE' not in exchange :
+                    logging.warn(exchange)
+                    continue
+              name, alt_name = NASDAQ_FILTER.alias(row)
+              curr.add(name)
+              if len(alt_name) > 0 :
+                 alias[name] = alt_name
+          return stock, etf, alias
 class NASDAQ() :
       url = 'ftp.nasdaqtrader.com'
-      file_list = ['bondslist.txt', 'bxoptions.txt', 'bxo_lmm.csv', 'bxtraded.txt', 'gmniListedStrikesWithOptionIds.zip', 'iseListedStrikesWithOptionIds.zip', 'mcryListedStrikesWithOptionIds.zip', 'mfundslist.txt', 'mpidlist.txt', 'nasdaqlisted.txt', 'nasdaqtraded.txt', 'options.txt', 'otclist.txt', 'otherlisted.txt', 'pbot.csv', 'phlxListedStrikesWithOptionIds.zip', 'phlxoptions.csv', 'phlxStrikesOld.zip', 'psxtraded.txt', 'regnms', 'regsho', 'regshopilot', 'regshopilotlist', 'shorthalts', 'TradingSystemAddsDeletes.txt']
+      file_list = ['bondslist.txt', 'bxoptions.txt', 'bxo_lmm.csv', 'bxtraded.txt'
+              , 'gmniListedStrikesWithOptionIds.zip', 'iseListedStrikesWithOptionIds.zip', 'mcryListedStrikesWithOptionIds.zip', 'mfundslist.txt', 'mpidlist.txt'
+              , 'nasdaqlisted.txt', 'nasdaqtraded.txt', 'options.txt', 'otclist.txt', 'otherlisted.txt'
+              , 'pbot.csv', 'phlxListedStrikesWithOptionIds.zip', 'phlxoptions.csv', 'phlxStrikesOld.zip', 'psxtraded.txt'
+              , 'regnms', 'regsho', 'regshopilot', 'regshopilotlist', 'shorthalts'
+              , 'TradingSystemAddsDeletes.txt']
 
       def __init__(self,ftp,*file_list) :
           self.ftp = ftp
@@ -143,29 +224,29 @@ class NASDAQ() :
       def listed(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[9])
           temp = NASDAQ.to_dict(raw)
-          ret, test_list = NASDAQ.thresh_test(temp)
-          ret = map(lambda row : HELPER_STOCK.Market(row), ret)
-          ret = map(lambda row : HELPER_STOCK.Finance(row), ret)
+          ret, test_list = NASDAQ_FILTER.test(temp)
+          ret = map(lambda row : TRANSFORM_STOCK.Market(row), ret)
+          ret = map(lambda row : TRANSFORM_STOCK.Finance(row), ret)
           return ret, raw 
       def traded(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[10])
           temp = NASDAQ.to_dict(raw)
-          ret, test_list = NASDAQ.thresh_test(temp)
-          ret = map(lambda row : HELPER_STOCK.Market(row), ret)
-          ret = map(lambda row : HELPER_STOCK.Finance(row), ret)
-          ret = map(lambda row : HELPER_STOCK.Exchange(row), ret)
+          ret, test_list = NASDAQ_FILTER.test(temp)
+          ret = map(lambda row : TRANSFORM_STOCK.Market(row), ret)
+          ret = map(lambda row : TRANSFORM_STOCK.Finance(row), ret)
+          ret = map(lambda row : TRANSFORM_STOCK.Exchange(row), ret)
           return ret, raw 
       def other(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[13])
           temp = NASDAQ.to_dict(raw)
-          ret, test_list = NASDAQ.thresh_test(temp)
-          ret = map(lambda row : HELPER_STOCK.Exchange2(row), ret)
+          ret, test_list = NASDAQ_FILTER.test(temp)
+          ret = map(lambda row : TRANSFORM_STOCK.Exchange2(row), ret)
           return ret, raw
       def funds(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[7])
           ret = NASDAQ.to_dict(raw)
-          ret = map(lambda row : HELPER_FUND.Type(row), ret)
-          ret = map(lambda row : HELPER_FUND.Category(row), ret)
+          ret = map(lambda row : TRANSFORM_FUND.Type(row), ret)
+          ret = map(lambda row : TRANSFORM_FUND.Category(row), ret)
           ret = list(ret)
           return ret, raw
       def bonds(self) :
@@ -175,7 +256,7 @@ class NASDAQ() :
       def participants(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[8])
           ret = NASDAQ.to_dict(raw)
-          ret = map(lambda row : HELPER_PARTICIPANT.Type(row), ret)
+          ret = map(lambda row : TRANSFORM_PARTICIPANT.Type(row), ret)
           return ret, raw
       def stock_list(self) :
           listed, csv = self.listed()
@@ -184,29 +265,12 @@ class NASDAQ() :
           _list = []
           #_list += listed + traded + other
           _list += list(listed) + list(other)
-          ret = set([])
-          etf = set([])
-          alias = {}
-          for row in _list :
-              curr = NASDAQ.thresh_ETF(row,ret,etf)
-              exchange = filter(lambda x : 'Exchange' in x , row.keys())
-              exchange = map(lambda x : row.get(x,x) , exchange)
-              exchange = list(exchange)
-              if len(exchange) > 0 :
-                 exchange = exchange[0]
-              if isinstance(exchange,str) :
-                 if 'NYSE' not in exchange :
-                    logging.warn(exchange)
-                    continue
-              stock, stock_alt = NASDAQ.thresh_alias(row)
-              curr.add(stock)
-              if len(stock_alt) > 0 :
-                 alias[stock] = stock_alt
-          ret = sorted(list(ret))
+          stock, etf, alias = NASDAQ_TRANSFORM.stock_list(_list)
+          stock = sorted(list(stock))
           etf = sorted(list(etf))
-          logging.info(('Stocks',len(ret)))
+          logging.info(('Stocks',len(stock)))
           logging.info(('ETF',len(etf)))
-          return ret, etf, alias 
+          return stock, etf, alias 
       def fund_list(self) :
           ret = {}
           fund_list, csv = self.funds()
@@ -235,59 +299,6 @@ class NASDAQ() :
           for row in reader:
               ret.append(row)
           return ret
-      @classmethod
-      def thresh_test(cls,data) :
-          test = []
-          ret = []
-          for row in data:
-              curr, row = cls._thresh_test(row,ret,test)
-              curr.append(row)
-          return ret, test
-      @classmethod
-      def _thresh_test(cls,row,live,test) :
-          ret = live
-          flag = filter(lambda x : 'Test' in x , row.keys())
-          flag = list(flag)
-          flag = map(lambda x : row.pop(x,x) , flag)
-          flag = list(flag)
-          flag = filter(lambda x : x is not None, flag)
-          flag = list(flag)
-          flag = filter(lambda x : 'Y' in x, flag)
-          flag = list(flag)
-          flag = len(flag) > 0
-          if flag :
-             ret = test
-          return ret, row
-      @classmethod
-      def thresh_ETF(cls,row,stock,etf) :
-          ret = stock
-          flag = filter(lambda x : 'ETF' in x , row.keys())
-          flag = map(lambda x : row.get(x,x) , flag)
-          flag = filter(lambda x : 'Y' in x , flag)
-          flag = list(flag)
-          flag = len(flag) > 0
-          if flag :
-             ret = etf
-          return ret
-      @classmethod
-      def thresh_alias(cls,row) :
-          stock_list = filter(lambda x : 'Symbol' in x , row.keys())
-          stock_list = list(stock_list)
-          stock_name = map(lambda x : row.get(x,x), stock_list)
-          stock_name = list(set(stock_name))
-          if len(stock_name) == 1 :
-             return stock_name[0], {}
-          stock_name = sorted(stock_name)
-          nasdaq = filter(lambda x : 'NASDAQ' in x , stock_list)
-          nasdaq = list(nasdaq)
-          stock_list = list(set(stock_list) - set(nasdaq))
-          stock_value = map(lambda x : row.get(x,x), stock_list)
-          stock_alt = dict(zip(stock_list,stock_value))
-          logging.info(nasdaq)
-          logging.debug(stock_alt)
-          nasdaq = map(lambda x : row.get(x,x), nasdaq)
-          nasdaq = list(nasdaq)
-          return nasdaq[0], stock_alt
 
 if __name__ == '__main__' :
    import logging

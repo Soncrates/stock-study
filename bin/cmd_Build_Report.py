@@ -16,14 +16,22 @@ from libReport import StockTemplate, ReturnsTemplate, SectorTemplate
 
 class EXTRACT :
     _singleton = None
+    _ticker_name_cache = None
     @classmethod
-    def __init__(self,_env, ini_list,nasdaq_enrichment,input_file,output_file) :
+    def __init__(self,_env, ini_list,stock_names,fund_names,input_file,output_file) :
         self.env = _env
         self.ini_list = ini_list
-        self.nasdaq_enrichment = nasdaq_enrichment
+        self.stock_names = stock_names
+        self.fund_names = fund_names
         self.input_file = input_file
         self.output_file = output_file
-        logging.info(vars(self))
+        msg = vars(self)
+        for i, key in enumerate(sorted(msg)) :
+            value = msg[key]
+            if isinstance(value,list) and len(value) > 10 :
+               value = value[:10]
+            logging.info((i,key, value))
+
     @classmethod
     def instance(cls,**kwargs):
         if not (cls._singleton is None) :
@@ -34,11 +42,10 @@ class EXTRACT :
         ini_list = globals().get(target,[])
         if not isinstance(ini_list,list) :
            ini_list = [ini_list]
-        target = 'nasdaq_enrichment'
-        nasdaq_enrichment = globals().get(target,[])
-        nasdaq_enrichment = list(nasdaq_enrichment)
-        if len(nasdaq_enrichment) > 0 :
-           nasdaq_enrichment = nasdaq_enrichment[0]
+        target = 'stock_names'
+        stock_names = globals().get(target,[])
+        target = 'fund_names'
+        fund_names = globals().get(target,[])
         target = 'input_file'
         input_file = globals().get(target,None)
         if len(_env.argv) > 0 :
@@ -47,7 +54,7 @@ class EXTRACT :
         output_file = globals().get(target,None)
         if len(_env.argv) > 1 :
            output_file = _env.argv[1]
-        cls._singleton = cls(_env,ini_list,nasdaq_enrichment,input_file,output_file)
+        cls._singleton = cls(_env,ini_list,stock_names,fund_names,input_file,output_file)
         return cls._singleton
 
     @classmethod
@@ -60,8 +67,27 @@ class EXTRACT :
                ret[section] = {}
             ret[section][key] = value_list
         return ret
+    @classmethod
+    def readNames(cls) :
+        if not (cls._ticker_name_cache is None) :
+           return cls._ticker_name_cache
+        ret = {}
+
+        load_file = cls.instance().fund_names
+        logging.info('Reading input file {}'.format(load_file))
+        for path, section, ticker, name in INI.loadList(*load_file) :
+            ret[ticker] = ', '.join(name)
+
+        load_file = cls.instance().stock_names
+        logging.info('Reading input file {}'.format(load_file))
+        for path, section, ticker, name in INI.loadList(*load_file) :
+            ret[ticker] = ', '.join(name)
+
+        cls._ticker_name_cache = ret
+        return cls._ticker_name_cache
 
 class TRANSFORM() :
+    column_headers = ['Initial Balance', 'Final Balance', 'CAGR','Stdev','Sharpe Ratio']
     @classmethod
     def _modifyDescription(cls, arg_list) :
         if not isinstance(arg_list,list) :
@@ -75,43 +101,66 @@ class TRANSFORM() :
             arg_list[i] = value
         return arg_list
     @classmethod
+    def humanReadable(cls, header, ret) :
+        flag_currency = header in ['Initial Balance', 'Final Balance']
+        flag_percent =  header in ['CAGR','Stdev']
+        flag_ratio = header in ['Sharpe Ratio']
+        if flag_currency :
+           ret = locale.currency(ret, grouping=True)
+           ret = Paragraph(ret,StockTemplate.bullet)
+        elif flag_percent :
+           ret = str(round(ret*100,2))
+           ret = ret + ' %'
+           ret = Paragraph(ret,StockTemplate.bullet)
+        elif flag_ratio :
+           ret = str(round(ret,2))
+           ret = Paragraph(ret,StockTemplate.bullet)
+        else :
+           ret = Paragraph(ret,StockTemplate.bullet)
+        return ret
+    @classmethod
+    def _addSummaryTable(cls, key, data) :
+        rows = [Paragraph(key,StockTemplate.ticker)]
+        for j, header in enumerate(cls.column_headers) :
+            value = 'Not available'
+            if header not in data[key] :
+                   logging.warn('No value for {}'.format(header))
+            else :
+               value = data[key][header]
+            value = cls.humanReadable(header,value)
+            rows.append(value)
+        return rows
+    @classmethod
     def addSummaryTable(cls, data) :
         locale.setlocale(locale.LC_ALL, '')
         logging.info(data)
         ret = []
-        column_headers = ['Initial Balance', 'Final Balance', 'CAGR','Stdev','Sharpe Ratio']
         tbl_header = ['']
-        for i, header in enumerate(column_headers) :
+        for i, header in enumerate(cls.column_headers) :
             value = Paragraph(header, StockTemplate.bullet)
             tbl_header.append(value)
         ret.append(tbl_header)
         for i, key in enumerate(data):
-            rows = [Paragraph(key,StockTemplate.ticker)]
-            for j, header in enumerate(column_headers) :
-                value = 'Not available'
-                if header not in data[key] :
-                   logging.warn('NO value for {}'.format(header))
-                else :
-                   value = data[key][header]
-                flag_balance = 'Balance' in header
-                flag_percent =  header in ['CAGR','Stdev']
-                flag_ratio = header in ['Sharpe Ratio']
-                if flag_balance :
-                    value = locale.currency(value, grouping=True)
-                    value = Paragraph(value,StockTemplate.bullet)
-                elif flag_percent :
-                    value = str(round(value*100,2))
-                    value = value + ' %'
-                    value = Paragraph(value,StockTemplate.bullet)
-                elif flag_ratio :
-                    value = str(round(value,2))
-                    value = Paragraph(value,StockTemplate.bullet)
-                else :
-                    value = Paragraph(value,StockTemplate.bullet)
-                rows.append(value)
+            rows = cls._addSummaryTable(key,data)
             ret.append(rows)
         ret = Table(data=ret)
         ret.setStyle(StockTemplate.ts)
+        return ret
+    @classmethod
+    def name(cls, ticker) :
+        ret = "({}) No info available for {}".format(ticker,ticker)
+        ret = EXTRACT.readNames().get(ticker,ret)
+        if 'No info' in ret :
+            logging.warn(ret)
+            return ret
+        ret = '({}) {}'.format(ticker,ret)[:85]
+        logging.info(ret)
+        ret = ret.split(' - ')
+        ret = '<br/>'.join(ret)
+        return ret
+    @classmethod
+    def percent(cls, data) :
+        ret = "{}%".format(data).rjust(8,' ')
         return ret
 
 class DIVERSE :
@@ -145,41 +194,25 @@ class DIVERSE :
         logging.info(type(arg_list))
         if not isinstance(arg_list,list) :
            return
-        _enrichment_file = EXTRACT.instance().nasdaq_enrichment
-        logging.info('Reading input file {}'.format(_enrichment_file))
         arg_list = sorted(arg_list, key = lambda i: i['weight']) 
         logging.debug(arg_list)
-        column_A, column_B = [], []
+        weight_list, ticker_list = [], []
         for i, content in enumerate(arg_list) :
+            ticker_list.append(content['ticker'])
             target = 'weight'
-            content[target] = "{}%".format(content[target]).rjust(8,' ')
-            column_A.append(content['weight'])
-            column_B.append(content['ticker'])
-        column_B = list(column_B)
-        column_C = CSV.grep(_enrichment_file, *column_B)
-        for key in column_C :
-            description = '({0}) {2}'.format(*column_C[key])[:85]
-            description = description.split(' - ')
-            description = '<br/>'.join(description)
-            column_C[key] = description
-        missing_detail = "({0}) No info available for {0}"
-        column_B = map(lambda key : column_C.get(key,missing_detail.format(key)),column_B)  
-        column_B = list(column_B)
-        for column in column_B :
-            if 'No info' not in column : 
-                logging.info(column)
-                continue
-            logging.warn(column)
-        column_B = map(lambda x : Paragraph(x,StockTemplate.ticker), column_B)
-        column_B = list(column_B)
-        column_A = map(lambda x : Paragraph(x,StockTemplate.bullet), column_A)
-        column_A = list(column_A)
-        logging.info(len(column_A))
-        logging.info(len(column_B))
+            content[target] = TRANSFORM.percent(content[target])
+            weight_list.append(content['weight'])
+        weight_list = map(lambda x : Paragraph(x,StockTemplate.bullet), weight_list)
+        weight_list = list(weight_list)
+        name_list = map(lambda x : TRANSFORM.name(x),ticker_list)
+        name_list = map(lambda x : Paragraph(x,StockTemplate.ticker), name_list)
+        name_list = list(name_list)
+        logging.info(len(weight_list))
+        logging.info(len(name_list))
 
         row_list = []
-        for i, dummy in enumerate(column_A) :
-            row = [column_A[i], column_B[i]]
+        for i, dummy in enumerate(weight_list) :
+            row = [weight_list[i], name_list[i]]
             row_list.append(row)
         widths = [2.9*inch] * 2
         widths[0] = 0.7*inch
@@ -327,8 +360,10 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
    ini_list = env.list_filenames('local/*.ini')
-   csv_list = env.list_filenames('local/*.csv')
-   nasdaq_enrichment = filter(lambda x : 'nasdaq.csv', csv_list)
+   stock_names = filter(lambda x : 'stock_name' in x, ini_list)
+   stock_names = list(stock_names)
+   fund_names = filter(lambda x : 'fund_name' in x, ini_list)
+   fund_names = list(fund_names)
 
    input_file = env.list_filenames('local/report_generator.ini')
    output_file = "{pwd_parent}/local/image.pdf".format(**vars(env))

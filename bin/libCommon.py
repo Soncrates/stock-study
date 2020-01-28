@@ -223,6 +223,13 @@ class FTP:
 
 class CSV :
       @classmethod
+      def to_dict(cls, path) :
+          logging.info("reading file {}".format(path))
+          with open(path, 'rt') as csvfile:
+               row_list = csv.reader(csvfile)
+               ret = {row[0]:row[1] for row in row_list}
+               yield ret
+      @classmethod
       def rows(cls, path) :
           logging.info("reading file {}".format(path))
           with open(path, 'rt') as csvfile:

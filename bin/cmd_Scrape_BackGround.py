@@ -4,7 +4,7 @@ import re
 import logging
 from functools import reduce
 from libCommon import INI, exit_on_exception
-from libNASDAQ import NASDAQ
+from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
 from libWeb import WEB_UTIL
 from libDebug import trace
 '''
@@ -250,10 +250,84 @@ def handle_alias(*stock_list,**alias) :
     retry = reduce(lambda a, b : a+b, retry)
     return ret, retry, left_overs 
 
+class TRANSFORM() :
+      @classmethod
+      def _validate(cls, entry) :
+          flag_1 = 'Symbol' in entry and 'Security Name' in entry
+          flag_2 = 'NASDAQ Symbol' in entry and 'Security Name' in entry
+          flag = flag_1 or flag_2
+          return flag
+      @classmethod
+      def validate(cls, data) :
+          data = filter(lambda x : cls._validate(x), data)
+          return list(data)
+      @classmethod
+      def safe(cls, name) :
+          name = name.replace('%', ' percent')
+          return name
+      @classmethod
+      def symbol(cls, entry) :
+          ret = entry.get('Symbol',None)
+          if ret is None :
+             ret = entry.get('NASDAQ Symbol',None)
+          return ret
+      @classmethod
+      def to_dict(cls,stock_list, data) :
+          ret = {}
+          for i, ticker in enumerate(stock_list) :
+              entry = filter(lambda x : cls.symbol(x) == ticker, data)
+              entry = list(entry)
+              if len(entry) == 0 :
+                 continue
+              entry = entry[0]
+              ret[ticker] = cls.safe(entry['Security Name'])
+          return ret
+class LOAD() :
+      @classmethod
+      def config(cls,sm,fm,y,fm2,y2,stock_list, retry,alias) :
+          logging.info('Loading results : {}'.format(background_file))
+          config = INI.init()
+          INI.write_section(config,"STOCKMONITOR",**sm)
+          INI.write_section(config,"FINANCEMODEL",**fm)
+          INI.write_section(config,"YAHOO",**y)
+          INI.write_section(config,"FINANCEMODEL2",**fm2)
+          INI.write_section(config,"YAHOO2",**y2)
+          INI.write_section(config,"NASDAQTRADER",**{'unknown' : stock_list , 'alias' : retry })
+          for name in sorted(alias) :
+              INI.write_section(config,name,**alias[name])
+          config.write(open(background_file, 'w'))
+      @classmethod
+      def names(cls,data) :
+          logging.info('Loading results : {}'.format(stock_names_file))
+          config = INI.init()
+          for name in sorted(data) :
+              INI.write_section(config,name,**data[name])
+          config.write(open(stock_names_file, 'w'))
+
+def process_names(nasdaq) :
+    listed, csv = nasdaq.listed()
+    listed = list(listed)
+    other, csv = nasdaq.other()
+    other = list(other)
+    data = []
+    data += listed + other
+    data = TRANSFORM.validate(data)
+
+    stock, etf, alias = NASDAQ_TRANSFORM.stock_list(data)
+    stock_list = sorted(stock)
+    stock_names = TRANSFORM.to_dict(stock_list,data)
+    return stock_names
+
 @exit_on_exception
 @trace
-def main(save_file) :
-    stock_list, etf_list, alias = NASDAQ.init().stock_list()
+def main() :
+    nasdaq = NASDAQ.init()
+    stock_names = process_names(nasdaq)
+    stock_names = { 'STOCKS' : stock_names }
+    LOAD.names(stock_names)
+    return
+
+    stock_list, etf_list, alias = nasdaq.stock_list()
 
     sm, stocks = STOCKMONITOR.scrape()
     stock_list = set(stock_list) - set(stocks)
@@ -283,16 +357,7 @@ def main(save_file) :
     logging.info(retry)
     logging.info(_retry)
 
-    config = INI.init()
-    INI.write_section(config,"STOCKMONITOR",**sm)
-    INI.write_section(config,"FINANCEMODEL",**fm)
-    INI.write_section(config,"YAHOO",**y)
-    INI.write_section(config,"FINANCEMODEL2",**fm2)
-    INI.write_section(config,"YAHOO2",**y2)
-    INI.write_section(config,"NASDAQTRADER",**{'unknown' : stock_list , 'alias' : retry })
-    for name in sorted(alias) :
-        INI.write_section(config,name,**alias[name])
-    config.write(open(save_file, 'w'))
+    LOAD.config(cls,sm,fm,y,fm2,y2,stock_list, retry,alias)
 
 if __name__ == '__main__' :
 
@@ -304,5 +369,6 @@ if __name__ == '__main__' :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   save_file = '{}/local/scrape_background.ini'.format(env.pwd_parent)
-   main(save_file)
+   background_file = '{}/local/scrape_background.ini'.format(env.pwd_parent)
+   stock_names_file = '{}/local/stock_names.ini'.format(env.pwd_parent)
+   main()
