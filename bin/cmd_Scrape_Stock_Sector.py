@@ -11,6 +11,25 @@ from libDebug import trace
    Web Scraper
    Use RESTful interface to to get web pages and parse for relevant info about stocks and funds
 '''
+class EXTRACT() :
+    _singleton = None
+    def __init__(self, _env, draft,final) :
+        self.env = _env
+        self.draft = draft
+        self.final = final
+    @classmethod
+    def instance(cls) :
+        if not (cls._singleton is None) :
+           return cls._singleton
+        target = 'env'
+        env = globals().get(target,None)
+        target = 'draft'
+        draft = globals().get(target,None)
+        target = 'final'
+        final = globals().get(target,None)
+
+        cls._singleton = cls(env,draft,final)
+        return cls._singleton
 
 class DICT_HELPER() :
     normalized = ['Basic Materials'
@@ -122,7 +141,7 @@ class YAHOO() :
           return ret
       @classmethod
       @trace
-      def scrape(cls, stock_list) :
+      def extract(cls, stock_list) :
           logging.info("start {}".format(cls))
           ret = DICT_HELPER.init()
           _sector = 'Sector'
@@ -160,7 +179,7 @@ class FINANCEMODELLING() :
           return ret
       @classmethod
       @trace
-      def scrape(cls, stock_list) :
+      def extract(cls, stock_list) :
           logging.info("start {}".format(cls))
           _stock_list = map(lambda x : x.get('symbol', None), FINANCEMODELLING_STOCK_LIST.get())
           stock_list = set(_stock_list).intersection(set(stock_list))
@@ -224,7 +243,7 @@ class STOCKMONITOR() :
           return sorted(list(ret))
       @classmethod
       @trace
-      def scrape(cls) :
+      def extract(cls) :
           logging.info("start {}".format(cls))
           obj = STOCKMONITOR.init()
           ret = DICT_HELPER.init()
@@ -275,6 +294,8 @@ class TRANSFORM() :
       def to_dict(cls,stock_list, data) :
           ret = {}
           for i, ticker in enumerate(stock_list) :
+              if '=' in ticker :
+                  continue
               entry = filter(lambda x : cls.symbol(x) == ticker, data)
               entry = list(entry)
               if len(entry) == 0 :
@@ -282,62 +303,58 @@ class TRANSFORM() :
               entry = entry[0]
               ret[ticker] = cls.safe(entry['Security Name'])
           return ret
+      @classmethod
+      def merge(cls) :
+          config = EXTRACT.instance().draft
+          logging.info('loading config files {}'.format(config))
+          ret = DICT_HELPER.init()
+          for path, section, key, stock in INI.loadList(*[config]) :
+              ret.append(key,*stock)
+          omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
+          for omit in omit_list :
+              ret.data.pop(omit,None)
+
+          stock_list = ret.values()
+          return ret.data, stock_list
+
 class LOAD() :
       @classmethod
-      def config(cls,sm,fm,y,fm2,y2,stock_list, retry,alias) :
-          logging.info('Loading results : {}'.format(background_file))
+      def draft(cls,data) :
+          save_file = EXTRACT.instance().draft
+          logging.info('Loading results : {}'.format(save_file))
+          target = 'alias'
+          alias = data.pop(target,{}) 
           config = INI.init()
-          INI.write_section(config,"STOCKMONITOR",**sm)
-          INI.write_section(config,"FINANCEMODEL",**fm)
-          INI.write_section(config,"YAHOO",**y)
-          INI.write_section(config,"FINANCEMODEL2",**fm2)
-          INI.write_section(config,"YAHOO2",**y2)
-          INI.write_section(config,"NASDAQTRADER",**{'unknown' : stock_list , 'alias' : retry })
+          for i, SECTION in enumerate(sorted(data)) :
+              logging.info((i,SECTION))
+              value = data.get(SECTION)
+              INI.write_section(config, SECTION, **value)
           for name in sorted(alias) :
               INI.write_section(config,name,**alias[name])
-          config.write(open(background_file, 'w'))
+          config.write(open(save_file, 'w'))
       @classmethod
-      def names(cls,data) :
-          logging.info('Loading results : {}'.format(stock_names_file))
+      def final(cls,data) :
+          save_file = EXTRACT.instance().final
+          logging.info('Loading results : {}'.format(save_file))
           config = INI.init()
-          for name in sorted(data) :
-              INI.write_section(config,name,**data[name])
-          config.write(open(stock_names_file, 'w'))
+          INI.write_section(config,"MERGED",**data)
+          config.write(open(save_file, 'w'))
 
-def process_names(nasdaq) :
-    listed, csv = nasdaq.listed()
-    listed = list(listed)
-    other, csv = nasdaq.other()
-    other = list(other)
-    data = []
-    data += listed + other
-    data = TRANSFORM.validate(data)
+def extract():
 
-    stock, etf, alias = NASDAQ_TRANSFORM.stock_list(data)
-    stock_list = sorted(stock)
-    stock_names = TRANSFORM.to_dict(stock_list,data)
-    return stock_names
-
-@exit_on_exception
-@trace
-def main() :
     nasdaq = NASDAQ.init()
-    stock_names = process_names(nasdaq)
-    stock_names = { 'STOCKS' : stock_names }
-    LOAD.names(stock_names)
-    return
 
     stock_list, etf_list, alias = nasdaq.stock_list()
 
-    sm, stocks = STOCKMONITOR.scrape()
+    sm, stocks = STOCKMONITOR.extract()
     stock_list = set(stock_list) - set(stocks)
     stock_list = sorted(list(stock_list))
 
-    fm, stocks = FINANCEMODELLING.scrape(stock_list)
+    fm, stocks = FINANCEMODELLING.extract(stock_list)
     stock_list = set(stock_list) - set(stocks)
     stock_list = sorted(list(stock_list))
 
-    y, stocks = YAHOO.scrape(stock_list)
+    y, stocks = YAHOO.extract(stock_list)
     stock_list = set(stock_list) - set(stocks)
     stock_list = sorted(list(stock_list))
 
@@ -346,18 +363,30 @@ def main() :
     '''
     _retry, retry, stock_list = handle_alias(*stock_list,**alias) 
 
-    fm2, stocks = FINANCEMODELLING.scrape(retry)
+    fm2, stocks = FINANCEMODELLING.extract(retry)
     retry = set(retry) - set(stocks)
     retry = sorted(list(retry))
 
-    y2, stocks = YAHOO.scrape(retry)
+    y2, stocks = YAHOO.extract(retry)
     retry = set(retry) - set(stocks)
     retry = sorted(list(retry))
 
     logging.info(retry)
     logging.info(_retry)
 
-    LOAD.config(cls,sm,fm,y,fm2,y2,stock_list, retry,alias)
+    ret = { "STOCKMONITOR" : sm, "FINANCEMODEL" : fm, "YAHOO" : y
+          , "FINANCEMODEL2" : fm2, "YAHOO2" : y2 }
+    ret["NASDAQTRADER"] = {'unknown' : stock_list , 'alias' : retry }
+    ret['alias'] = alias
+    return ret ,alias
+
+@exit_on_exception
+@trace
+def main() :
+    draft = extract()
+    LOAD.draft(cls,draft)
+    final, stock_list = TRANSFORM.merge()
+    LOAD.final(final)
 
 if __name__ == '__main__' :
 
@@ -369,6 +398,7 @@ if __name__ == '__main__' :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
-   background_file = '{}/local/scrape_background.ini'.format(env.pwd_parent)
-   stock_names_file = '{}/local/stock_names.ini'.format(env.pwd_parent)
+   draft = '{}/local/stock_by_sector_draft.ini'.format(env.pwd_parent)
+   final = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
+
    main()

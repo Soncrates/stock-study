@@ -4,7 +4,7 @@ import logging
 import sys
 from libCommon import INI, exit_on_exception, log_on_exception
 from libDebug import trace, cpu
-from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
+from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
 
@@ -49,7 +49,7 @@ class EXTRACT() :
         cls._singleton = cls(_env,config_list,file_list, output_file_by_type,background_file,local_dir,data_store)
         return cls._singleton
     @classmethod
-    def config() :
+    def dep_config() :
         ini_list = EXTRACT.instance().config_list
         logging.info("loading results {}".format(ini_list))
         for path, section, key, stock_list in INI.loadList(*ini_list) :
@@ -63,29 +63,42 @@ class EXTRACT() :
         return data
 
 class TRANSFORM() :
-    _prices = 'Adj Close'
-    @classmethod
-    def ticker(cls,entry) :
-        target = 'Fund Symbol'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def name(cls,entry) :
-        target = 'Fund Name'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def type(cls,entry) :
-        target = 'Type'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def category(cls,entry) :
-        target = 'Category'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def prices(cls, data) :
+      _prices = 'Adj Close'
+      @classmethod
+      def _validate(cls, entry) :
+          flag_1 = 'Symbol' in entry and 'Security Name' in entry
+          flag_2 = 'NASDAQ Symbol' in entry and 'Security Name' in entry
+          flag = flag_1 or flag_2
+          return flag
+      @classmethod
+      def validate(cls, data) :
+          data = filter(lambda x : cls._validate(x), data)
+          return list(data)
+      @classmethod
+      def safe(cls, name) :
+          name = name.replace('%', ' percent')
+          return name
+      @classmethod
+      def symbol(cls, entry) :
+          ret = entry.get('Symbol',None)
+          if ret is None :
+             ret = entry.get('NASDAQ Symbol',None)
+          return ret
+      @classmethod
+      def to_dict(cls,stock_list, data) :
+          ret = {}
+          for i, ticker in enumerate(stock_list) :
+              if '=' in ticker :
+                  continue
+              entry = filter(lambda x : cls.symbol(x) == ticker, data)
+              entry = list(entry)
+              if len(entry) == 0 :
+                 continue
+              entry = entry[0]
+              ret[ticker] = cls.safe(entry['Security Name'])
+          return ret
+      @classmethod
+      def prices(cls, data) :
           cagr = 0
           stdev = 0
           _len = 0
@@ -104,7 +117,6 @@ class TRANSFORM() :
           _len = ret.get(target,_len)
           return cagr, stdev, _len, sharpe, cumalative
 
-        
 class LOAD() :
 
     @classmethod
@@ -148,46 +160,32 @@ def process_prices(ticker_list) :
     ret = { 'CAGR' : cagr, 'RISK' : stdev, 'SHARPE' : sharpe, 'LEN' : _len, 'CUMALATIVE' : cumalative }
     return ret
         
-def process_names(fund_list) :
-    ticker_list = map(lambda x : TRANSFORM.ticker(x), fund_list)
-    ticker_list = list(ticker_list)
-    name_list = map(lambda fund : TRANSFORM.name(fund), fund_list)
-    name_list = map(lambda name : name.replace('%', ' percent'), name_list)
-    name_list = map(lambda name : name.replace(' Fd', ' Fund'), name_list)
-    ret = dict(zip(ticker_list,name_list))
-    return ret
+def process_names(nasdaq) :
+    listed, csv = nasdaq.listed()
+    listed = list(listed)
+    other, csv = nasdaq.other()
+    other = list(other)
+    data = []
+    data += listed + other
+    data = TRANSFORM.validate(data)
 
-def process_by_type(fund_list) :
-    recognized = FUND._Type.values()
-    logging.info(fund_list[0])
-    ret = {}
-    for i, fund in enumerate(fund_list) :
-        section = TRANSFORM.type(fund)
-        key = TRANSFORM.category(fund)
-        name = TRANSFORM.ticker(fund)
-        if section is None or len(section) == 0 :
-            continue
-        if key is None or len(key) == 0 :
-            continue
-        if section not in recognized :
-           key = "{}_{}".format(section,key)
-           section = 'UNKNOWN'
-        if section not in ret :
-           ret[section] = {}
-        curr = ret[section]
-        if key not in curr :
-           curr[key] = []
-        curr[key].append(name)
-    return ret
+    stock, etf, alias = NASDAQ_TRANSFORM.stock_list(data)
+    stock_list = sorted(stock)
+    stock_names = TRANSFORM.to_dict(stock_list,data)
+    etf_list = sorted(etf)
+    etf_names = TRANSFORM.to_dict(etf_list,data)
+    return stock_names, etf_names
 
 @exit_on_exception
 @trace
 def main() : 
-    fund_list = NASDAQ.init().fund_list()
-    config = process_by_type(fund_list)
-    LOAD.config(**config)
+    nasdaq = NASDAQ.init()
 
-    names = process_names(fund_list)
+    stock_list, etf_list, alias = nasdaq.stock_list()
+    stock_names, etf_names = process_names(nasdaq)
+    names = {}
+    names.update(etf_names)
+    names.update(stock_names)
     ticker_list = sorted(names.keys())
     background = process_prices(ticker_list)
     background['NAME'] = names
@@ -205,12 +203,12 @@ if __name__ == '__main__' :
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
-   output_file_by_type = '../local/fund_by_type.ini'
-   background_file = '../local/fund_background.ini'
+   #file_list = env.list_filenames('local/historical_prices/*pkl')
+   output_file_by_type = '../local/stock_by_type.ini'
+   background_file = '../local/stock_background.ini'
 
    local_dir = '{}/local'.format(env.pwd_parent)
-   data_store = '../local/historical_prices_fund'
+   data_store = '../local/historical_prices'
 
    main()
 

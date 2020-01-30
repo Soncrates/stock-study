@@ -156,7 +156,25 @@ class STOCK_TIMESERIES :
           d = d.iloc[:, d.columns.get_level_values(1)==target]
           d.columns = d.columns.droplevel(level=1)
           return d
-
+class TRANSFORM() :
+      @classmethod
+      def DailyReturns(cls, data) :
+          #ret = data / data.iloc[0]
+          ret = data.pct_change()
+          ret.iloc[0] = 0  # set first day pseudo-price
+          ret = ret.replace([np.inf, -np.inf], np.nan)
+          #logging.info(ret.head(3))
+          #logging.info(ret.tail(3))
+          return ret
+      @classmethod
+      def GraphReturns(cls, ret) :
+          ret = 1 + ret
+          ret = ret.cumprod()
+          return ret
+      @classmethod
+      def altDailyReturns(cls, data) :
+          ret = data.pct_change(1).fillna(0.0)
+          return ret
 class HELPER :
       YEAR = 252
       QUARTER = 63
@@ -166,22 +184,13 @@ class HELPER :
       RESAMPLE_QUARTER = '3M'
       RESAMPLE_MONTH = 'M'
       @classmethod
-      def transformDailyReturns(cls, data) :
-          #ret = data / data.iloc[0]
-          ret = data.pct_change()
-          ret.iloc[0] = 0  # set first day pseudo-price
-          ret = ret.replace([np.inf, -np.inf], np.nan)
-          logging.info(ret.head(3))
-          logging.info(ret.tail(3))
-          return ret
-      @classmethod
       def findDailyReturns(cls, data, period=0) :
           if not isinstance(data,pd.DataFrame) :
              logging.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
           logging.info((type(data),data.shape))
 
-          ret = cls.transformDailyReturns(data)
+          ret = TRANSFORM.DailyReturns(data)
           height, width = ret.shape
           if width == 1 :
              ret = ret.dropna(how="all")
@@ -192,20 +201,15 @@ class HELPER :
              return None
           #ret.sort_index(inplace=True)
           #ret = 1 + ret
-          logging.info(ret.head(3))
-          logging.info(ret.tail(3))
+          #logging.info(ret.head(3))
+          #logging.info(ret.tail(3))
           return ret
       @classmethod
       def graphReturns(cls, data) :
           #data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
           ret = cls.findDailyReturns(data)
-          ret = cls.transformGraphReturns(ret)
+          ret = TRANSFORM.GraphReturns(ret)
           ret = ret.rolling(HELPER.MONTH).mean()
-          return ret
-      @classmethod
-      def transformGraphReturns(cls, ret) :
-          ret = 1 + ret
-          ret = ret.cumprod()
           return ret
       @classmethod
       def findRiskAndReturn(cls, data, period=0, span=0) :
@@ -228,16 +232,101 @@ class HELPER :
           return risk, returns
       @classmethod
       def CAGR(cls, data):
-          periods = len(data) / float(cls.YEAR)
           _ret = data.dropna(how='all')
+          periods = len(_ret) / float(cls.YEAR)
           ret = map(lambda x : _ret.iloc[x], [0,-1])
           ret = list(ret)
-          ret = cls._CAGR(ret[0], ret[1], periods)
-          ret = round(ret,4)
-          return ret
+          cumalative, cagr = cls._CAGR(ret[0], ret[1], periods)
+          cagr = round(cagr,4)
+          return cagr
       @classmethod
       def _CAGR(cls, first, last, periods):
-          return (last/first)**(1/periods)-1
+          cumalative = (last/first)
+          cagr = cumalative**(1/periods)-1
+          return cumalative ,cagr
+class TRANSFORM_CAGR() :
+      @classmethod
+      def find(cls, data):
+          _ret = data.dropna(how='all')
+          periods = len(_ret) / float(HELPER.YEAR)
+          ret = map(lambda x : _ret.iloc[x], [0,-1])
+          ret = list(ret)
+          cumalative, cagr = cls._find(ret[0], ret[1], periods)
+          cagr = round(cagr,4)
+          cumalative = round(cumalative,4)
+          return cagr, cumalative
+      @classmethod
+      def _find(cls, first, last, periods):
+          cumalative = (last/first)
+          cagr = cumalative**(1/periods)-1
+          return cumalative, cagr
+
+class TRANSFORM_SHARPE :
+      '''
+        Computes sharpe calculation for a single stock
+      '''
+      key_list = ['returns', 'risk','sharpe','len']
+      @classmethod
+      def find(cls, data, **kwargs) :
+          data, risk_free_rate, period, span, size = cls.validate(data, **kwargs)
+          if data is None :
+             ret =  dict(zip(cls.key_list, [0, 0, 0, size]))
+             return ret
+          daily = cls.daily(data)
+          risk, returns = cls.riskReturn(daily,span)
+          if isinstance(returns,pd.Series) : returns = returns[0]
+          if isinstance(risk,pd.Series) : risk = risk[0]
+          sharpe = 0
+          if risk != 0 :
+             sharpe = ( returns - risk_free_rate ) / risk
+          sharpe *= np.sqrt(period)
+          values = map(lambda x : round(x,4), [returns, risk, sharpe, size ])
+          ret = dict(zip(cls.key_list, values))
+          return ret
+
+      @classmethod
+      def validate(cls, data, **kwargs) :
+          target = "period"
+          period = kwargs.get(target,1)
+          target = "risk_free_rate"
+          risk_free_rate = kwargs.get(target,0.02)
+          risk_free_rate = kwargs.get(target,0.0)
+          target = "span"
+          span = kwargs.get(target,2*HELPER.YEAR)
+
+          if period < 1 :
+             logging.warn("period must be positive")
+             period = 1
+          if span < 0 :
+             logging.warn("span must be positive")
+             span = 0
+          if risk_free_rate < 0 :
+             logging.warn("risk_free_rate must be positive")
+             risk_free_rate = 0
+          if not isinstance(data,pd.DataFrame) :
+             logging.warn("prices are not in a dataframe {}".format(type(data)))
+             data = pd.DataFrame(data)
+          _ret = data.dropna(how='all')
+          height, width = _ret.shape
+          if height < period :
+             _ret = None
+          return _ret, risk_free_rate, period, span, height
+      @classmethod
+      def daily(cls, data) :
+          ret = data.pct_change(1).fillna(0.0)
+          return ret
+      @classmethod
+      def riskReturn(cls, data, span=0) :
+          if span == 0 :
+             returns = data.mean()
+             risk = data.std()
+             return risk, returns
+          #weigth recent history more heavily that older history
+          returns = data.ewm(span=span).mean().iloc[-1]
+          risk = data.ewm(span=span).std().iloc[-1]
+          return risk, returns
+          rolling = returns_s.rolling(window=self.periods)
+          rolling_sharpe_s = np.sqrt(self.periods) * (rolling.mean() / rolling.std())
 
 class RISK :
       column = 'risk'

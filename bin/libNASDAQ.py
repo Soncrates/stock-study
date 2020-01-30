@@ -174,6 +174,12 @@ class NASDAQ_FILTER() :
 
 class NASDAQ_TRANSFORM() :
       @classmethod
+      def fund_ticker(cls,fund) :
+          target = 'Fund Symbol'
+          ret = fund.get(target,None)
+          return ret
+
+      @classmethod
       def stock_list(cls,row_list) :
           stock = set([])
           etf = set([])
@@ -274,7 +280,6 @@ class NASDAQ() :
       def fund_list(self) :
           ret = {}
           fund_list, csv = self.funds()
-          logging.info(('Funds',len(fund_list)))
           for fund in fund_list :
               target = 'Fund Family Name' 
               name = fund.pop(target,target)
@@ -283,6 +288,7 @@ class NASDAQ() :
               ret[name].append(fund)
           for family in ret :
               logging.debug((family,ret[family]))
+          logging.info(('Funds',len(fund_list)))
           return fund_list
 
       @classmethod
