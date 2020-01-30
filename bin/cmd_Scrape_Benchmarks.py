@@ -1,29 +1,84 @@
 #!/usr/bin/env python
 
 import logging
-import sys, os
 from libCommon import INI, exit_on_exception, ENVIRONMENT
 from libFinance import STOCK_TIMESERIES
-from cmd_Scrape_BackGround import DICT_HELPER
+from cmd_Scrape_Stock_Sector import DICT_HELPER
 from libDebug import trace
 
-def prep() :
-    target = 'env'
-    env = globals().get(target,None)
-    target = 'data_store'
-    data_store = globals().get(target,'')
-    if not isinstance(data_store,str) :
-       data_store = str(data_store)
-    logging.info('making data store {}'.format(data_store))
-    env.mkdir(data_store)
-    target = 'ini_list'
-    ini_list = globals().get(target,[])
-    if not isinstance(ini_list,list) :
-       ini_list = list(ini_list)
-    logging.info('loading config files {}'.format(ini_list))
+class EXTRACT() :
+    _singleton = None
+    def __init__(self, _env, data_store, config_file, reader) :
+        self.env = _env
+        self.data_store = data_store
+        self.config_file = config_file
+        self.reader = reader
+        msg = vars(self)
+        for i, key in enumerate(sorted(msg)) :
+            value = msg[key]
+            if isinstance(value,list) and len(value) > 10 :
+               value = value[:10]
+            logging.info((i,key, value))
+    @classmethod
+    def instance(cls, **kwargs) :
+        if not (cls._singleton is None) :
+           return cls._singleton
+        target = 'env'
+        _env = globals().get(target,None)
+        target = "data_store"
+        data_store = globals().get(target,[])
+        target = 'config_file'
+        config_file = globals().get(target,[])
+        if not isinstance(config_file,list) :
+           config_file = list(config_file)
+        if len(_env.argv) > 1 :
+           config_file = [_env.argv[1]]
+        reader = STOCK_TIMESERIES.init()
+        env.mkdir(data_store)
+        cls._singleton = cls(_env,data_store,config_file,reader)
+        return cls._singleton
+    @classmethod
+    def config(cls) :
+        config = cls.instance().config_file
+        logging.info("loading results {}".format(config))
+        for path, section, key, stock_list in INI.loadList(*config) :
+            yield path, section, key, stock_list
+
+class LOAD() :
+      @classmethod
+      def _prices(cls, local_dir, ticker,dud) :
+          filename = '{}/{}.pkl'.format(local_dir,ticker)
+          reader =  EXTRACT.instance().reader
+          prices = reader.extract_from_yahoo(ticker)
+          if prices is None :
+             dud.append(ticker)
+             return dud
+          STOCK_TIMESERIES.save(filename, ticker, prices)
+          return dud
+      @classmethod
+      def prices(cls,local_dir, ticker_list) :
+          dud = []
+          for ticker in ticker_list :
+              dud = cls._prices(local_dir, ticker,dud)
+          size = len(ticker_list) - len(dud)
+          logging.info("Total {}".format(size))
+          if len(dud) > 0 :
+             dud = sorted(dud)
+             logging.warn((len(dud),dud))
+          return dud
+      @classmethod
+      @trace
+      def robust(cls,data_store, ticker_list) :
+          retry = cls.prices(data_store, ticker_list)
+          if len(retry) > 0 :
+             retry = cls.prices(data_store, retry)
+          if len(retry) > 0 :
+             logging.error((len(retry), sorted(retry)))
+
+def extract() :
     ret = DICT_HELPER.init()
     target = ['Index','MOTLEYFOOL','PERSONAL']
-    for path, section, key, stock in INI.loadList(*ini_list) :
+    for path, section, key, stock in EXTRACT.config() :
         if section not in target :
             continue
         ret.append(key,*stock)
@@ -36,23 +91,10 @@ def prep() :
 
 @exit_on_exception
 @trace
-def main(local_dir ) : 
-    data, stock_list = prep()
-
-    reader = STOCK_TIMESERIES.init()
-    dud = []
-    for stock in stock_list :
-        filename = '{}/historical_prices/{}.pkl'.format(local_dir,stock)
-        ret = reader.extract_from_yahoo(stock)
-        if ret is None :
-           dud.append(stock)
-           continue
-        logging.debug(ret.tail(5))
-        STOCK_TIMESERIES.save(filename, stock, ret)
-    size = len(stock_list) - len(dud)
-    logging.info("Total {}".format(size))
-    if len(dud) > 0 :
-       logging.warn(dud)
+def main() : 
+    data, stock_list = extract()
+    data_store = EXTRACT.instance().data_store
+    LOAD.robust(data_store, stock_list)
 
 if __name__ == '__main__' :
    import sys
@@ -70,7 +112,7 @@ if __name__ == '__main__' :
    data_store = '../local/historical_prices'
 
    ini_list = env.list_filenames('local/*.ini')
-   ini_list = filter(lambda x : 'benchmark' in x, ini_list)
+   config_file = filter(lambda x : 'benchmark' in x, ini_list)
 
-   main(local_dir)
+   main()
 
