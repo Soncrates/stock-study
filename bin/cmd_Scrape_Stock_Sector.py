@@ -142,10 +142,11 @@ class YAHOO() :
       @classmethod
       @trace
       def extract(cls, stock_list) :
-          logging.info("start {}".format(cls))
+          logging.info((cls, len(stock_list),sorted(stock_list)[:10]))
           ret = DICT_HELPER.init()
           _sector = 'Sector'
           for row in stock_list :
+              logging.info(row)
               stock = cls.get(row)
               sector = stock.get(_sector,None) 
               if not sector :
@@ -180,7 +181,7 @@ class FINANCEMODELLING() :
       @classmethod
       @trace
       def extract(cls, stock_list) :
-          logging.info("start {}".format(cls))
+          logging.info((cls,len(stock_list),sorted(stock_list)[:10]))
           _stock_list = map(lambda x : x.get('symbol', None), FINANCEMODELLING_STOCK_LIST.get())
           stock_list = set(_stock_list).intersection(set(stock_list))
           stock_list = sorted(list(stock_list))
@@ -322,10 +323,12 @@ class LOAD() :
       def draft(cls,data) :
           save_file = EXTRACT.instance().draft
           logging.info('Loading results : {}'.format(save_file))
-          target = 'alias'
-          alias = data.pop(target,{}) 
           config = INI.init()
           for i, SECTION in enumerate(sorted(data)) :
+              target = 'alias'
+              if SECTION == target :
+                  alias = data.get(SECTION)
+                  continue
               logging.info((i,SECTION))
               value = data.get(SECTION)
               INI.write_section(config, SECTION, **value)
@@ -378,13 +381,13 @@ def extract():
           , "FINANCEMODEL2" : fm2, "YAHOO2" : y2 }
     ret["NASDAQTRADER"] = {'unknown' : stock_list , 'alias' : retry }
     ret['alias'] = alias
-    return ret ,alias
+    return ret 
 
 @exit_on_exception
 @trace
 def main() :
     draft = extract()
-    LOAD.draft(cls,draft)
+    LOAD.draft(draft)
     final, stock_list = TRANSFORM.merge()
     LOAD.final(final)
 

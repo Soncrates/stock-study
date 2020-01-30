@@ -1,18 +1,20 @@
 #!/bin/bash
 python=python3
-function scrape {
-   set -x
+function scrape_prices {
    $python cmd_Scrape_Benchmarks.py
-   #Execution speed : , seconds : 18.88
+   #Execution speed for main : , seconds : 58.5
    $python cmd_Scrape_Tickers.py
-   #Execution speed : hours : 1.0, minutes : 16.0, seconds : 59.57
+   #Execution speed for main : hours : 9.0, minutes : 8.0, seconds : 5.71
+}
+function scrape_background {
    $python cmd_Scrape_Fund.py
-   #Execution speed : hours : 6.0, minutes : 16.0, seconds : 59.57
+   #Execution speed for main : minutes : 11.0, seconds : 24.71
    $python cmd_Scrape_Stock.py
-   #Execution speed : minutes : 26.0, seconds : 21.44
+   #Execution speed for main : minutes : 4.0, seconds : 49.73
    $python cmd_Scrape_Stock_Sector.py
-   #Execution speed : minutes : 26.0, seconds : 21.44
+   #Execution speed for main : minutes : 23.0, seconds : 56.14
 }
 
-set -eu
-scrape
+set -eux
+scrape_prices
+scrape_background
