@@ -176,9 +176,9 @@ class TRANSFORM_PORTFOLIO() :
         value_list = map(lambda x : round(x,2), value_list)
         ret = dict(zip(key_list,value_list))
         return ret
-class OUTPUT() :
+class LOAD() :
     @classmethod
-    def write(cls,data) :
+    def config(cls,data) :
         save_file = EXTRACT.singleton().output_file
         ret = INI.init()
         for key in sorted(data) :
@@ -197,7 +197,7 @@ def main() :
     stocks = sorted(data_list.keys())
     ret = TRANSFORM_PORTFOLIO.getList(stocks,data_list)
     ret = TRANSFORM_PORTFOLIO.to_ini(ret)
-    OUTPUT.write(ret)
+    LOAD.config(ret)
 
 if __name__ == '__main__' :
    import sys

@@ -90,11 +90,11 @@ class TRANSFORM() :
           stdev = 0
           _len = 0
           sharpe = 0
-          cumalative = 0
+          growth = 0
           if data is None :
-             return cagr, stdev, _len, sharpe, cumalative
+             return cagr, stdev, _len, sharpe, growth
           prices = data[cls._prices]
-          cagr, cumalative = CAGR.find(prices)
+          cagr, growth = CAGR.find(prices)
           ret = SHARPE.find(prices, period=FINANCE.YEAR, span=0)
           target = 'risk'
           stdev = ret.get(target,stdev)
@@ -102,7 +102,7 @@ class TRANSFORM() :
           sharpe = ret.get(target,sharpe)
           target = 'len'
           _len = ret.get(target,_len)
-          return cagr, stdev, _len, sharpe, cumalative
+          return cagr, stdev, _len, sharpe, growth
 
         
 class LOAD() :
@@ -131,21 +131,21 @@ def process_prices(ticker_list) :
     stdev_list = []
     len_list = []
     sharpe_list = []
-    cumalative_list = []
+    growth_list = []
     for ticker in ticker_list :
         prices = EXTRACT.prices(ticker)
-        cagr, stdev, _len, sharpe, cumalative = TRANSFORM.prices(prices)
+        cagr, stdev, _len, sharpe, growth = TRANSFORM.prices(prices)
         cagr_list.append(cagr)
         stdev_list.append(stdev)
         len_list.append(_len)
         sharpe_list.append(sharpe)
-        cumalative_list.append(cumalative)
+        growth_list.append(cgrowth)
     cagr = dict(zip(ticker_list,cagr_list))
     stdev = dict(zip(ticker_list,stdev_list))
     sharpe = dict(zip(ticker_list,sharpe_list))
     _len = dict(zip(ticker_list,len_list))
-    cumalative = dict(zip(ticker_list,cumalative_list))
-    ret = { 'CAGR' : cagr, 'RISK' : stdev, 'SHARPE' : sharpe, 'LEN' : _len, 'CUMALATIVE' : cumalative }
+    growth = dict(zip(ticker_list,growth_list))
+    ret = { 'CAGR' : cagr, 'RISK' : stdev, 'SHARPE' : sharpe, 'LEN' : _len, 'GROWTH' : growth }
     return ret
         
 def process_names(fund_list) :
