@@ -188,7 +188,7 @@ class HELPER :
           if not isinstance(data,pd.DataFrame) :
              logging.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
-          logging.info((type(data),data.shape))
+          #logging.info((type(data),data.shape))
 
           ret = TRANSFORM.DailyReturns(data)
           height, width = ret.shape

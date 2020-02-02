@@ -41,14 +41,14 @@ class EXTRACT() :
         sector = globals().get(target,[])
         sector = list(sector)
         target = 'background'
-        background = globals().get(target,[])
-        background = list(background)
+        bg = globals().get(target,[])
+        bg = list(bg)
         target = 'benchmark'
-        benchmark = globals().get(target,[])
-        benchmark = list(benchmark)
+        bm = globals().get(target,[])
+        bm = list(bm)
         target = 'file_list'
-        file_list = globals().get(target,[])
-        file_list = list(file_list)
+        prices = globals().get(target,[])
+        prices = list(prices)
 
         input_file = None
         if len(_env.argv) > 0 :
@@ -60,10 +60,10 @@ class EXTRACT() :
         config_list = globals().get(target,[])
         if not isinstance(config_list,list) :
            config_list = list(config_list)
-        cls._singleton = cls(_env,local_dir,sector,background,benchmark,config_list,input_file, output_file, file_list)
+        cls._singleton = cls(_env,local_dir,sector,bg,bm,config_list,input_file, output_file, prices)
         return cls._singleton
     @classmethod
-    def readBackground(cls) :
+    def background(cls) :
         load_file = cls.instance().background
         if not (cls._background_cache is None) :
            logging.info('reading cache {}'.format(load_file))
@@ -112,12 +112,12 @@ class EXTRACT() :
         ret = ret[ret['CAGR'] >= 0.18]
         logging.info('CAGR over 18%')
         cls.analysis(ret)
-        ret = ret[ret['SHARPE'] >= 0.9]
-        logging.info('SHARPE 0.9')
-        cls.analysis(ret)
-        #ret = ret[ret['RISK'] <= 0.2]
-        #logging.info('RISK')
+        #ret = ret[ret['SHARPE'] >= 0.9]
+        #logging.info('SHARPE 0.9')
         #cls.analysis(ret)
+        ret = ret[ret['RISK'] <= 0.18]
+        logging.info('RISK under 18%')
+        cls.analysis(ret)
         #ret = ret[ret['GROWTH'] >= 2.0]
         return ret
     @classmethod
@@ -178,7 +178,7 @@ class TRANSFORM_PORTFOLIO() :
     def validate(cls, data) :
         stock_list = data.index.values
         stock_list = list(stock_list)
-        minimum_portfolio_size = len(stock_list)-3
+        minimum_portfolio_size = len(stock_list)-5
         if minimum_portfolio_size < 1 :
            minimum_portfolio_size = 1
         return stock_list, minimum_portfolio_size
@@ -204,9 +204,11 @@ class TRANSFORM_PORTFOLIO() :
                 yield sorted(subset)
             stock_list = cls.reduceRisk(data,count)
             count = len(stock_list)-1
+            if count < 3 :
+               break
     @classmethod
     @trace
-    def _getList(cls, prices, stocks, ret) :
+    def portfolio(cls, prices, stocks, ret = None) :
         if ret is None :
            ret = pd.DataFrame()
         max_sharpe, min_dev = PORTFOLIO.find(prices, stocks=stocks, portfolios=10000, period=FINANCE.YEAR)
@@ -214,10 +216,11 @@ class TRANSFORM_PORTFOLIO() :
         ret = ret.append(min_dev)
         return ret
     @classmethod
+    @trace
     def getList(cls, data, prices) :
-        ret = None
+        ret = pd.DataFrame()
         for stock_list in cls.stocks(data) :
-            ret = cls._getList(prices,stock_list,ret)
+            ret = cls.portfolio(prices,stock_list,ret)
             ret = cls.truncate(ret)
         if len(ret) > 5 :
            #min_risk = ret.sort_values(['risk']).head(5)
@@ -231,18 +234,25 @@ class TRANSFORM_PORTFOLIO() :
            logging.debug(max_sharpe)
         ret = ret.T
         ret.fillna(0,inplace=True)
+        columns = ret.columns.values
+        columns = list(columns)
+        rename = map(lambda p : "portfolio_{}".format(p), columns)
+        rename = dict(zip(columns,rename))
+        ret.rename(columns = rename, inplace = True) 
         return ret
     @classmethod
     def truncate(cls, ret) :
         if ret is None :
            ret = pd.DataFrame()
         size = len(ret)
-        if size > 1000 :
-           min_risk = ret.sort_values(['risk']).head(50)
-           max_sharpe = ret.sort_values(['sharpe']).tail(50)
-           ret = pd.DataFrame()
-           ret = ret.append(min_risk)
-           ret = ret.append(max_sharpe)
+        if size < 1000 :
+           return ret
+
+        min_risk = ret.sort_values(['risk']).head(50)
+        max_sharpe = ret.sort_values(['sharpe']).tail(50)
+        ret = pd.DataFrame()
+        ret = ret.append(min_risk)
+        ret = ret.append(max_sharpe)
         return ret
 
 class LOAD() :
@@ -254,53 +264,84 @@ class LOAD() :
             value = config.get(key,{})
             INI.write_section(ret,key,**value)
         ret.write(open(save_file, 'w'))
+
+    @classmethod
+    def portfolio(cls, save_file, **portfolio) :
+        logging.info("saving results to file {}".format(save_file))
+        ret = INI.init()
+        name_list = sorted(portfolio.keys())
+        value_list = map(lambda key : portfolio[key], name_list)
+        for i, name in enumerate(name_list) :
+            if not isinstance(value_list,list) :
+               value_list = list(value_list)
+            INI.write_section(ret,name,**value_list[i])
+        ret.write(open(save_file, 'w'))
+        logging.info("results saved to file {}".format(save_file))
+
 def reduceTickerList(ret) :
     if len(ret) < 10 :
        return ret
-    ret = ret[ret['RISK'] <= ret['RISK'].mean()]
-    if len(ret) < 10 :
-       return ret
-    ret = ret[ret['CAGR'] >= ret['CAGR'].mean()]
+    while len(ret) >= 10 :
+        data = ret[ret['RISK'] <= ret['RISK'].mean()]
+        if len(data) < 10 :
+           return data
+        data = data[data['CAGR'] >= data['CAGR'].mean()-data['CAGR'].std()]
+        if len(data) < 10 :
+           return data
+        ret = data
     return ret
+def process_Step01(output_file, data) :
+    stock_list = data.index.values
+    stock_list = list(stock_list)
+    prices = EXTRACT.portfolio(stock_list)
+    portfolio_list = TRANSFORM_PORTFOLIO.getList(data,prices)
+    logging.info(round(portfolio_list,4))
+    LOAD.portfolio(output_file,**portfolio_list.to_dict())
 
-def groupByCategory(data) :
+def process_stock(data) :
     local_dir = EXTRACT.instance().local_dir
     ret = {}
     for sector, group in TRANSFORM.by_sector(data) :
-        data = reduceTickerList(group)
-        ret[sector] = data.to_dict()
         output_file = "{}/sector_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(' ','_')
+        data = reduceTickerList(group)
+        t = data.to_dict()
+        for k in sorted(t.keys()) :
+            if k not in ret :
+                ret[k] = {}
+            ret[k].update(t[k])
+        continue
         LOAD.config(output_file,**data.to_dict())
 
-        stock_list = data.index.values
-        stock_list = list(stock_list)
-        prices = EXTRACT.portfolio(stock_list)
-        logging.debug(prices)
-        #max_sharpe, min_dev = PORTFOLIO.find(prices, stocks=stock_list, portfolios=10000, period=FINANCE.YEAR)
-        #print (max_sharpe)
-        #print (min_dev)
-        portfolio_list = TRANSFORM_PORTFOLIO.getList(data,prices)
-        logging.info(portfolio_list)
-    return ret
-def process_stock(data) :
-    ret = groupByCategory(data)
+        output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
+        output_file = output_file.replace(" ", "_")
+        process_Step01(output_file,data)
+    output_file = "{}/sector_Total.ini".format(local_dir)
+    LOAD.config(output_file,**ret)
 
 def process_fund(data) :
+    local_dir = EXTRACT.instance().local_dir
     for sector, group in TRANSFORM.by_sector(data) :
+        output_file = "{}/fund_{}.ini".format(local_dir, sector)
+        output_file = output_file.replace('(','')
+        output_file = output_file.replace(')','')
+        output_file = output_file.replace(' ','_')
         data = reduceTickerList(group)
-        yield data.to_dict() 
+        LOAD.config(output_file,**data.to_dict())
+
+        #output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
+        #output_file = output_file.replace(" ", "_")
+        #process_Step01(output_file,data)
         
 @exit_on_exception
 @trace
 def main() : 
     logging.info('reading from file {}'.format(EXTRACT.instance().input_file))
-    ret = EXTRACT.readBackground()
+    ret = EXTRACT.background()
     stock = ret[ret['ENTITY'] == 'stock']
     process_stock(stock)
     fund = ret[ret['ENTITY'] == 'fund']
     process_fund(fund)
-    #LOAD.config(**{})
 
 if __name__ == '__main__' :
    import sys

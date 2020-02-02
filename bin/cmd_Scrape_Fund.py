@@ -139,7 +139,7 @@ def process_prices(ticker_list) :
         stdev_list.append(stdev)
         len_list.append(_len)
         sharpe_list.append(sharpe)
-        growth_list.append(cgrowth)
+        growth_list.append(growth)
     cagr = dict(zip(ticker_list,cagr_list))
     stdev = dict(zip(ticker_list,stdev_list))
     sharpe = dict(zip(ticker_list,sharpe_list))
