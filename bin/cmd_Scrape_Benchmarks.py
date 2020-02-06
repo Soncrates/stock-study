@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import logging
+import pandas as pd
 from libCommon import INI, ENVIRONMENT, exit_on_exception, log_on_exception
-from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
+from libFinance import STOCK_TIMESERIES
 from cmd_Scrape_Stock_Sector import DICT_HELPER
+from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
 from libDebug import trace
 
 class EXTRACT() :
@@ -66,79 +67,27 @@ class EXTRACT() :
         stock_list = ret.values()
         return ret.data, stock_list
     @classmethod
-    @log_on_exception
-    def prices(cls, data_store, ticker) :
-        filename = '{}/{}.pkl'.format(data_store,ticker)
-        name, data = STOCK_TIMESERIES.load(filename)
-        return data
+    @trace
+    def robust(cls,data_store, ticker_list) :
+        retry = EXTRACT_TICKER.save_list(data_store, ticker_list)
+        if len(retry) > 0 :
+           retry = EXTRACT_TICKER.save_list(data_store, retry)
+        if len(retry) > 0 :
+           logging.error((len(retry), sorted(retry)))
 
 class TRANSFORM() :
-    _prices = 'Adj Close'
-    @classmethod
-    def _data(cls, value) :
-        if isinstance(value,list) :
-           value = value[0]
-        if isinstance(value,str) :
-           return value
-        return 'Unknown'
-    @classmethod
-    def data(cls, data) :
-        key_list = sorted(data.keys())
-        value_list = map(lambda key : data[key], key_list)
-        value_list = map(lambda key : cls._data(key), value_list)
-        ret = dict(zip(value_list,key_list))
-        return ret
-
-    @classmethod
-    def prices(cls, data) :
-          cagr = 0
-          stdev = 0
-          _len = 0
-          sharpe = 0
-          growth = 0
-          if data is None :
-             return cagr, stdev, _len, sharpe, growth
-          prices = data[cls._prices]
-          cagr, growth = CAGR.find(prices)
-          ret = SHARPE.find(prices, period=FINANCE.YEAR, span=0)
-          target = 'risk'
-          stdev = ret.get(target,stdev)
-          target = 'sharpe'
-          sharpe = ret.get(target,sharpe)
-          target = 'len'
-          _len = ret.get(target,_len)
-          return cagr, stdev, _len, sharpe, growth
+    def summary(data_store, ticker_list) :
+        ret = []
+        for ticker in ticker_list :
+            prices = EXTRACT_TICKER.load(data_store, ticker)
+            summary = TRANSFORM_TICKER.summary(prices)
+            summary.rename(columns={0:ticker},inplace=True)
+            ret.append(summary)
+        ret = pd.concat(ret, axis=1)
+        logging.info(ret)
+        return ret.T.to_dict()
 
 class LOAD() :
-      @classmethod
-      def _prices(cls, local_dir, ticker,dud) :
-          filename = '{}/{}.pkl'.format(local_dir,ticker)
-          reader =  EXTRACT.instance().reader
-          prices = reader.extract_from_yahoo(ticker)
-          if prices is None :
-             dud.append(ticker)
-             return dud
-          STOCK_TIMESERIES.save(filename, ticker, prices)
-          return dud
-      @classmethod
-      def prices(cls,local_dir, ticker_list) :
-          dud = []
-          for ticker in ticker_list :
-              dud = cls._prices(local_dir, ticker,dud)
-          size = len(ticker_list) - len(dud)
-          logging.info("Total {}".format(size))
-          if len(dud) > 0 :
-             dud = sorted(dud)
-             logging.warn((len(dud),dud))
-          return dud
-      @classmethod
-      @trace
-      def robust(cls,data_store, ticker_list) :
-          retry = cls.prices(data_store, ticker_list)
-          if len(retry) > 0 :
-             retry = cls.prices(data_store, retry)
-          if len(retry) > 0 :
-             logging.error((len(retry), sorted(retry)))
       @classmethod
       def background(cls, **config) :
           save_file = EXTRACT.instance().output_file
@@ -149,37 +98,15 @@ class LOAD() :
           ret.write(open(save_file, 'w'))
           logging.info("results saved to {}".format(save_file))
 
-def process_prices(ticker_list) :
-    data_store = EXTRACT.instance().data_store
-    cagr_list = []
-    stdev_list = []
-    len_list = []
-    sharpe_list = []
-    growth_list = []
-    for ticker in ticker_list :
-        prices = EXTRACT.prices(data_store, ticker)
-        cagr, stdev, _len, sharpe, growth = TRANSFORM.prices(prices)
-        cagr_list.append(cagr)
-        stdev_list.append(stdev)
-        len_list.append(_len)
-        sharpe_list.append(sharpe)
-        growth_list.append(growth)
-    cagr = dict(zip(ticker_list,cagr_list))
-    stdev = dict(zip(ticker_list,stdev_list))
-    sharpe = dict(zip(ticker_list,sharpe_list))
-    _len = dict(zip(ticker_list,len_list))
-    growth = dict(zip(ticker_list,growth_list))
-    ret = { 'CAGR' : cagr, 'RISK' : stdev, 'SHARPE' : sharpe, 'LEN' : _len, 'GROWTH' : growth }
-    return ret
-
 @exit_on_exception
 @trace
 def main() : 
-    data, stock_list = EXTRACT.benchmarks()
     data_store = EXTRACT.instance().data_store
-    LOAD.robust(data_store, stock_list)
-    background = process_prices(stock_list)
-    names = TRANSFORM.data(data)
+
+    data, stock_list = EXTRACT.benchmarks()
+    EXTRACT.robust(data_store, stock_list)
+    background = TRANSFORM.summary(data_store, stock_list)
+    names = TRANSFORM_TICKER.data(data)
     background['NAME'] = names
     LOAD.background(**background)
 

@@ -20,16 +20,16 @@ from libSharpe import PORTFOLIO, HELPER as SHARPE
    Graph portfolios to determine perfomance, risk, diversification
 '''
 class EXTRACT() :
-    _background_cache = None
     _singleton = None
-    def __init__(self, _env, local_dir, _data_store, input_file,output_file,background,_benchmark,repo) :
+    def __init__(self, _env, local_dir, data_store, category,input_file,output_file,background,benchmark,repo) :
         self._env = _env
         self.local_dir = local_dir
-        self._data_store = _data_store
+        self._data_store = data_store
+        self.category = category
         self.input_file = input_file
         self.output_file = output_file
         self.background = background
-        self._benchmark = _benchmark
+        self._benchmark = benchmark
         self.repo = repo
         msg = vars(self)
         for i, key in enumerate(sorted(msg)) :
@@ -47,9 +47,9 @@ class EXTRACT() :
         target = "local_dir"
         local_dir = globals().get(target,None)
         target = 'data_store'
-        _data_store = globals().get(target,'')
-        if not isinstance(_data_store,str) :
-           _data_store = str(_data_store)
+        data_store = globals().get(target,'')
+        if not isinstance(data_store,str) :
+           data_store = str(data_store)
         target = 'input_file'
         input_file = globals().get(target,'')
         if not isinstance(input_file,list) :
@@ -62,44 +62,25 @@ class EXTRACT() :
            output_file = _env.argv[1]
         target = 'background'
         background = globals().get(target,[])
+        background = list(background)
+        target = 'category'
+        category = globals().get(target,[])
+        category = list(category)
         target = 'benchmark'
-        _benchmark = globals().get(target,[])
-        if not isinstance(_benchmark,list) :
-           _benchmark = list(_benchmark)
+        benchmark = globals().get(target,[])
+        benchmark = list(benchmark)
         target = "repo_stock"
         repo_stock = globals().get(target,[])
         target = "repo_fund"
         repo_fund = globals().get(target,[])
         repo = repo_stock + repo_fund
-        cls._singleton = cls(_env,local_dir,_data_store,input_file,output_file,background,_benchmark,repo)
+        
+        _env.mkdir(data_store)
+        cls._singleton = cls(_env,local_dir,data_store,category,input_file,output_file,background,benchmark,repo)
         return cls._singleton
     @classmethod
-    def prep(cls) :
-        data_store = cls.instance()._data_store
-        logging.info('making data store {}'.format(data_store))
-        cls.instance()._env.mkdir(data_store)
-    @classmethod
-    def readRepoData(cls, value_list) :
-        repo = cls.instance().repo
-        ret = {}
-        for name, data in STOCK_TIMESERIES.read(repo, value_list) :
-            logging.info((name,type(data),data.shape))
-            ret[name] = data
-        return ret
-    @classmethod
-    def readPrices(cls,stock_list) :
-        ret = cls.readRepoData(stock_list)
-        stock_list = sorted(ret)
-        price_list = map(lambda stock : pd.DataFrame(ret[stock])['Adj Close'], stock_list)
-        price_list = list(price_list)
-        ret = dict(zip(stock_list, price_list))
-        ret = pd.DataFrame(ret, columns=stock_list)
-        logging.info(ret.head(3))
-        logging.info(ret.tail(3))
-        return ret
-    @classmethod
     def readPortfolio(cls) :
-        portfolio = cls.instance().input_file
+        portfolio = EXTRACT.instance().input_file
         logging.info('reading file {}'.format(portfolio))
         ret = {}
         for path, section, key, weight in INI.loadList(*[portfolio]) :
@@ -109,34 +90,168 @@ class EXTRACT() :
                ret[section] = {}
             ret[section][key] = float(weight[0])
         return ret
+class EXTRACT_PRICES() :
     @classmethod
-    def readEnrich(cls) :
-        enrich = cls.instance().background
-        if not (cls._background_cache is None) :
-           logging.info('reading cache {}'.format(enrich))
-           return cls._background_cache
-        logging.info('reading file {}'.format(enrich))
+    def isReserved(cls,value) :
+        flag_1 = value.startswith('legend')
+        flag_2 = value.startswith('reference')
+        flag_3 = 'portfolio' in value
+        return flag_1 or flag_2 or flag_3
+    @classmethod
+    def read(cls, value_list) :
+        repo = EXTRACT.instance().repo
         ret = {}
-        for path, section, key, ticker_list in INI.loadList(*enrich) :
+        for name, data in STOCK_TIMESERIES.read(repo, value_list) :
+            logging.info((name,type(data),data.shape))
+            ret[name] = data
+        return ret
+    @classmethod
+    def smartMassage(cls,data) :
+        data.fillna(method='backfill',inplace=True)
+        data = data / data.iloc[0]
+        data = data - 1
+        key_list = sorted(data.columns.values)
+        ticker_list = filter(lambda ref : cls.isReserved(ref), key_list)
+        reserved = data[ticker_list]
+        ticker_list = filter(lambda ref : cls.isReserved(ref) == False, key_list)
+        ret = data[ticker_list]
+        ret = FINANCE.new_graphReturns(ret)
+        ret.fillna(method='backfill',inplace=True)
+        ret = pd.concat([ret,reserved],axis=1, sort=False)
+        logging.info(ret)
+        return ret
+class TRANSFORM_PRICES() :
+    _prices = 'Adj Close'
+    @classmethod
+    def adjClose(cls,data) :
+        stock_list = sorted(data)
+        price_list = map(lambda stock : pd.DataFrame(data[stock])[cls._prices], stock_list)
+        price_list = list(price_list)
+        ret = dict(zip(stock_list, price_list))
+        ret = pd.DataFrame(ret, columns=stock_list)
+        logging.info(ret.head(3))
+        logging.info(ret.tail(3))
+        return ret
+class EXTRACT_SUMMARY() :
+    _background_cache = None
+    _floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE']
+    @classmethod
+    def read(cls) :
+        load_file = EXTRACT.instance().background
+        if not (cls._background_cache is None) :
+           logging.info('reading cache {}'.format(load_file))
+           return cls._background_cache
+        logging.info('reading file {}'.format(load_file))
+        ret = {}
+        for path, key, stock, value in INI.loadList(*load_file) :
+            if "File Creation Time" in stock :
+                continue
+            if stock not in ret :
+               ret[stock] = {}
+            if key in cls._floats_in_summary :
+               if '=' in value[0] :
+                  value = [0]
+               value = float(value[0])
+            else :
+               value = ', '.join(value)
+            ret[stock][key] = value
+        ret = pd.DataFrame(ret).T
+        cls._background_cache = ret
+        return ret
+class TRANSFORM_SUMMARY() :
+      columns = ['CAGR', 'GROWTH','RISK','SHARPE']
+      @classmethod
+      def step01(cls, stock_list) :
+          ret = EXTRACT_SUMMARY.read().loc[stock_list]
+          #ret['RETURNS'] = ret['SHARPE']*ret['RISK']
+          ret['RETURNS'] = ret['RETURNS'].astype(float).round(4)
+          ret['GROWTH'] = ret['GROWTH'].astype(float).round(4)
+          ret['Initial Balance'] = 10000
+          ret['Final Balance'] = ret['Initial Balance']*ret['GROWTH']
+          return ret
+      @classmethod
+      def step02(cls, ret) :
+          ret['weighted_RETURNS'] = ret['RETURNS'] * ret['weight']
+          ret['weighted_SHARPE'] = ret['SHARPE'] * ret['weight']
+          ret['weighted_RISK'] = ret['RISK'] * ret['weight']
+          ret['weighted_CAGR'] = ret['CAGR'] * ret['weight']
+          ret['weighted_GROWTH'] = ret['GROWTH'] * ret['weight']
+          ret['weighted_Initial Balance'] = ret['Initial Balance']*ret['weight']
+          ret['weighted_Final Balance'] = ret['Final Balance']*ret['weight']
+          return ret
+      @classmethod
+      def step03(cls, ret) :
+          columns = ret.columns.values
+          logging.info(columns)
+          weighted_columns = filter(lambda x : x.startswith('weighted_'), columns)
+          weighted_columns = list(weighted_columns)
+          new_columns = map(lambda x : x.replace('weighted_',''), weighted_columns)
+          new_columns = list(new_columns)
+          temp = map(lambda x : ret[x], weighted_columns)
+          temp = map(lambda x : cls._refactorSum(x), temp)
+          temp = map(lambda x : round(x,4), temp)
+          portfolio = dict(zip(new_columns, temp))
+          portfolio = pd.DataFrame([portfolio])
+          return portfolio
+      @classmethod
+      def _refactorSum(cls, column) :
+          ret = column.T.sum()
+          return ret
+      @classmethod
+      @trace
+      def refactor(cls, weights) :
+          stock_list = sorted(weights.keys())
+          ret = cls.step01(stock_list)
+          ret['weight'] = pd.DataFrame([weights]).T
+          ret = cls.step02(ret)
+          portfolio = cls.step03(ret)
+          logging.info(portfolio)
+          ret.loc['portfolio'] = portfolio.T[0]
+          return ret
+
+class EXTRACT_SECTOR() :
+    _cache = None
+    @classmethod
+    def _readSector(cls) :
+        load_file = EXTRACT.instance().category
+        if not (cls._cache is None) :
+           logging.info('reading cache {}'.format(load_file))
+           return cls._cache
+        logging.info('reading file {}'.format(load_file))
+        ret = {}
+        for path, section, key, ticker_list in INI.loadList(*load_file) :
             if 'fund' in path :
                key = '{} ({})'.format(section,key)
             for ticker in ticker_list :
                 if ticker not in ret : 
                    ret[ticker] = {}
                 ret[ticker]['Sector'] = key
-        cls._background_cache = ret
+        cls._cache = ret
         return ret
     @classmethod
-    def readSector(cls,stock) :
-        enrich = cls.readEnrich().get(stock,{})
+    def read(cls,stock) :
+        enrich = cls._readSector().get(stock,{})
         target = 'Sector'
         ret = enrich.get(target,None)
         if ret is None :
            ret = enrich.get('Category','Unknown')
         return ret
+class TRANSFORM_SECTOR() :
     @classmethod
-    def readBenchmark(cls) :
-        benchmark = cls.instance()._benchmark
+    def bySector(cls,summary) :
+        ret = filter(lambda key : EXTRACT_PRICES.isReserved(key) == False, summary.index.values)
+        ret = list(ret)
+        ret = summary.loc[ret]
+        sector_list = set(ret['sector'])
+        sector_list = sorted(list(sector_list))
+        for sector in sector_list :
+            yield sector, ret[ret['sector']==sector]
+class EXTRACT_BENCHMARK() :
+    FUNDS = 'NASDAQMUTFUND'
+    SNP = 'SNP500'
+    @classmethod
+    def read(cls) :
+        benchmark = EXTRACT.instance()._benchmark
         logging.info('reading file {}'.format(benchmark))
         ret = {}
         for path, section, key, stock_list in INI.loadList(*benchmark) :
@@ -149,6 +264,36 @@ class EXTRACT() :
                if '500' not in key : continue
             ret[key] = stock_list
         logging.debug(ret)
+        return ret
+    @classmethod
+    def tickers(cls) :
+        bench_list = cls.read()
+        ret = bench_list[cls.FUNDS]
+        snp = bench_list[cls.SNP]
+        ret += snp
+        return ret
+    @classmethod
+    def process(cls) :
+        bench_list = cls.read()
+        SNP = 'SNP500'
+        snp = bench_list[SNP]
+        gcps = snp[0]
+        ret = cls.tickers()
+        ret = TRANSFORM_SUMMARY.step01(ret)
+        ret.rename(index={gcps:SNP},inplace=True)
+        logging.info(ret)
+        return ret
+    @classmethod
+    def prices(cls) :
+        bench = EXTRACT_BENCHMARK.tickers()
+        bench_list = EXTRACT_BENCHMARK.read()
+        SNP = 'SNP500'
+        snp = bench_list[SNP]
+        gcps = snp[0]
+
+        raw_prices = EXTRACT_PRICES.read(bench)
+        ret = TRANSFORM_PRICES.adjClose(raw_prices)
+        ret.rename(columns={gcps:SNP},inplace=True)
         return ret
 class TRANSFORM_STOCK() :
     @classmethod
@@ -167,38 +312,9 @@ class TRANSFORM_STOCK() :
         ret = dict(zip(stock_list,ret))
         return ret
     @classmethod
-    def summarizeSharpe(cls,data) :
-        stock_list = cls.parseStockList(data)
-        ret = map(lambda d : SHARPE.find(data[d], period=FINANCE.YEAR), stock_list)
-        ret = dict(zip(stock_list, ret))
-        ret = pd.DataFrame(ret).T
-        logging.info(ret)
-        return ret
-    @classmethod
-    def summarizeCAGR(cls,data) :
-        stock_list = cls.parseStockList(data)
-        ret = map(lambda d : FINANCE.CAGR(data[d]), stock_list)
-        ret = dict(zip(stock_list, ret))
-        ret = pd.DataFrame([ret]).T
-        logging.info(ret)
-        return ret
-    @classmethod
-    def _summarizeBalance(cls,pd) :
-        ret = pd.dropna(how='all')
-        ret = ret.iloc[-1]/ret.iloc[0]
-        ret = round(ret,2)
-        return ret
-    @classmethod
-    def summarizeBalance(cls,data) :
-        stock_list = cls.parseStockList(data)
-        ret = map(lambda x : cls._summarizeBalance(data[x]), stock_list)
-        ret = dict(zip(stock_list,ret))
-        ret = pd.DataFrame([ret]).T
-        return ret
-    @classmethod
     def enrichSector(cls,ret) :
         stock_list = cls.parseStockList(ret)
-        ret = map(lambda stock : EXTRACT.readSector(stock), stock_list)
+        ret = map(lambda stock : EXTRACT_SECTOR.read(stock), stock_list)
         ret = dict(zip(stock_list,ret))
         ret = pd.Series(ret)
         logging.info(ret)
@@ -214,37 +330,17 @@ class TRANSFORM_STOCK() :
 
 class TRANSFORM_PORTFOLIO() :
     meta_columns = ['returns', 'risk', 'sharpe']
-    @classmethod
-    def getSummary(cls,weights) :
-        ret = weights.round(2)
-        logging.debug(ret)
-        portfolio_columns = ['returns','risk','sharpe','CAGR','Initial Balance','Final Balance']
-
-        returns = ret['weighted_returns'].to_dict()
-        returns = sum(returns.values())
-        returns = round(returns,2)
-        risk = ret['weighted_risk'].to_dict()
-        risk = sum(risk.values())
-        risk = round(risk,2)
-        sharpe = ret['weighted_sharpe'].to_dict()
-        sharpe = sum(sharpe.values())
-        sharpe = round(sharpe,2)
-        CAGR = ret['weight']*ret['CAGR']
-        CAGR = CAGR.to_dict()
-        CAGR = sum(CAGR.values())
-        CAGR = round(CAGR,2)
-        initial = ret['weight']*ret['Initial Balance']
-        initial = initial.to_dict()
-        initial = sum(initial.values())
-        initial = round(initial,2)
-        final = ret['weight']*ret['Final Balance']
-        final = final.to_dict()
-        final = sum(final.values())
-        final = round(final,2)
-        ret = dict(zip(portfolio_columns,[returns,risk,sharpe,CAGR,initial,final]))
-
-        logging.info(ret)
-        return ret
+    name_format_1 = "portfolio_diversified_{}"
+    name_format_2 = "portfolio_returns_{}"
+    name_format_3 = 'legend_{}'
+    sector_columns = ['weighted returns','weighted risk','weighted sharpe']
+    stock_columns = ['RETURNS', 'RISK', 'SHARPE', 'LEN', 'weighted_RETURNS', 'weighted_RISK', 'weighted_SHARPE']
+    rename_columns = {"weighted_RETURNS": "weighted returns"
+                       , 'weighted_RISK' : 'weighted risk'
+                       , 'weighted_SHARPE' : 'weighted sharpe'
+                       , 'RETURNS' :'returns'
+                       , 'RISK' : 'risk'
+                       , 'SHARPE' : 'sharpe'}
     @classmethod
     def getPortfolioPrice(cls,weights,prices) :
         weights = pd.DataFrame([weights])
@@ -264,14 +360,52 @@ class TRANSFORM_PORTFOLIO() :
         ret = dict(zip(stock_list,ret))
         return ret
     @classmethod
-    def smartMassage(cls,data) :
-        key_list = sorted(data.columns.values)
-        key_list = filter(lambda ref : not ref.startswith('legend_'), key_list)
-        key_list = list(key_list)
-        logging.info((len(key_list),key_list))
-        for ref in key_list :
-            data[ref] = FINANCE.graphReturns(data[ref])
-        return data
+    def getWeights(cls,data) :
+        ret_weights = {}
+        ret_sector = {}
+        for sector, summary in TRANSFORM_SECTOR.bySector(data) :
+            _W = summary['weight']
+            _W = _W*100
+            _W = _W.round(1)
+            ret_sector[sector] = round(sum(_W),1)
+
+            _t = summary[['NAME']]
+            _t['weight']  =_W
+            _t['ticker'] = _t.index.values
+            _t.rename(columns={'NAME':'Name'},inplace=True)
+            _t = _t.T.to_dict().values()
+            _t = list(_t)
+            ret_weights[sector] = _t
+
+        logging.info(ret_sector)
+        logging.info(ret_weights)
+        return ret_weights, ret_sector
+    @classmethod
+    def getSharpes(cls,data) :
+        ret_sector = {}
+        ret_stock = {}
+        for sector, summary in TRANSFORM_SECTOR.bySector(data) :
+            table = summary[cls.rename_columns.keys()]
+            table = table.sum().round(2)
+            table.rename(index=cls.rename_columns, inplace=True)
+            ret_sector[sector] = table.to_dict()
+
+            wtf = summary[cls.stock_columns]
+            wtf = wtf.round(2).T
+            wtf.rename(index=cls.rename_columns, inplace=True)
+            ret_stock[sector] = wtf.to_dict()
+
+        logging.info(ret_sector)
+        logging.info(ret_stock)
+        return ret_stock, ret_sector
+
+    @classmethod
+    def getNames(cls, curr, name) :
+        name_diversified = cls.name_format_1.format(curr)
+        name_returns = cls.name_format_2.format(curr)
+        name_legend = cls.name_format_3.format(name)
+        name_list = ['portfolio', 'diversified', 'returns', 'legend']
+        return dict(zip(name_list,[name, name_diversified, name_returns,name_legend]))
 
     @classmethod
     def _find(cls) :
@@ -280,40 +414,28 @@ class TRANSFORM_PORTFOLIO() :
         key_list = sorted(ret.keys())
         for curr, key in enumerate(key_list) :
             logging.info((curr+1, key,ret[key]))
-            meta_name_list = LOAD.getNames(curr+1, key)
+            meta_name_list = cls.getNames(curr+1, key)
             yield key, ret[key], meta_name_list
     @classmethod
     def find(cls) :
         for name, weights, meta_name_list in cls._find() :
             weights = cls.parseWeights(weights)
-            prices = EXTRACT.readPrices(weights.keys())
+            raw_prices = EXTRACT_PRICES.read(weights.keys())
+            prices = TRANSFORM_PRICES.adjClose(raw_prices)
             prices[meta_name_list['legend']] = cls.getPortfolioPrice(weights,prices)
+            returns = TRANSFORM_STOCK.summarizeReturns(prices)
 
             logging.info((weights,meta_name_list))
-
             # Portfolio	Initial Balance	Final Balance	CAGR	Stdev	Best Year	Worst Year	Max. Drawdown	Sharpe Ratio	Sortino Ratio	US Mkt Correlation
             # 'Portfolio','Initial Balance','Final Balance','CAGR','Stdev','Sharpe Ratio','Sortino Ratio','US Mkt Correlation'
-            meta = TRANSFORM_STOCK.summarizeSharpe(prices)
-            meta['CAGR'] = TRANSFORM_STOCK.summarizeCAGR(prices)
+            meta = TRANSFORM_SUMMARY.refactor(weights)
+            logging.info(meta)
             meta['sector'] = TRANSFORM_STOCK.enrichSector(meta)
-            meta['weight'] = TRANSFORM_STOCK.enrichWeight(weights, meta)
-            meta['weighted_returns'] = meta['returns']*meta['weight']
-            meta['weighted_risk'] = meta['risk']*meta['weight']
-            meta['weighted_sharpe'] = meta['sharpe']*meta['weight']
-            meta['Final Balance'] = TRANSFORM_STOCK.summarizeBalance(prices)
-            meta['Initial Balance'] = 10000
-            meta['weighted_Initial_Balance'] = meta['Initial Balance']*meta['weight']
-            meta['weighted_Final Balance'] = meta['weighted_Initial_Balance']*meta['Final Balance']
-            meta['Final Balance'] = meta['Initial Balance']*meta['Final Balance']
             logging.info(meta.T)
-            returns = TRANSFORM_STOCK.summarizeReturns(prices)
             yield weights, meta_name_list, prices, meta, returns
 
 class LOAD() :
 
-    name_format_1 = "portfolio_diversified_{}"
-    name_format_2 = "portfolio_returns_{}"
-    name_format_3 = 'legend_{}'
     @classmethod
     def config(cls,summary,portfolio) :
         save_file = EXTRACT.instance().output_file
@@ -326,86 +448,6 @@ class LOAD() :
             INI.write_section(ret,key,**values)
         ret.write(open(save_file, 'w'))
         logging.info('saving file {}'.format(save_file))
-    @classmethod
-    def getNames(cls, curr, name) :
-        name_diversified = cls.name_format_1.format(curr)
-        name_returns = cls.name_format_2.format(curr)
-        name_legend = cls.name_format_3.format(name)
-        name_list = ['portfolio', 'diversified', 'returns', 'legend']
-        return dict(zip(name_list,[name, name_diversified, name_returns,name_legend]))
-    @classmethod
-    def getWeights(cls,data) :
-        _weights = data['weight'].to_dict()
-        _sectors = data['sector'].to_dict()
-        _omit_list = filter(lambda key : key.startswith('legend'), _weights.keys())
-        for omit in list(_omit_list) :
-            _weights.pop(omit,None)
-            _sectors.pop(omit,None)
-        logging.info(_weights)
-        logging.info(_sectors)
-        stock_list = sorted(_sectors)
-        sector_list = set(_sectors.values())
-        sector_list = sorted(list(sector_list))
-        ret_weights = {}
-        ret_sector = {}
-        for sector in sector_list :
-            _t = filter(lambda stock : _sectors[stock] == sector, stock_list)
-            _t = list(_t)
-            sub = map(lambda stock : _weights[stock],_t)
-            _t = map(lambda stock : {'weight': round(_weights[stock]*100,2), 'ticker': stock},_t)
-            _t = list(_t)
-            ret_weights[sector] = _t
-            ret_sector[sector] = round(sum(sub),2)
-        logging.info(ret_sector)
-        logging.info(ret_weights)
-        return ret_weights, ret_sector
-    @classmethod
-    def getSharpes(cls,data) :
-        logging.debug(data)
-        #_weights = data['weight'].to_dict()
-        _data = data.round(2)
-        _sectors = _data['sector'].to_dict()
-        _returns = _data['weighted_returns'].to_dict()
-        _risk = _data['weighted_risk'].to_dict()
-        _sharpe = _data['weighted_sharpe'].to_dict()
-        _omit_list = filter(lambda key : key.startswith('legend'), _sectors.keys())
-        for omit in list(_omit_list) :
-            _sectors.pop(omit,None)
-            _returns.pop(omit,None)
-            _risk.pop(omit,None)
-            _sharpe.pop(omit,None)
-
-        logging.debug(_sectors)
-        logging.debug(_returns)
-        logging.debug(_risk)
-        logging.debug(_sharpe)
-        stock_list = sorted(_sectors)
-        sector_list = set(_sectors.values())
-        sector_list = sorted(list(sector_list))
-        ret_sector = {}
-        ret_stock = {}
-        sector_columns = ['weighted returns','weighted risk','weighted sharpe']
-        stock_columns = ['returns', 'risk', 'sharpe', 'len', 'weighted_returns', 'weighted_risk', 'weighted_sharpe']
-        rename_columns = {"weighted_returns": "weighted returns"
-                         , 'weighted_risk' : 'weighted risk'
-                         , 'weighted_sharpe' : 'weighted sharpe'}
-        for sector in sector_list :
-            _t = filter(lambda stock : _sectors[stock] == sector, stock_list)
-            _t = list(_t)
-            _t_returns = map(lambda stock : _returns[stock],_t)
-            _t_returns = round(sum(_t_returns),2)
-            _t_risk = map(lambda stock : _risk[stock],_t)
-            _t_risk = round(sum(_t_risk),2)
-            _t_sharpe = map(lambda stock : _sharpe[stock],_t)
-            _t_sharpe = round(sum(_t_sharpe),2)
-            ret_sector[sector] = dict(zip(sector_columns,[_t_returns, _t_risk, _t_sharpe]))
-            _wtf = _data[stock_columns]
-            _wtf = _wtf.T[_t].T
-            _wtf = _wtf.rename(columns=rename_columns)
-            ret_stock[sector] = _wtf.round(2).T.to_dict()
-        logging.info(ret_sector)
-        logging.info(ret_stock)
-        return ret_stock, ret_sector
 class Group :
     def __init__(self) :
        self.graph = []
@@ -428,136 +470,79 @@ class Group :
             self.graph.append(graph)
     @classmethod
     def appendDiversify(cls,name,data,ret) :
-        ret_weights, ret_sector = LOAD.getWeights(data)
+        ret_weights, ret_sector = TRANSFORM_PORTFOLIO.getWeights(data)
         ret.add(graph=ret_sector,data=ret_weights,name=name)
         return ret
     @classmethod
     def appendSharpe(cls,name,data,ret) :
-        ret_stock, ret_sector = LOAD.getSharpes(data)
+        ret_stock, ret_sector = TRANSFORM_PORTFOLIO.getSharpes(data)
         ret.add(graph=ret_sector,data=ret_stock,name=name)
         return ret
     @classmethod
     def appendPrices(cls,name,data,ret) :
-        prices = FINANCE.graphReturns(data)
+        logging.info(data.columns.values)
+        prices = EXTRACT_PRICES.smartMassage(data)
         ret.add(graph=prices,name=name)
         return ret
-
 def process() :
-    EXTRACT.prep()
 
+    price_summary = EXTRACT_BENCHMARK.prices()
+    text_summary = EXTRACT_BENCHMARK.process().T
     _returns = Group()
-    _enriched = Group()
+    distribution = Group()
     _sharpe = Group()
-    graph_summary_list = {}
-    graph_sharpe_list = {}
-    text_CAGR_list = {}
-    text_Initial_Balance_list = {}
-    text_Final_Balance_list = {}
-    text_Stdev_list = {}
-    text_SharpeRatio_list = {}
     _portfolio_name_list = []
     for weights, names, prices, summary, returns in TRANSFORM_PORTFOLIO.find() :
-        target_From = 'legend_{portfolio}'.format(**names)
         _portfolio_name_list.append(names['portfolio'])
-
-        _enriched = Group.appendDiversify(names['diversified'],summary,_enriched)
+        distribution = Group.appendDiversify(names['diversified'],summary,distribution)
         _sharpe = Group.appendSharpe(weights,summary,_sharpe)
-        graph_sharpe_list[target_From] = TRANSFORM_PORTFOLIO.getSummary(summary)
-        
-        graph_summary_list[target_From] = prices[target_From]
-        logging.info(prices.head(3))
         _returns = Group.appendPrices(names['returns'],prices, _returns)
+        
+        target_From = 'legend_{portfolio}'.format(**names)
         target_To = names['portfolio']
-        logging.info(summary.T)
-        logging.info(summary.T[target_From])
-        text_CAGR_list[target_To] = summary.T[target_From]['CAGR']
-        text_Initial_Balance_list[target_To] = 10000
-        text_Final_Balance_list[target_To] = summary.T[target_From]['Final Balance']
-        text_Stdev_list[target_To] = summary.T[target_From]['risk']
-        text_SharpeRatio_list[target_To] = summary.T[target_From]['sharpe']
-    graph_summary_list = pd.concat(graph_summary_list.values(),axis=1)
 
-    diversified = _enriched()
-    logging.info(graph_sharpe_list)
+        price_summary[target_From] = prices[target_From]
+        text_summary[target_To] = summary.loc['portfolio']
 
-    bench_list = EXTRACT.readBenchmark()
-    initial_Balance = 10000
-    SNP = 'SNP500'
-    snp = bench_list[SNP]
-    gcps = snp[0]
-    snp_prices = EXTRACT.readPrices(snp)
-    logging.debug(snp_prices)
-    snp_prices.rename(columns={gcps:SNP},inplace=True)
-    logging.debug(snp_prices)
-    snp_sharpe = TRANSFORM_STOCK.summarizeSharpe(snp_prices).T
-    snp_CAGR = TRANSFORM_STOCK.summarizeCAGR(snp_prices).T
-    target = SNP
-    graph_summary_list[target] = snp_prices
-    graph_sharpe_list[target] = snp_sharpe[SNP]
-    text_CAGR_list[target] = snp_CAGR[SNP][0]
-    text_Initial_Balance_list[target] = initial_Balance
-    ratio = TRANSFORM_STOCK._summarizeBalance(snp_prices)[0]
-    text_Final_Balance_list[target] = round(initial_Balance*ratio,2)
-    text_Stdev_list[target] = snp_sharpe.T['risk'][0]
-    text_SharpeRatio_list[target] = snp_sharpe.T['sharpe'][0]
-
-    FUNDS = 'NASDAQMUTFUND'
-    funds = bench_list[FUNDS]
-    funds_prices = EXTRACT.readPrices(funds)
-    funds_sharpe = TRANSFORM_STOCK.summarizeSharpe(funds_prices).T
-    funds_CAGR = TRANSFORM_STOCK.summarizeCAGR(funds_prices).T
-    funds_name_list = sorted(funds_prices)
-
-    for name in funds_name_list :
-        graph_summary_list[name] = funds_prices[name]
-        graph_sharpe_list[name] = funds_sharpe[name]
-        text_CAGR_list[name] = funds_CAGR[name][0]
-        text_Initial_Balance_list[name] = initial_Balance
-        ratio = TRANSFORM_STOCK._summarizeBalance(funds_prices[name])
-        text_Final_Balance_list[name] = round(initial_Balance*ratio,2)
-        text_Stdev_list[name] = funds_sharpe[name]['risk']
-        text_SharpeRatio_list[name] = funds_sharpe[name]['sharpe']
-
-    '''
-    Final Massage
-    '''
-    logging.debug(graph_summary_list)
-    graph_summary_list.fillna(method='backfill',inplace=True)
-    graph_summary_list.fillna(1,inplace=True)
-    graph_summary_list = graph_summary_list / graph_summary_list.iloc[0]
-    graph_summary_list = TRANSFORM_PORTFOLIO.smartMassage(graph_summary_list)
+    price_summary = EXTRACT_PRICES.smartMassage(price_summary)
+    logging.info(price_summary)
 
     returns = _returns()
     returns['description_summary'] = _sharpe().get('graph',[])
     returns['description_details'] = _sharpe().get('description',[])
 
-    ref = snp_prices / snp_prices.iloc[0]
     graph_list = returns['graph']
     for i, value in enumerate(graph_list) :
-        value['reference_SNP'] = ref
+        value['reference_SNP'] = price_summary[EXTRACT_BENCHMARK.SNP]
         logging.info(value)
 
-    diversified = _enriched()
+    diversified = distribution()
 
-    summary_text = [text_CAGR_list,text_Initial_Balance_list, text_Final_Balance_list, text_Stdev_list, text_SharpeRatio_list]
-    rows = ['CAGR','Initial Balance','Final Balance','Stdev','Sharpe Ratio']
-    rows = dict(zip([0,1,2,3,4],rows))
-    summary_text = pd.DataFrame(summary_text)
-    summary_text.rename(index=rows,inplace=True)
-    summary_text = summary_text.to_dict()
+    sharpe_summary = text_summary
+    text_summary = text_summary.T
+    text_summary['NAME'] = text_summary['NAME'].fillna("Unavailable")
+    text_summary.fillna(0, inplace=True)
+    text_summary['Initial Balance'] = text_summary['Initial Balance'].round(2)
+    text_summary['Final Balance'] = text_summary['Final Balance'].round(2)
+    rename = {'RISK':'Stdev','NAME':'Name','SHARPE':'Sharpe Ratio','GROWTH':'Growth'}
+    text_summary.rename(columns=rename,inplace=True)
+    text_summary = text_summary.T.to_dict()
 
+    logging.info(returns) 
     logging.info(diversified)
-    logging.info(graph_summary_list)
-    logging.info(summary_text)
-    return returns, diversified, graph_summary_list, graph_sharpe_list, summary_text, _portfolio_name_list
-
+    logging.info(price_summary) 
+    logging.info(sharpe_summary) # should be price list, that does not make sense
+    logging.info(text_summary)
+    logging.info(_portfolio_name_list)
+    return returns, diversified, price_summary, sharpe_summary, text_summary, _portfolio_name_list
 
 @exit_on_exception
 @trace
 def main() :
-   returns, diversified, graph_summary, graph_portfolio_sharpe_list, summary_text, portfolio_name_list = process()
+   returns, diversified, graph_summary, graph_portfolio_sharpe_list, text_summary, portfolio_name_list = process()
    summary_path_list = []
-   POINT.plot(graph_portfolio_sharpe_list,x='risk',y='returns',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
+   logging.info(graph_portfolio_sharpe_list)
+   POINT.plot(graph_portfolio_sharpe_list,x='RISK',y='RETURNS',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
    SHARPE = LINE.plot_sharpe(ratio=1)
    SHARPE.plot.line(style='b:', label='sharpe ratio 1',alpha=0.3)
    SHARPE = LINE.plot_sharpe(ratio=2)
@@ -600,7 +585,7 @@ def main() :
        local_returns_list.append(path)
 
    summary = { "images" : summary_path_list , "captions" : ["Return over Risk", "portfolio returns"] }
-   summary['table'] = summary_text
+   summary['table'] = text_summary
    portfolio = {}
    for i, value in enumerate(local_diversify_list) :
        images = [ local_diversify_list[i], local_returns_list[i] ]
@@ -628,22 +613,27 @@ if __name__ == '__main__' :
 
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
-   background = filter(lambda x : 'background' in x, ini_list)
-   background = list(background)
+   category = filter(lambda x : 'stock_by_sector.ini' in x or 'fund_by_type.ini' in x, ini_list)
+   background = filter(lambda x : 'background.ini' in x, ini_list)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    repo_stock = env.list_filenames('local/historical_prices/*pkl')
    repo_fund = env.list_filenames('local/historical_prices_fund/*pkl')
+   input_file = env.list_filenames('local/method*portfolios.ini')
 
    local_dir = "{pwd_parent}/local".format(**vars(env))
    data_store = '{}/images'.format(local_dir)
    data_store = '../local/images'
    output_file = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
-   input_file = env.list_filenames('local/method*portfolios.ini')
-   if len(input_file) > 0 :
-      input_file = input_file[0]
 
    main()
+   #ret = EXTRACT.readSummary()
+   #print(ret)
+   #print(ret['RISK'].describe())
+   #temp = ret.sort_values(['RISK'])
+   #print(temp)
+   #print(temp['RISK'].std())
+

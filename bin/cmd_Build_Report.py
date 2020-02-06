@@ -16,13 +16,10 @@ from libReport import StockTemplate, ReturnsTemplate, SectorTemplate
 
 class EXTRACT :
     _singleton = None
-    _ticker_name_cache = None
     @classmethod
-    def __init__(self,_env, ini_list,stock_names,fund_names,input_file,output_file) :
+    def __init__(self,_env, ini_list,input_file,output_file) :
         self.env = _env
         self.ini_list = ini_list
-        self.stock_names = stock_names
-        self.fund_names = fund_names
         self.input_file = input_file
         self.output_file = output_file
         msg = vars(self)
@@ -42,10 +39,6 @@ class EXTRACT :
         ini_list = globals().get(target,[])
         if not isinstance(ini_list,list) :
            ini_list = [ini_list]
-        target = 'stock_names'
-        stock_names = globals().get(target,[])
-        target = 'fund_names'
-        fund_names = globals().get(target,[])
         target = 'input_file'
         input_file = globals().get(target,None)
         if len(_env.argv) > 0 :
@@ -54,7 +47,7 @@ class EXTRACT :
         output_file = globals().get(target,None)
         if len(_env.argv) > 1 :
            output_file = _env.argv[1]
-        cls._singleton = cls(_env,ini_list,stock_names,fund_names,input_file,output_file)
+        cls._singleton = cls(_env,ini_list,input_file,output_file)
         return cls._singleton
 
     @classmethod
@@ -67,24 +60,6 @@ class EXTRACT :
                ret[section] = {}
             ret[section][key] = value_list
         return ret
-    @classmethod
-    def readNames(cls) :
-        if not (cls._ticker_name_cache is None) :
-           return cls._ticker_name_cache
-        ret = {}
-
-        load_file = cls.instance().fund_names
-        logging.info('Reading input file {}'.format(load_file))
-        for path, section, ticker, name in INI.loadList(*load_file) :
-            ret[ticker] = ', '.join(name)
-
-        load_file = cls.instance().stock_names
-        logging.info('Reading input file {}'.format(load_file))
-        for path, section, ticker, name in INI.loadList(*load_file) :
-            ret[ticker] = ', '.join(name)
-
-        cls._ticker_name_cache = ret
-        return cls._ticker_name_cache
 
 class TRANSFORM() :
     column_headers = ['Initial Balance', 'Final Balance', 'CAGR','Stdev','Sharpe Ratio']
@@ -97,6 +72,7 @@ class TRANSFORM() :
         for i, value in enumerate(arg_list) : 
             if '{' != value[0] : continue
             value = value.replace("'",'"')
+            logging.info(value)
             value = loads(value)
             arg_list[i] = value
         return arg_list
@@ -109,10 +85,15 @@ class TRANSFORM() :
            ret = locale.currency(ret, grouping=True)
            ret = Paragraph(ret,StockTemplate.bullet)
         elif flag_percent :
+           logging.info(ret)
+           if ret == 'Unkown' : 
+              ret = 0.0
            ret = str(round(ret*100,2))
            ret = ret + ' %'
            ret = Paragraph(ret,StockTemplate.bullet)
         elif flag_ratio :
+           if ret == 'Unkown' : 
+              ret = 0.0
            ret = str(round(ret,2))
            ret = Paragraph(ret,StockTemplate.bullet)
         else :
@@ -145,18 +126,6 @@ class TRANSFORM() :
             ret.append(rows)
         ret = Table(data=ret)
         ret.setStyle(StockTemplate.ts)
-        return ret
-    @classmethod
-    def name(cls, ticker) :
-        ret = "({}) No info available for {}".format(ticker,ticker)
-        ret = EXTRACT.readNames().get(ticker,ret)
-        if 'No info' in ret :
-            logging.warn(ret)
-            return ret
-        ret = '({}) {}'.format(ticker,ret)[:85]
-        logging.info(ret)
-        ret = ret.split(' - ')
-        ret = '<br/>'.join(ret)
         return ret
     @classmethod
     def percent(cls, data) :
@@ -196,15 +165,17 @@ class DIVERSE :
            return
         arg_list = sorted(arg_list, key = lambda i: i['weight']) 
         logging.debug(arg_list)
-        weight_list, ticker_list = [], []
+        weight_list, ticker_list, name_list = [], [], []
         for i, content in enumerate(arg_list) :
             ticker_list.append(content['ticker'])
             target = 'weight'
             content[target] = TRANSFORM.percent(content[target])
-            weight_list.append(content['weight'])
+            weight_list.append(content[target])
+            target = 'Name'
+            name = '({ticker}) {Name}'.format(**content)
+            name_list.append(name)
         weight_list = map(lambda x : Paragraph(x,StockTemplate.bullet), weight_list)
         weight_list = list(weight_list)
-        name_list = map(lambda x : TRANSFORM.name(x),ticker_list)
         name_list = map(lambda x : Paragraph(x,StockTemplate.ticker), name_list)
         name_list = list(name_list)
         logging.info(len(weight_list))
@@ -278,54 +249,46 @@ class RETURNS :
                 detail_row = list(detail_row)
                 yield detail_row
 
-@exit_on_exception
-@trace
-def main() :
-
-    output_file = EXTRACT.instance().output_file
-    logging.info('Writing report {}'.format(output_file))
-    doc = StockTemplate.initPortrait(output_file)
-    toc = StockTemplate.initToc()
-    ret = [ toc, PageBreak(), Paragraph('Portfolio Summary', StockTemplate.h1) ]
-
+def process_summary() :
     input_file = EXTRACT.config()
     target = 'summary'
     summary = input_file.get(target,{})
     target = 'images'
     image_list = summary.get(target,[])
-    image_list = map(lambda path : StockTemplate.alter_aspect(path, 3.5 * inch), image_list)
     target = 'captions'
     captions_list = summary.get(target,[])
-    tbl = StockTemplate.addTable(captions_list,image_list,[],[])
-    ret.append(tbl)
-
     target = 'table'
     summary_text = summary.get(target,{})
+
     summary_text = summary_text.replace("'",'"')
+    logging.info(summary_text)
     summary_text = loads(summary_text)
     summary_tbl = TRANSFORM.addSummaryTable(summary_text) 
-    ret.append(summary_tbl)
 
-    ret.append(PageBreak())
- 
+    image_list = map(lambda path : StockTemplate.alter_aspect(path, 3.5 * inch), image_list)
+    return image_list, captions_list, summary_tbl
+
+def process_portfolio_list() :
+    input_file = EXTRACT.config()
     key_list = sorted(input_file.keys())
     portfolio_list = filter(lambda x : 'portfolio' in x, key_list)
     for target in portfolio_list :
         summary = input_file.get(target,{})
+
         local_target = 'name'
         name = summary.get(local_target,target)
         if isinstance(name,list) :
            name = name[0]
         name = name.replace('_',' ')
         name = "Portfolio : {}".format(name)
-        ret.append(Paragraph(name, StockTemplate.h1))
+
         local_target = 'images'
         image_list = summary.get(local_target,[])
         image_list[0] = StockTemplate.alter_aspect(image_list[0], 4.5 * inch)
         image_list[1] = StockTemplate.alter_aspect(image_list[1], 3.5 * inch)
+
         local_target = 'captions'
         captions_list = summary.get(local_target,[])
-
         local_target = 'description'
         target_list = filter(lambda key : 'description1' in key, summary)
         target_list = sorted(target_list)
@@ -338,8 +301,32 @@ def main() :
         description_list = map(lambda key : summary.get(key,None), target_list)
         description_list = TRANSFORM._modifyDescription(description_list)
         returns_list = RETURNS.add(description_list)
+        logging.debug(name)
+        logging.debug(image_list)
+        logging.debug(captions_list)
+        logging.debug(diverse_list)
+        logging.debug(returns_list)
+        yield name, image_list, captions_list, diverse_list, returns_list
 
-        tbl = StockTemplate.addTable(captions_list,image_list, diverse_list, returns_list)
+@exit_on_exception
+@trace
+def main() :
+
+    output_file = EXTRACT.instance().output_file
+    logging.info('Writing report {}'.format(output_file))
+    doc = StockTemplate.initPortrait(output_file)
+    toc = StockTemplate.initToc()
+    ret = [ toc, PageBreak(), Paragraph('Portfolio Summary', StockTemplate.h1) ]
+
+    images, captions, summary = process_summary() 
+    tbl = StockTemplate.addTable(captions,images,[],[])
+    ret.append(tbl)
+    ret.append(summary)
+    ret.append(PageBreak())
+ 
+    for name, images, captions, weights, returns in process_portfolio_list() :
+        ret.append(Paragraph(name, StockTemplate.h1))
+        tbl = StockTemplate.addTable(captions,images, weights, returns)
         logging.debug(tbl)
         ret.append(tbl)
         ret.append(PageBreak())
@@ -356,14 +343,10 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
    ini_list = env.list_filenames('local/*.ini')
-   stock_names = filter(lambda x : 'stock_name' in x, ini_list)
-   stock_names = list(stock_names)
-   fund_names = filter(lambda x : 'fund_name' in x, ini_list)
-   fund_names = list(fund_names)
 
    input_file = env.list_filenames('local/report_generator.ini')
    output_file = "{pwd_parent}/local/image.pdf".format(**vars(env))

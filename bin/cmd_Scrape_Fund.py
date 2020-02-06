@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
 import logging
-import sys
+import pandas as pd
 from libCommon import INI, exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
-from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
+from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
 
 class EXTRACT() :
     _singleton = None
@@ -54,13 +53,7 @@ class EXTRACT() :
         logging.info("loading results {}".format(ini_list))
         for path, section, key, stock_list in INI.loadList(*ini_list) :
             yield path, section, key, stock_list
-    @classmethod
-    @log_on_exception
-    def prices(cls, ticker) :
-        data_store = cls.instance().data_store
-        filename = '{}/{}.pkl'.format(data_store,ticker)
-        name, data = STOCK_TIMESERIES.load(filename)
-        return data
+
 
 class TRANSFORM() :
     _prices = 'Adj Close'
@@ -85,25 +78,17 @@ class TRANSFORM() :
         ret = entry.get(target,None)
         return ret
     @classmethod
-    def prices(cls, data) :
-          cagr = 0
-          stdev = 0
-          _len = 0
-          sharpe = 0
-          growth = 0
-          if data is None :
-             return cagr, stdev, _len, sharpe, growth
-          prices = data[cls._prices]
-          cagr, growth = CAGR.find(prices)
-          ret = SHARPE.find(prices, period=FINANCE.YEAR, span=0)
-          target = 'risk'
-          stdev = ret.get(target,stdev)
-          target = 'sharpe'
-          sharpe = ret.get(target,sharpe)
-          target = 'len'
-          _len = ret.get(target,_len)
-          return cagr, stdev, _len, sharpe, growth
-
+    def summary(cls, data_store, ticker_list) :
+        ret = []
+        for ticker in ticker_list :
+            logging.info(ticker)
+            prices = EXTRACT_TICKER.load(data_store, ticker)
+            summary = TRANSFORM_TICKER.summary(prices)
+            summary.rename(columns={0:ticker},inplace=True)
+            ret.append(summary)
+        ret = pd.concat(ret, axis=1)
+        logging.info(ret)
+        return ret.T.to_dict()
         
 class LOAD() :
 
@@ -126,28 +111,6 @@ class LOAD() :
         ret.write(open(save_file, 'w'))
         logging.info("results saved to {}".format(save_file))
 
-def process_prices(ticker_list) :
-    cagr_list = []
-    stdev_list = []
-    len_list = []
-    sharpe_list = []
-    growth_list = []
-    for ticker in ticker_list :
-        prices = EXTRACT.prices(ticker)
-        cagr, stdev, _len, sharpe, growth = TRANSFORM.prices(prices)
-        cagr_list.append(cagr)
-        stdev_list.append(stdev)
-        len_list.append(_len)
-        sharpe_list.append(sharpe)
-        growth_list.append(growth)
-    cagr = dict(zip(ticker_list,cagr_list))
-    stdev = dict(zip(ticker_list,stdev_list))
-    sharpe = dict(zip(ticker_list,sharpe_list))
-    _len = dict(zip(ticker_list,len_list))
-    growth = dict(zip(ticker_list,growth_list))
-    ret = { 'CAGR' : cagr, 'RISK' : stdev, 'SHARPE' : sharpe, 'LEN' : _len, 'GROWTH' : growth }
-    return ret
-        
 def process_names(fund_list) :
     ticker_list = map(lambda x : TRANSFORM.ticker(x), fund_list)
     ticker_list = list(ticker_list)
@@ -183,13 +146,15 @@ def process_by_type(fund_list) :
 @exit_on_exception
 @trace
 def main() : 
+    data_store = EXTRACT.instance().data_store
+
     fund_list = NASDAQ.init().fund_list()
     config = process_by_type(fund_list)
     LOAD.config(**config)
 
     names = process_names(fund_list)
     ticker_list = sorted(names.keys())
-    background = process_prices(ticker_list)
+    background = TRANSFORM.summary(data_store, ticker_list)
     background['NAME'] = names
     LOAD.background(**background)
 

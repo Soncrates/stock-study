@@ -31,7 +31,7 @@ class EXTRACT() :
         cls._singleton = cls(env,draft,final)
         return cls._singleton
 
-class DICT_HELPER() :
+class TRANSFORM_SECTOR() :
     normalized = ['Basic Materials'
               ,'Utilities'
               ,'Real Estate'
@@ -43,36 +43,7 @@ class DICT_HELPER() :
               ,'Healthcare'
               ,'Industrials'
               ,'Financial Services']
-    def __init__(self, *largs, **kwargs):
-        self.data = kwargs
-    def __delitem__(self, key):
-        value = self.data.pop(key)
-        self.data.pop(value, None)
-    def __setitem__(self, key, value):
-        if key in self.data:
-            del self.data[key]
-        self.data[key] = value
-    def __getitem__(self, key):
-        return self.data[key]
-    def __str__(self):
-        msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
-        if not isinstance(msg,list) :
-           msg = list(msg)
-        msg.append("Total : {}".format(len(self.values())))
-        return "\n".join(msg)
-    def append(self, key, *value_list):
-        if key not in self.data:
-           self.data[key] = []
-        for value in value_list :
-            self.data[key].append(value)
-    def values(self):
-        ret = reduce(lambda a, b : a+b, self.data.values())
-        ret = sorted(list(set(ret)))
-        return ret
-    @classmethod
-    def init(cls, *largs, **kwargs) :
-        ret = cls(*largs, **kwargs)
-        return ret
+
     @classmethod
     def normalize(cls,name) :
         if name in cls.normalized :
@@ -104,6 +75,40 @@ class DICT_HELPER() :
         logging.warn(name)
         return name
 
+
+class DICT_HELPER() :
+    def __init__(self, *largs, **kwargs):
+        self.data = kwargs
+    def __delitem__(self, key):
+        value = self.data.pop(key)
+        self.data.pop(value, None)
+    def __setitem__(self, key, value):
+        if key in self.data:
+            del self.data[key]
+        self.data[key] = value
+    def __getitem__(self, key):
+        return self.data[key]
+    def __str__(self):
+        msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
+        if not isinstance(msg,list) :
+           msg = list(msg)
+        msg.append("Total : {}".format(len(self.values())))
+        return "\n".join(msg)
+    def append(self, key, *value_list):
+        if key not in self.data:
+           self.data[key] = []
+        for value in value_list :
+            self.data[key].append(value)
+    def values(self):
+        if len(self.data) == 0 :
+           return []
+        ret = reduce(lambda a, b : a+b, self.data.values())
+        ret = sorted(list(set(ret)))
+        return ret
+    @classmethod
+    def init(cls, *largs, **kwargs) :
+        ret = cls(*largs, **kwargs)
+        return ret
 class YAHOO() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
       @classmethod
@@ -151,7 +156,7 @@ class YAHOO() :
               sector = stock.get(_sector,None) 
               if not sector :
                  continue
-              sector = DICT_HELPER.normalize(sector)
+              sector = TRANSFORM_SECTOR.normalize(sector)
               ret.append(sector,row)
           logging.info(ret)
           _stock_list = ret.values()
@@ -197,7 +202,7 @@ class FINANCEMODELLING() :
               sector = stock.get(_sector,None) 
               if not sector :
                  continue
-              sector = DICT_HELPER.normalize(sector)
+              sector = TRANSFORM_SECTOR.normalize(sector)
               ret.append(sector,row)
           logging.info(ret)
           _stock_list = ret.values()
@@ -226,7 +231,7 @@ class STOCKMONITOR() :
       @classmethod
       def init(cls) :
           key_list = map(lambda x : x.replace('-','_'), cls.url_list)
-          key_list = map(lambda x : DICT_HELPER.normalize(x), cls.url_list)
+          key_list = map(lambda x : TRANSFORM_SECTOR.normalize(x), cls.url_list)
           url_list = map(lambda x : cls.url.format(x), cls.url_list)
           url_list = dict(zip(key_list,url_list))
           ret = cls(url_list)

@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
 import logging
-import sys
+import pandas as pd
 from libCommon import INI, exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
-from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
+from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
 
 class EXTRACT() :
     _singleton = None
@@ -48,19 +47,6 @@ class EXTRACT() :
         data_store = globals().get(target,[])
         cls._singleton = cls(_env,config_list,file_list, output_file_by_type,background_file,local_dir,data_store)
         return cls._singleton
-    @classmethod
-    def dep_config() :
-        ini_list = EXTRACT.instance().config_list
-        logging.info("loading results {}".format(ini_list))
-        for path, section, key, stock_list in INI.loadList(*ini_list) :
-            yield path, section, key, stock_list
-    @classmethod
-    @log_on_exception
-    def prices(cls, ticker) :
-        data_store = cls.instance().data_store
-        filename = '{}/{}.pkl'.format(data_store,ticker)
-        name, data = STOCK_TIMESERIES.load(filename)
-        return data
 
 class TRANSFORM() :
       _prices = 'Adj Close'
@@ -98,36 +84,19 @@ class TRANSFORM() :
               ret[ticker] = cls.safe(entry['Security Name'])
           return ret
       @classmethod
-      def prices(cls, data) :
-          cagr = 0
-          stdev = 0
-          _len = 0
-          sharpe = 0
-          growth = 0
-          if data is None :
-             return cagr, stdev, _len, sharpe, growth
-          prices = data[cls._prices]
-          cagr, growth = CAGR.find(prices)
-          ret = SHARPE.find(prices, period=FINANCE.YEAR, span=0)
-          target = 'risk'
-          stdev = ret.get(target,stdev)
-          target = 'sharpe'
-          sharpe = ret.get(target,sharpe)
-          target = 'len'
-          _len = ret.get(target,_len)
-          return cagr, stdev, _len, sharpe, growth
+      def summary(cls, data_store, ticker_list) :
+          ret = []
+          for ticker in ticker_list :
+              logging.info(ticker)
+              prices = EXTRACT_TICKER.load(data_store, ticker)
+              summary = TRANSFORM_TICKER.summary(prices)
+              summary.rename(columns={0:ticker},inplace=True)
+              ret.append(summary)
+          ret = pd.concat(ret, axis=1)
+          logging.info(ret)
+          return ret.T.to_dict()
 
 class LOAD() :
-
-    @classmethod
-    def config(cls, **config) :
-        save_file = EXTRACT.instance().output_file_by_type
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,[])
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
-        logging.info("results saved to {}".format(save_file))
     @classmethod
     def background(cls, **config) :
         save_file = EXTRACT.instance().background_file
@@ -138,28 +107,6 @@ class LOAD() :
         ret.write(open(save_file, 'w'))
         logging.info("results saved to {}".format(save_file))
 
-def process_prices(ticker_list) :
-    cagr_list = []
-    stdev_list = []
-    len_list = []
-    sharpe_list = []
-    growth_list = []
-    for ticker in ticker_list :
-        prices = EXTRACT.prices(ticker)
-        cagr, stdev, _len, sharpe, growth = TRANSFORM.prices(prices)
-        cagr_list.append(cagr)
-        stdev_list.append(stdev)
-        len_list.append(_len)
-        sharpe_list.append(sharpe)
-        growth_list.append(growth)
-    cagr = dict(zip(ticker_list,cagr_list))
-    stdev = dict(zip(ticker_list,stdev_list))
-    sharpe = dict(zip(ticker_list,sharpe_list))
-    _len = dict(zip(ticker_list,len_list))
-    growth = dict(zip(ticker_list,growth_list))
-    ret = { 'CAGR' : cagr, 'RISK' : stdev, 'SHARPE' : sharpe, 'LEN' : _len, 'GROWTH' : growth }
-    return ret
-        
 def process_names(nasdaq) :
     listed, csv = nasdaq.listed()
     listed = list(listed)
@@ -179,6 +126,7 @@ def process_names(nasdaq) :
 @exit_on_exception
 @trace
 def main() : 
+    data_store = EXTRACT.instance().data_store
     nasdaq = NASDAQ.init()
 
     stock_list, etf_list, alias = nasdaq.stock_list()
@@ -187,7 +135,7 @@ def main() :
     names.update(etf_names)
     names.update(stock_names)
     ticker_list = sorted(names.keys())
-    background = process_prices(ticker_list)
+    background = TRANSFORM.summary(data_store, stock_list)
     background['NAME'] = names
     LOAD.background(**background)
 

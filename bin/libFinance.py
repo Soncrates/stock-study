@@ -205,11 +205,15 @@ class HELPER :
           #logging.info(ret.tail(3))
           return ret
       @classmethod
-      def graphReturns(cls, data) :
+      def dep_graphReturns(cls, data) :
           #data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
           ret = cls.findDailyReturns(data)
           ret = TRANSFORM.GraphReturns(ret)
           ret = ret.rolling(HELPER.MONTH).mean()
+          return ret
+      @classmethod
+      def new_graphReturns(cls, data) :
+          ret = data.rolling(HELPER.MONTH).mean()
           return ret
       @classmethod
       def findRiskAndReturn(cls, data, period=0, span=0) :
@@ -231,7 +235,7 @@ class HELPER :
           risk = data.ewm(span=span).std().iloc[-1]
           return risk, returns
       @classmethod
-      def CAGR(cls, data):
+      def dep_CAGR(cls, data):
           _ret = data.dropna(how='all')
           periods = len(_ret) / float(cls.YEAR)
           ret = map(lambda x : _ret.iloc[x], [0,-1])
@@ -240,48 +244,68 @@ class HELPER :
           cagr = round(cagr,4)
           return cagr
       @classmethod
-      def _CAGR(cls, first, last, periods):
+      def dep__CAGR(cls, first, last, periods):
           cumalative = (last/first)
           cagr = cumalative**(1/periods)-1
           return cumalative ,cagr
 class TRANSFORM_CAGR() :
+      key_list = ['CAGR', 'GROWTH']
       @classmethod
       def find(cls, data):
+          first, last, periods = cls.validate(data)
+          growth, cagr = cls._find(first, last, periods)
+          values = map(lambda x : round(x,4), [cagr,growth])
+          ret = dict(zip(cls.key_list,values))
+          return ret
+      @classmethod
+      def _find(cls, first, last, periods):
+          growth = (last/first)
+          cagr = growth**(1/periods)-1
+          return growth, cagr
+      @classmethod
+      def validate(cls, data):
           _ret = data.dropna(how='all')
           periods = len(_ret) / float(HELPER.YEAR)
           ret = map(lambda x : _ret.iloc[x], [0,-1])
           ret = list(ret)
-          cumalative, cagr = cls._find(ret[0], ret[1], periods)
-          cagr = round(cagr,4)
-          cumalative = round(cumalative,4)
-          return cagr, cumalative
-      @classmethod
-      def _find(cls, first, last, periods):
-          cumalative = (last/first)
-          cagr = cumalative**(1/periods)-1
-          return cumalative, cagr
+          return ret[0], ret[1], periods
 
 class TRANSFORM_SHARPE :
       '''
         Computes sharpe calculation for a single stock
       '''
-      key_list = ['returns', 'risk','sharpe','len']
+      key_list = ['RETURNS','RISK', 'SHARPE','LEN']
+      _prices = 'Adj Close'
       @classmethod
       def find(cls, data, **kwargs) :
           data, risk_free_rate, period, span, size = cls.validate(data, **kwargs)
           if data is None :
              ret =  dict(zip(cls.key_list, [0, 0, 0, size]))
              return ret
+          if isinstance(data, pd.DataFrame) :
+             data = data[cls._prices]
+
           daily = cls.daily(data)
-          risk, returns = cls.riskReturn(daily,span)
-          if isinstance(returns,pd.Series) : returns = returns[0]
-          if isinstance(risk,pd.Series) : risk = risk[0]
-          sharpe = 0
-          if risk != 0 :
-             sharpe = ( returns - risk_free_rate ) / risk
-          sharpe *= np.sqrt(period)
+          risk, returns = cls.extractRR(daily,span)
+          risk, returns = cls.annualize(risk, returns, period)
+          sharpe = cls.sharpe(risk, returns, risk_free_rate)
+
           values = map(lambda x : round(x,4), [returns, risk, sharpe, size ])
           ret = dict(zip(cls.key_list, values))
+          logging.info(ret)
+          return ret
+      @classmethod
+      def annualize(cls, risk, returns, period) :
+          if isinstance(returns,pd.Series) : returns = returns[0]
+          if isinstance(risk,pd.Series) : risk = risk[0]
+          returns *= period
+          risk *= np.sqrt(period)
+          return risk, returns
+      @classmethod
+      def sharpe(cls, risk, returns, risk_free_rate) :
+          ret = 0
+          if risk != 0 :
+             ret = ( returns - risk_free_rate ) / risk
           return ret
 
       @classmethod
@@ -290,7 +314,6 @@ class TRANSFORM_SHARPE :
           period = kwargs.get(target,1)
           target = "risk_free_rate"
           risk_free_rate = kwargs.get(target,0.02)
-          risk_free_rate = kwargs.get(target,0.0)
           target = "span"
           span = kwargs.get(target,2*HELPER.YEAR)
 
@@ -313,10 +336,12 @@ class TRANSFORM_SHARPE :
           return _ret, risk_free_rate, period, span, height
       @classmethod
       def daily(cls, data) :
-          ret = data.pct_change(1).fillna(0.0)
+          logging.debug(data)
+          ret = data.pct_change(periods = 1, fill_method='ffill')
+          logging.debug(ret)
           return ret
       @classmethod
-      def riskReturn(cls, data, span=0) :
+      def extractRR(cls, data, span=0) :
           if span == 0 :
              returns = data.mean()
              risk = data.std()
