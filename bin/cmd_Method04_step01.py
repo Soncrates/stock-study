@@ -109,23 +109,27 @@ class EXTRACT() :
         ret = ret[ret['LEN'] > 8*FINANCE.YEAR]
         logging.info('LEN 8 years')
         cls.analysis(ret)
-        ret = ret[ret['CAGR'] >= 0.18]
-        logging.info('CAGR over 18%')
+        ret = ret[ret['RISK'] <= 0.20]
+        logging.info('RISK under 20%')
+        cls.analysis(ret)
+        ret = ret[ret['CAGR'] >= 0.10]
+        logging.info('CAGR over 10%')
         cls.analysis(ret)
         #ret = ret[ret['SHARPE'] >= 0.9]
         #logging.info('SHARPE 0.9')
         #cls.analysis(ret)
-        ret = ret[ret['RISK'] <= 0.18]
-        logging.info('RISK under 18%')
-        cls.analysis(ret)
         #ret = ret[ret['GROWTH'] >= 2.0]
         return ret
     @classmethod
     def analysis(cls,ret) :
         stock = ret[ret['ENTITY'] == 'stock']
+        logging.info("STOCK")
+        logging.info(stock.iloc[0])
         logging.info(stock.shape)
         logging.info(round(stock.corr(),1))
+        logging.info("FUND")
         fund = ret[ret['ENTITY'] == 'fund']
+        logging.info(fund.iloc[0])
         logging.info(fund.shape)
         logging.info(round(fund.corr(),1))
     @classmethod
@@ -310,8 +314,8 @@ def process_stock(data) :
             if k not in ret :
                 ret[k] = {}
             ret[k].update(t[k])
-        continue
         LOAD.config(output_file,**data.to_dict())
+        logging.info('saved file {}'.format(output_file))
 
         output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(" ", "_")
@@ -351,14 +355,14 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    local_dir = "{}/local".format(env.pwd_parent)
    ini_list = env.list_filenames('local/*.ini')
    sector = filter(lambda x : 'stock_by_sector.ini' in x or 'fund_by_type' in x , ini_list)
    background = filter(lambda x : 'background.ini' in x, ini_list)
-   #background = filter(lambda x : 'stock_' in x, background)
+   background = filter(lambda x : 'stock_' in x or 'fund_' in x, background)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    file_list = env.list_filenames('local/historical_*/*pkl')
 

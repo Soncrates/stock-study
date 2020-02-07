@@ -170,6 +170,8 @@ class DIVERSE :
             ticker_list.append(content['ticker'])
             target = 'weight'
             content[target] = TRANSFORM.percent(content[target])
+            if content[target] == 0 :
+                continue
             weight_list.append(content[target])
             target = 'Name'
             name = '({ticker}) {Name}'.format(**content)

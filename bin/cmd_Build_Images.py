@@ -15,7 +15,6 @@ from libCommon import INI, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save, HELPER as GRAPH
-from libSharpe import PORTFOLIO, HELPER as SHARPE
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
@@ -163,7 +162,6 @@ class TRANSFORM_SUMMARY() :
       @classmethod
       def step01(cls, stock_list) :
           ret = EXTRACT_SUMMARY.read().loc[stock_list]
-          #ret['RETURNS'] = ret['SHARPE']*ret['RISK']
           ret['RETURNS'] = ret['RETURNS'].astype(float).round(4)
           ret['GROWTH'] = ret['GROWTH'].astype(float).round(4)
           ret['Initial Balance'] = 10000
@@ -200,9 +198,9 @@ class TRANSFORM_SUMMARY() :
       @classmethod
       @trace
       def refactor(cls, weights) :
-          stock_list = sorted(weights.keys())
+          stock_list = sorted(weights.columns.values)
           ret = cls.step01(stock_list)
-          ret['weight'] = pd.DataFrame([weights]).T
+          ret['weight'] = weights.T
           ret = cls.step02(ret)
           portfolio = cls.step03(ret)
           logging.info(portfolio)
@@ -239,13 +237,16 @@ class EXTRACT_SECTOR() :
 class TRANSFORM_SECTOR() :
     @classmethod
     def bySector(cls,summary) :
+        summary = summary[summary['weight'] > 0.0]
         ret = filter(lambda key : EXTRACT_PRICES.isReserved(key) == False, summary.index.values)
         ret = list(ret)
         ret = summary.loc[ret]
         sector_list = set(ret['sector'])
         sector_list = sorted(list(sector_list))
         for sector in sector_list :
-            yield sector, ret[ret['sector']==sector]
+            value = ret[ret['sector'] == sector]
+            logging.info(value)
+            yield sector, value
 class EXTRACT_BENCHMARK() :
     FUNDS = 'NASDAQMUTFUND'
     SNP = 'SNP500'
@@ -343,8 +344,6 @@ class TRANSFORM_PORTFOLIO() :
                        , 'SHARPE' : 'sharpe'}
     @classmethod
     def getPortfolioPrice(cls,weights,prices) :
-        weights = pd.DataFrame([weights])
-        logging.info(weights)
         logging.info(weights.shape)
         logging.info(prices.shape)
         ret = prices.fillna(0)
@@ -352,12 +351,12 @@ class TRANSFORM_PORTFOLIO() :
         return ret
     @classmethod
     def parseWeights(cls, portfolio) :
-        _ret = sorted(portfolio.keys())
-        stock_list = filter(lambda x : x not in cls.meta_columns, _ret)
-        stock_list = list(stock_list)
-        logging.info((len(stock_list),stock_list))
-        ret = map(lambda stock : portfolio[stock],stock_list)
-        ret = dict(zip(stock_list,ret))
+        ret = pd.DataFrame([portfolio])
+        stock_list = filter(lambda x : x not in cls.meta_columns, ret.columns.values)
+        ret = ret[list(stock_list)].T
+        ret.rename(columns={0:'weight'},inplace=True)
+        ret = ret[ret['weight'] > 0.0].T 
+        logging.info(ret)
         return ret
     @classmethod
     def getWeights(cls,data) :
@@ -420,7 +419,7 @@ class TRANSFORM_PORTFOLIO() :
     def find(cls) :
         for name, weights, meta_name_list in cls._find() :
             weights = cls.parseWeights(weights)
-            raw_prices = EXTRACT_PRICES.read(weights.keys())
+            raw_prices = EXTRACT_PRICES.read(weights.columns.values)
             prices = TRANSFORM_PRICES.adjClose(raw_prices)
             prices[meta_name_list['legend']] = cls.getPortfolioPrice(weights,prices)
             returns = TRANSFORM_STOCK.summarizeReturns(prices)
