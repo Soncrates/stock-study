@@ -108,7 +108,7 @@ setup(
         # that you indicate whether you support Python 2, Python 3 or both.
         # These classifiers are *not* checked by 'pip install'. See instead
         # 'python_requires' below.
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.0',
     ],
 
     # This field adds keywords for your project which will appear on the
@@ -146,7 +146,7 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     #install_requires=['StringIO'],  # Optional
-    install_requires=['pandas','pandas_datareader','matplotlib','pyparsing','cycler'],  # Optional
+    install_requires=['pandas','pandas_datareader','matplotlib','pyparsing','cycler','sklearn','numpy'],  # Optional
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"

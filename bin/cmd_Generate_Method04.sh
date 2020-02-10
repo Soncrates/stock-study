@@ -13,14 +13,13 @@ function generate {
 }
 
 function portfolio {
-  set -x
   $python cmd_Method04_step01.py
   # Execution speed : minutes : 19.0, seconds : 14.81
 
 }
 
-set -eu
-portfolio
+set -eux
+#portfolio
 
 validate Basic_Materials
 generate 
