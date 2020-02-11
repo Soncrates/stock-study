@@ -333,11 +333,15 @@ def partition(data) :
         if sector == 'Energy' :
             #Error Energy comes up as Nan because only one group
             continue
+        if sector == 'Financial Services' :
+            #Performance
+            continue
         test[sector] = []
         for _K, k in EXTRACT_K.enumerate(group) :
-            if len(k) < 5 :
+            if len(k) > 5 :
                 #performance
-                continue
+                k = k.sort_values(['RISK']).head(4)
+                logging.info(k)
             if len(k) == 1 :
                 #outlier
                 continue
@@ -347,6 +351,7 @@ def partition(data) :
         v = pd.Series(test[key], name=key)
         temp.append(v)
     temp = reduce(lambda x,y : df_crossjoin(x,y),temp)
+    logging.info(temp)
     for i, entry in temp.iterrows() :
         flags = entry.to_dict()
         portfolio = []
@@ -384,16 +389,16 @@ def process() :
 def main() : 
     stock_summary = process()
     portfolio_list = pd.DataFrame()
-    count = 3
     for portfolio in partition(stock_summary) :
         ret = TRANSFORM_PORTFOLIO.getList(portfolio)
         portfolio_list = pd.concat([portfolio_list,ret], axis=1 )
         portfolio_list.fillna(0,inplace=True)
-        logging.info(portfolio_list)
-        if len(portfolio_list) > 100 :
-           ret = TRANSFORM_PORTFOLIO.truncate(portfolio_list.T, 10)
+        if len(portfolio_list) > 50 :
+           ret = TRANSFORM_PORTFOLIO.truncate(portfolio_list.T, 6)
            logging.info(ret)
            portfolio_list = ret.T
+           config = TRANSFORM_PORTFOLIO.to_ini(portfolio_list)
+           LOAD.config(config)
     if len(portfolio_list) > 10 :
        ret = TRANSFORM_PORTFOLIO.truncate(portfolio_list.T, 5)
        portfolio_list = ret.T
