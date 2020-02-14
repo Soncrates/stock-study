@@ -54,41 +54,64 @@ class EXTRACT() :
         for path, section, key, stock_list in INI.loadList(*ini_list) :
             yield path, section, key, stock_list
 
-
 class TRANSFORM() :
-    _prices = 'Adj Close'
-    @classmethod
-    def ticker(cls,entry) :
-        target = 'Fund Symbol'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def name(cls,entry) :
-        target = 'Fund Name'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def type(cls,entry) :
-        target = 'Type'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def category(cls,entry) :
-        target = 'Category'
-        ret = entry.get(target,None)
-        return ret
-    @classmethod
-    def summary(cls, data_store, ticker_list) :
-        ret = []
-        for ticker in ticker_list :
-            logging.info(ticker)
-            prices = EXTRACT_TICKER.load(data_store, ticker)
-            summary = TRANSFORM_TICKER.summary(prices)
-            summary.rename(columns={0:ticker},inplace=True)
-            ret.append(summary)
-        ret = pd.concat(ret, axis=1)
-        logging.info(ret)
-        return ret.T.to_dict()
+      _prices = 'Adj Close'
+      _security = 'Security Name'
+      _primary = 'Symbol'
+      _secondary = 'NASDAQ Symbol'
+      @classmethod
+      def _validate(cls, entry) :
+          flag_1 = cls._primary in entry and cls._security in entry
+          flag_2 = cls._secondary in entry and cls._security in entry
+          flag = flag_1 or flag_2
+          return flag
+      @classmethod
+      def validate(cls, data) :
+          ret = filter(lambda x : cls._validate(x), data)
+          return list(ret)
+      @classmethod
+      def safe(cls, name) :
+          name = name.replace('%', ' percent')
+          return name
+      @classmethod
+      def get_symbol(cls, entry) :
+          ret = entry.get(cls._primary,None)
+          if not (ret is None) :
+             return ret
+          return entry.get(cls._secondary,None)
+      @classmethod
+      def get_name(cls,stock_list, data) :
+          for i, ticker in enumerate(stock_list) :
+              if '=' in ticker :
+                  continue
+              ret = filter(lambda x : cls.get_symbol(x) == ticker, data)
+              ret = list(ret)
+              if len(ret) == 0 :
+                 continue
+              yield i, ticker, ret[0]
+      @classmethod
+      def to_dict(cls,stock_list, data) :
+          ret = {}
+          for i, ticker, entry in cls.get_name(stock_list, data) :
+              value = entry[cls._security]
+              ret[ticker] = cls.safe(value)
+          return ret
+      @classmethod
+      def _summary(cls, data_store, ticker) :
+          logging.info(ticker)
+          prices = EXTRACT_TICKER.load(data_store, ticker)
+          ret = TRANSFORM_TICKER.summary(prices)
+          ret.rename(columns={0:ticker},inplace=True)
+          return ret
+      @classmethod
+      def summary(cls, data_store, ticker_list) :
+          ret = []
+          for i, ticker in enumerate(ticker_list) :
+              summary = cls._summary(data_store,ticker)
+              ret.append(summary)
+          ret = pd.concat(ret, axis=1)
+          logging.info(ret)
+          return ret.T.to_dict()
         
 class LOAD() :
 
