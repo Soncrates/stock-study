@@ -5,6 +5,7 @@ import pandas as pd
 from libCommon import INI, ENVIRONMENT, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
+from libFinance import TRANSFORM_DRAWDOWN as DRAWDOWN, TRANSFORM_DAILY as DAILY
 from libDebug import trace
 
 class EXTRACT_TICKER() :
@@ -36,7 +37,11 @@ class EXTRACT_TICKER() :
       def load(cls, data_store, ticker) :
           filename = '{}/{}.pkl'.format(data_store,ticker)
           name, data = STOCK_TIMESERIES.load(filename)
-          return data
+          if ticker == name :
+             return data
+          msg = '{} {}'.format(ticker,name)
+          msg = 'ticker does not match between filename and file content {}'.format(msg)
+          raise ValueError(msg)
 
 class TRANSFORM_TICKER() :
     _prices = 'Adj Close'
@@ -63,6 +68,9 @@ class TRANSFORM_TICKER() :
         ret = SHARPE.find(prices, period=FINANCE.YEAR, span=2*FINANCE.YEAR)
         cagr = CAGR.find(prices)
         ret.update(cagr)
+        daily = DAILY.enrich(prices)
+        drawdown = DRAWDOWN.find(daily['daily'])
+        ret.update(drawdown)
         ret = pd.DataFrame([ret]).T
         logging.debug(ret)
         return ret
@@ -109,7 +117,7 @@ if __name__ == '__main__' :
 
    ticker_list = ['^GSPC','AAPL','RAFGX','SPY']
    ticker_list = ['AAPL','RAFGX','SPY']
-   ticker_list = ['SPY','RAFGX','AAPL']
+   ticker_list = ['SPY','RAFGX','AAPL','^GSPC']
    ret = []
    for ticker in ticker_list :
        prices = EXTRACT_TICKER.load(data_store, ticker)
