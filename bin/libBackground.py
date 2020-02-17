@@ -103,6 +103,11 @@ if __name__ == '__main__' :
    import logging
    from libCommon import ENVIRONMENT
 
+
+   _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN','MAX INCREASE']
+   _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN',]
+   _XXX = sorted(_XXX)
+
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
@@ -125,6 +130,6 @@ if __name__ == '__main__' :
        summary.rename(columns={0:ticker},inplace=True)
        ret.append(summary)
    ret = pd.concat(ret, axis=1)
-   logging.info(ret)
-   logging.info(ret.T)
+   logging.info(ret.loc[_XXX])
+   logging.info(ret.T[_XXX])
 
