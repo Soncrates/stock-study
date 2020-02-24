@@ -45,6 +45,14 @@ class StockTemplate(BaseDocTemplate):
           ('VALIGN',(0,0), (-1,-1), 'TOP'),
           ]
     ts = TableStyle(local_ts)
+    local_ts = [('TOPPADDING', (0,0), (-1,-1), 2),
+          ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+          ('LEFTPADDING', (0,0), (-1,-1), 1),
+          ('RIGHTPADDING', (0,0), (-1,-1), 1),
+          ('VALIGN',(0,0), (-1,-1), 'TOP'),
+          ('ROWBACKGROUNDS',(0,0), (-1,-1),[colors.white,colors.lightgrey]),
+          ]
+    ts_hr = TableStyle(local_ts)
 
     def __init__(self, filename, **kw):
         self.allowSplitting = 0
