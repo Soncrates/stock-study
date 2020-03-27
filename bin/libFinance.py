@@ -158,22 +158,9 @@ class STOCK_TIMESERIES :
           return d
 class TRANSFORM() :
       @classmethod
-      def DailyReturns(cls, data) :
-          #ret = data / data.iloc[0]
-          ret = data.pct_change()
-          ret.iloc[0] = 0  # set first day pseudo-price
-          ret = ret.replace([np.inf, -np.inf], np.nan)
-          #logging.info(ret.head(3))
-          #logging.info(ret.tail(3))
-          return ret
-      @classmethod
       def GraphReturns(cls, ret) :
           ret = 1 + ret
           ret = ret.cumprod()
-          return ret
-      @classmethod
-      def altDailyReturns(cls, data) :
-          ret = data.pct_change(1).fillna(0.0)
           return ret
 class HELPER :
       YEAR = 252
@@ -183,33 +170,26 @@ class HELPER :
       RESAMPLE_YEAR = '12M'
       RESAMPLE_QUARTER = '3M'
       RESAMPLE_MONTH = 'M'
-      @classmethod
-      def findDailyReturns(cls, data, period=0) :
-          if not isinstance(data,pd.DataFrame) :
-             logging.warn("prices are not in a dataframe {}".format(type(data)))
-             data = pd.DataFrame(data)
-          #logging.info((type(data),data.shape))
 
-          ret = TRANSFORM.DailyReturns(data)
-          height, width = ret.shape
-          if width == 1 :
-             ret = ret.dropna(how="all")
-          #else :
-          #   ret.fillna(0, inplace=True)
-          height, width = ret.shape
-          if height < period :
-             return None
-          #ret.sort_index(inplace=True)
-          #ret = 1 + ret
-          #logging.info(ret.head(3))
-          #logging.info(ret.tail(3))
+      @classmethod
+      def get_height(cls, data) :
+          ret = 0
+          if isinstance(data,dict) :
+             ret = len(data)
+             return ret
+          ret, *width = data.shape
           return ret
       @classmethod
-      def dep_graphReturns(cls, data) :
-          #data = data.resample(HELPER.RESAMPLE_MONTH).ffill()
-          ret = cls.findDailyReturns(data)
-          ret = TRANSFORM.GraphReturns(ret)
-          ret = ret.rolling(HELPER.MONTH).mean()
+      def findDailyReturns(cls, data, period=0) :
+          height = cls.get_height(data)
+          if height < period :
+             return None
+
+          ret = TRANSFORM_DAILY.enrich(data)
+          ret = ret['daily']
+          height, *width = ret.shape
+          if width == 1 :
+             ret = ret.dropna(how="all")
           return ret
       @classmethod
       def new_graphReturns(cls, data) :
@@ -234,20 +214,6 @@ class HELPER :
           returns = data.ewm(span=span).mean().iloc[-1]
           risk = data.ewm(span=span).std().iloc[-1]
           return risk, returns
-      @classmethod
-      def dep_CAGR(cls, data):
-          _ret = data.dropna(how='all')
-          periods = len(_ret) / float(cls.YEAR)
-          ret = map(lambda x : _ret.iloc[x], [0,-1])
-          ret = list(ret)
-          cumalative, cagr = cls._CAGR(ret[0], ret[1], periods)
-          cagr = round(cagr,4)
-          return cagr
-      @classmethod
-      def dep__CAGR(cls, first, last, periods):
-          cumalative = (last/first)
-          cagr = cumalative**(1/periods)-1
-          return cumalative ,cagr
 class TRANSFORM_CAGR() :
       key_list = ['CAGR', 'GROWTH']
       @classmethod
@@ -270,6 +236,64 @@ class TRANSFORM_CAGR() :
           ret = list(ret)
           return ret[0], ret[1], periods
 
+class TRANSFORM_DRAWDOWN() :
+      key_list = ['MAX DRAWDOWN','MAX INCREASE']
+      @classmethod
+      def find(cls, daily):
+          logging.debug(daily.cumsum())
+          logging.debug(daily.cummax())
+          ret = daily.cumsum() - daily.cummax()
+          values = [ ret.min() ]
+          return dict(zip(cls.key_list, values))
+      @classmethod
+      def find(cls, daily):
+          peak = daily.cummax()
+          trough = daily.cumsum()
+          #logging.info(peak.max())
+          #peak = daily[daily >= peak]
+          #logging.info(peak)
+          ret = trough - peak
+          values = [ ret.min(), ret.max() ]
+          return dict(zip(cls.key_list, values))
+
+class TRANSFORM_DAILY() :
+      _prices = 'Adj Close'
+      _daily = 'daily'
+      @classmethod
+      def validate(cls, data, **kwargs) :
+          if not isinstance(data,pd.DataFrame) :
+             logging.warn("prices are not in a dataframe {}".format(type(data)))
+             data = pd.DataFrame(data)
+          data.replace([np.inf, -np.inf], np.nan, inplace=True)
+          return data
+          return data.dropna(how='all')
+      @classmethod
+      def enrich(cls, data, **kwargs) :
+          ret = cls.validate(data,**kwargs)
+          if cls._daily in ret.columns.values :
+             return ret
+          ret[cls._daily] = cls.daily(data)
+          return ret
+      @classmethod
+      def daily(cls, data) :
+          ret = data.pct_change(periods = 1, fill_method='ffill')
+          return ret
+      @classmethod
+      def alt_daily(cls, data) :
+          ret = data.pct_change(1).fillna(0.0)
+          return ret
+      @classmethod
+      def altalt_daily(cls, data) :
+          #ret = data / data.iloc[0]
+          ret = data.pct_change()
+          ret.iloc[0] = 0  # set first day pseudo-price
+          ret = ret.replace([np.inf, -np.inf], np.nan)
+          #logging.info(ret.head(3))
+          #logging.info(ret.tail(3))
+          return ret
+
+
+
 class TRANSFORM_SHARPE :
       '''
         Computes sharpe calculation for a single stock
@@ -282,17 +306,14 @@ class TRANSFORM_SHARPE :
           if data is None :
              ret =  dict(zip(cls.key_list, [0, 0, 0, size]))
              return ret
-          if isinstance(data, pd.DataFrame) :
-             data = data[cls._prices]
-
-          daily = cls.daily(data)
+          daily = TRANSFORM_DAILY.enrich(data)['daily']
           risk, returns = cls.extractRR(daily,span)
           risk, returns = cls.annualize(risk, returns, period)
           sharpe = cls.sharpe(risk, returns, risk_free_rate)
 
           values = map(lambda x : round(x,4), [returns, risk, sharpe, size ])
           ret = dict(zip(cls.key_list, values))
-          logging.info(ret)
+          logging.debug(ret)
           return ret
       @classmethod
       def annualize(cls, risk, returns, period) :
@@ -330,16 +351,10 @@ class TRANSFORM_SHARPE :
              logging.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
           _ret = data.dropna(how='all')
-          height, width = _ret.shape
+          height = HELPER.get_height(data)
           if height < period :
              _ret = None
           return _ret, risk_free_rate, period, span, height
-      @classmethod
-      def daily(cls, data) :
-          logging.debug(data)
-          ret = data.pct_change(periods = 1, fill_method='ffill')
-          logging.debug(ret)
-          return ret
       @classmethod
       def extractRR(cls, data, span=0) :
           if span == 0 :
@@ -462,18 +477,19 @@ if __name__ == "__main__" :
        for stock in stock_list :
            ret = reader.extract_from_yahoo(stock)
            logging.debug (stock)
-           logging.debug (ret.describe())
-           returns = HELPER.findDailyReturns(ret)
-           logging.debug (returns.describe())
-           _risk, _returns = HELPER.findRiskAndReturn(returns['Adj Close'])
+           logging.debug (ret.describe().round(2))
+           daily = HELPER.findDailyReturns(ret)
+           logging.debug (daily.describe().round(2))
+           _risk, _returns = HELPER.findRiskAndReturn(daily['Adj Close'])
            msg = [_returns,_risk,_returns/_risk]
-           msg = zip(['returns','risk','sharpe'],msg)
+           msg = dict(zip(['returns','risk','sharpe'],msg))
            logging.debug(msg)
-           _risk, _returns = HELPER.findRiskAndReturn(returns['Adj Close'], period=HELPER.YEAR )
+           _risk, _returns = HELPER.findRiskAndReturn(daily['Adj Close'], period=HELPER.YEAR )
            msg = [_returns,_risk,_returns/_risk]
-           msg = zip(['returns','risk','sharpe'],msg)
+           msg = dict(zip(['returns','risk','sharpe'],msg))
            logging.debug(msg)
-           logging.debug (HELPER.CAGR(ret['Adj Close']))
+           logging.debug (TRANSFORM_CAGR.find(ret['Adj Close']))
+           logging.debug (TRANSFORM_DRAWDOWN.find(daily['Adj Close']))
 
    def demo_stock_2() :
        a,b = STOCK_TIMESERIES.read_all(file_list, stock_list)

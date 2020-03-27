@@ -9,11 +9,11 @@ from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
 
 class EXTRACT() :
     _singleton = None
-    def __init__(self, _env, config_list, file_list, output_file_by_type,background_file,local_dir,data_store) :
+    def __init__(self, _env, config_list, file_list, background_file,local_dir,data_store) :
         self.env = _env
         self.config_list = config_list
         self.file_list = file_list
-        self.output_file_by_type = output_file_by_type
+        #self.dep_output_file_by_type = output_file_by_type
         self.background_file = background_file
         self.local_dir = local_dir
         self.data_store = data_store
@@ -31,10 +31,10 @@ class EXTRACT() :
         _env = globals().get(target,None)
         target = 'background_file'
         background_file = globals().get(target,None)
-        target = 'output_file_by_type'
-        output_file_by_type = globals().get(target,None)
-        if len(_env.argv) > 1 :
-           output_file_by_type = _env.argv[1]
+        #target = 'output_file_by_type'
+        #output_file_by_type = globals().get(target,None)
+        #if len(_env.argv) > 1 :
+        #   output_file_by_type = _env.argv[1]
         target = 'ini_list'
         config_list = globals().get(target,[])
         if not isinstance(config_list,list) :
@@ -45,52 +45,64 @@ class EXTRACT() :
         local_dir = globals().get(target,None)
         target = "data_store"
         data_store = globals().get(target,[])
-        cls._singleton = cls(_env,config_list,file_list, output_file_by_type,background_file,local_dir,data_store)
+        cls._singleton = cls(_env,config_list,file_list, background_file,local_dir,data_store)
         return cls._singleton
 
 class TRANSFORM() :
       _prices = 'Adj Close'
+      _security = 'Security Name'
+      _primary = 'Symbol'
+      _secondary = 'NASDAQ Symbol'
       @classmethod
       def _validate(cls, entry) :
-          flag_1 = 'Symbol' in entry and 'Security Name' in entry
-          flag_2 = 'NASDAQ Symbol' in entry and 'Security Name' in entry
+          flag_1 = cls._primary in entry and cls._security in entry
+          flag_2 = cls._secondary in entry and cls._security in entry
           flag = flag_1 or flag_2
           return flag
       @classmethod
       def validate(cls, data) :
-          data = filter(lambda x : cls._validate(x), data)
-          return list(data)
+          ret = filter(lambda x : cls._validate(x), data)
+          return list(ret)
       @classmethod
       def safe(cls, name) :
           name = name.replace('%', ' percent')
           return name
       @classmethod
-      def symbol(cls, entry) :
-          ret = entry.get('Symbol',None)
-          if ret is None :
-             ret = entry.get('NASDAQ Symbol',None)
-          return ret
+      def get_symbol(cls, entry) :
+          ret = entry.get(cls._primary,None)
+          if not (ret is None) :
+             return ret
+          return entry.get(cls._secondary,None)
       @classmethod
-      def to_dict(cls,stock_list, data) :
-          ret = {}
+      def get_name(cls,stock_list, data) :
           for i, ticker in enumerate(stock_list) :
               if '=' in ticker :
                   continue
-              entry = filter(lambda x : cls.symbol(x) == ticker, data)
-              entry = list(entry)
-              if len(entry) == 0 :
+              ret = filter(lambda x : cls.get_symbol(x) == ticker, data)
+              ret = list(ret)
+              if len(ret) == 0 :
                  continue
-              entry = entry[0]
-              ret[ticker] = cls.safe(entry['Security Name'])
+              yield i, ticker, ret[0]
+      @classmethod
+      def to_dict(cls,stock_list, data) :
+          ret = {}
+          for i, ticker, entry in cls.get_name(stock_list, data) :
+              value = entry[cls._security]
+              ret[ticker] = cls.safe(value)
           return ret
+      @classmethod
+      def _summary(cls, data_store, ticker) :
+          logging.info(ticker)
+          prices = EXTRACT_TICKER.load(data_store, ticker)
+          ret = TRANSFORM_TICKER.summary(prices)
+          ret.rename(columns={0:ticker},inplace=True)
+          return ret
+
       @classmethod
       def summary(cls, data_store, ticker_list) :
           ret = []
-          for ticker in ticker_list :
-              logging.info(ticker)
-              prices = EXTRACT_TICKER.load(data_store, ticker)
-              summary = TRANSFORM_TICKER.summary(prices)
-              summary.rename(columns={0:ticker},inplace=True)
+          for i, ticker in enumerate(ticker_list) :
+              summary = cls._summary(data_store,ticker)
               ret.append(summary)
           ret = pd.concat(ret, axis=1)
           logging.info(ret)
@@ -152,7 +164,7 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    #file_list = env.list_filenames('local/historical_prices/*pkl')
-   output_file_by_type = '../local/stock_by_type.ini'
+   #output_file_by_type = '../local/stock_by_type.ini'
    background_file = '../local/stock_background.ini'
 
    local_dir = '{}/local'.format(env.pwd_parent)

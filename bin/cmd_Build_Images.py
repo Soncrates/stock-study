@@ -363,15 +363,18 @@ class TRANSFORM_PORTFOLIO() :
         ret_weights = {}
         ret_sector = {}
         for sector, summary in TRANSFORM_SECTOR.bySector(data) :
-            _W = summary['weight']
+            _W = summary['weight'].copy()
             _W = _W*100
             _W = _W.round(1)
             ret_sector[sector] = round(sum(_W),1)
 
-            _t = summary[['NAME']]
+            _t = summary[['NAME']].copy()
             _t['weight']  =_W
             _t['ticker'] = _t.index.values
             _t = cls.cleanup(_t)
+            for idx, name in enumerate(_W.index.values) :
+                _t.loc[name,_W.name] = _W.loc[name]
+                _t.loc[name,'ticker'] = name
             _t.rename(columns={'NAME':'Name'},inplace=True)
             _t = _t.T.to_dict().values()
             _t = list(_t)

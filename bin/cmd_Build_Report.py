@@ -125,7 +125,7 @@ class TRANSFORM() :
             rows = cls._addSummaryTable(key,data)
             ret.append(rows)
         ret = Table(data=ret)
-        ret.setStyle(StockTemplate.ts)
+        ret.setStyle(StockTemplate.ts_hr)
         return ret
     @classmethod
     def percent(cls, data) :
