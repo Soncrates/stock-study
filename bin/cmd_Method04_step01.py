@@ -98,42 +98,10 @@ class EXTRACT() :
         ret['SECTOR'] = ret['SECTOR'].fillna("Unknown") 
         ret['NAME'] = ret['NAME'].fillna("Unavailable") 
         ret.fillna(0.0, inplace = True) 
-        for sector, category in TRANSFORM.by_sector(ret) : pass
-        ret = cls.filterBackground(ret)
-        for sector, category in TRANSFORM.by_sector(ret) : pass
         cls._background_cache = ret
         return ret
     @classmethod
-    def filterBackground(cls,ret) :
-        cls.analysis(ret)
-        ret = ret[ret['LEN'] > 8*FINANCE.YEAR]
-        logging.info('LEN 8 years')
-        cls.analysis(ret)
-        ret = ret[ret['RISK'] <= 0.20]
-        logging.info('RISK under 20%')
-        cls.analysis(ret)
-        ret = ret[ret['CAGR'] >= 0.10]
-        logging.info('CAGR over 10%')
-        cls.analysis(ret)
-        #ret = ret[ret['SHARPE'] >= 0.9]
-        #logging.info('SHARPE 0.9')
-        #cls.analysis(ret)
-        #ret = ret[ret['GROWTH'] >= 2.0]
-        return ret
-    @classmethod
-    def analysis(cls,ret) :
-        stock = ret[ret['ENTITY'] == 'stock']
-        logging.info("STOCK")
-        logging.info(stock.iloc[0])
-        logging.info(stock.shape)
-        logging.info(round(stock.corr(),1))
-        logging.info("FUND")
-        fund = ret[ret['ENTITY'] == 'fund']
-        logging.info(fund.iloc[0])
-        logging.info(fund.shape)
-        logging.info(round(fund.corr(),1))
-    @classmethod
-    def config() :
+    def dep_config() :
         ini_list = EXTRACT.instance().config_list
         logging.info("loading results {}".format(ini_list))
         for path, section, key, stock_list in INI.loadList(*ini_list) :
@@ -171,11 +139,15 @@ class TRANSFORM():
         sector_list = sorted(set(sector_list))
         for sector in sector_list :
             group = background[background['SECTOR'] == sector]
-            raw = map(lambda key : group[key].mean(), cls.keys)
-            readable = map(lambda value : round(value,4), raw)
-            readable = dict(zip(cls.keys,readable))
-            logging.info((sector,group.shape,readable))
+            cls.stats(sector,group)
             yield sector, group
+    @classmethod
+    def stats(cls,msg,data) :
+        raw = map(lambda key : data[key].mean(), cls.keys)
+        readable = map(lambda value : round(value,3), raw)
+        readable = dict(zip(cls.keys,readable))
+        logging.info((msg,data.shape,readable))
+        logging.info(round(data.corr(),1))
 
 class TRANSFORM_PORTFOLIO() :
     @classmethod
@@ -282,17 +254,65 @@ class LOAD() :
         ret.write(open(save_file, 'w'))
         logging.info("results saved to file {}".format(save_file))
 
+def reduceLessThan(target, _data) :
+    if len(_data) < 10 :
+       return _data
+    _len = len(_data)
+    t = _data[target].mean()
+    s = _data[target].std()
+    threshold1, threshold2, threshold3 = t+s,t,t-s
+    ret = _data[_data[target] <= threshold1]
+    if _len == len(ret) :
+       logging.info('reduce {}'.format(target))
+       ret = ret[ret[target] <= threshold2]
+       if _len == len(ret) :
+          logging.info('double reduce {}'.format(target))
+          ret = ret[ret[target] <= threshold3]
+    return ret
+def reduceGreaterThan(target, _data) :
+    if len(_data) < 10 :
+       return _data
+    _len = len(_data)
+    t = _data[target].mean()
+    s = _data[target].std()
+    threshold1, threshold2, threshold3 = t-s,t,t+s
+    ret = _data[_data[target] >= threshold1]
+    if _len == len(ret) :
+       logging.info('increase {}'.format(target))
+       ret = ret[ret[target] >= threshold2]
+       if _len == len(ret) :
+          logging.info('double increase{}'.format(target))
+          ret = ret[ret[target] >= threshold3]
+    return ret
+
 def reduceTickerList(ret) :
     if len(ret) < 10 :
        return ret
+    TRANSFORM.stats('Original',ret)
     while len(ret) >= 10 :
-        data = ret[ret['RISK'] <= ret['RISK'].mean()]
-        if len(data) < 10 :
+        target = 'RISK'
+        data = reduceLessThan(target,ret)
+        TRANSFORM.stats(target,data)
+        if len(data) < 10 and len(data) > 5 :
            return data
-        data = data[data['CAGR'] >= data['CAGR'].mean()-data['CAGR'].std()]
-        if len(data) < 10 :
+        if len(data) == 0 :
+           return ret
+        target = 'SHARPE'
+        data = reduceGreaterThan(target,data)
+        TRANSFORM.stats(target,data)
+        if len(data) < 10 and len(data) > 5 :
            return data
+        if len(data) == 0 :
+           return ret
+        target = 'CAGR'
+        data = reduceGreaterThan(target,data)
+        TRANSFORM.stats(target,data)
+        if len(data) < 10 and len(data) > 5 :
+           return data
+        if len(data) == 0 :
+           return ret
         ret = data
+    TRANSFORM.stats('reduced',ret)
     return ret
 def process_Step01(output_file, data) :
     stock_list = data.index.values
@@ -309,6 +329,8 @@ def process_stock(data) :
         output_file = "{}/sector_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(' ','_')
         data = reduceTickerList(group)
+        print(group)
+        print(data)
         t = data.to_dict()
         for k in sorted(t.keys()) :
             if k not in ret :
@@ -333,18 +355,42 @@ def process_fund(data) :
         data = reduceTickerList(group)
         LOAD.config(output_file,**data.to_dict())
 
-        #output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
-        #output_file = output_file.replace(" ", "_")
-        #process_Step01(output_file,data)
+        output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
+        output_file = output_file.replace(" ", "_")
+        process_Step01(output_file,data)
         
+def cleanup(ret) :
+    ret['NAME'] = ret['NAME'].str.replace("'", "")
+    ret['NAME'] = ret['NAME'].str.replace(" - ", ", ")
+    ret['NAME'] = ret['NAME'].str.replace(", ", " ")
+    ret['NAME'] = ret['NAME'].str.replace("Common Stock", "Cmn Stk")
+    ret['NAME'] = ret['NAME'].str.replace("Limited", "Ltd.")
+    ret['NAME'] = ret['NAME'].str.replace("Corporation", "Corp.")
+    ret['NAME'] = ret['NAME'].str.replace("Pharmaceuticals", "Pharm.")
+    ret['NAME'] = ret['NAME'].str.replace("Technologies", "Tech.")
+    ret['NAME'] = ret['NAME'].str.replace("Technology", "Tech.")
+    ret['NAME'] = ret['NAME'].str.replace("International", "Int.")
+    return ret
+
 @exit_on_exception
 @trace
 def main() : 
     logging.info('reading from file {}'.format(EXTRACT.instance().input_file))
     ret = EXTRACT.background()
+    ret = ret[ret['LEN'] > 8*FINANCE.YEAR]
+    ret = cleanup(ret)
     stock = ret[ret['ENTITY'] == 'stock']
-    process_stock(stock)
     fund = ret[ret['ENTITY'] == 'fund']
+    TRANSFORM.stats('stock',stock)
+    stock = stock[stock['RISK'] < 0.5]
+    stock = stock[stock['SHARPE'] > 0.4]
+    TRANSFORM.stats('reduced',stock)
+    process_stock(stock)
+
+    TRANSFORM.stats('fund',fund)
+    fund = fund[fund['RISK'] < 0.4]
+    fund = fund[fund['SHARPE'] > 0.5]
+    TRANSFORM.stats('reduced',fund)
     process_fund(fund)
 
 if __name__ == '__main__' :

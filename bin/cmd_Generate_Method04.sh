@@ -19,7 +19,7 @@ function portfolio {
 }
 
 set -eux
-#portfolio
+portfolio
 
 validate Basic_Materials
 generate 

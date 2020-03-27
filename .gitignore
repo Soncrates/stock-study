@@ -11,3 +11,5 @@ report*ini
 portfolio*ini
 dist/
 bin/stock_study.egg-info
+local/fund_*ini
+local/sector_*ini

@@ -371,6 +371,7 @@ class TRANSFORM_PORTFOLIO() :
             _t = summary[['NAME']]
             _t['weight']  =_W
             _t['ticker'] = _t.index.values
+            _t = cls.cleanup(_t)
             _t.rename(columns={'NAME':'Name'},inplace=True)
             _t = _t.T.to_dict().values()
             _t = list(_t)
@@ -432,6 +433,20 @@ class TRANSFORM_PORTFOLIO() :
             meta['sector'] = TRANSFORM_STOCK.enrichSector(meta)
             logging.info(meta.T)
             yield weights, meta_name_list, prices, meta, returns
+    @classmethod
+    def cleanup(cls,ret) :
+        ret['NAME'] = ret['NAME'].str.replace("'", "")
+        ret['NAME'] = ret['NAME'].str.replace(" - ", ", ")
+        ret['NAME'] = ret['NAME'].str.replace(", ", " ")
+        ret['NAME'] = ret['NAME'].str.replace("Common Stock", "Cmn Stk")
+        ret['NAME'] = ret['NAME'].str.replace("Limited", "Ltd.")
+        ret['NAME'] = ret['NAME'].str.replace("Corporation", "Corp.")
+        ret['NAME'] = ret['NAME'].str.replace("Pharmaceuticals", "Pharm.")
+        ret['NAME'] = ret['NAME'].str.replace("Technologies", "Tech.")
+        ret['NAME'] = ret['NAME'].str.replace("Technology", "Tech.")
+        ret['NAME'] = ret['NAME'].str.replace("International", "Int.")
+        return ret
+
 
 class LOAD() :
 
