@@ -6,6 +6,7 @@ import pandas as pd
 import pandas_datareader as web
 
 from libCommon import log_on_exception
+from libDebug import trace
 
 '''
   STOCK_SERIES - perhaps the only legit class in the entire library
@@ -181,12 +182,20 @@ class HELPER :
           return ret
       @classmethod
       def findDailyReturns(cls, data, period=0) :
+          '''
+          Wrapper function around TRANSFORM_DAILY.enrich
+          '''
           height = cls.get_height(data)
           if height < period :
              return None
 
           ret = TRANSFORM_DAILY.enrich(data)
-          ret = ret['daily']
+          if isinstance(ret,pd.Series) :
+             ret = ret.dropna(how="all")
+             return ret
+          target = 'daily'
+          if target in ret.columns.values :
+             ret = ret['daily']
           height, *width = ret.shape
           if width == 1 :
              ret = ret.dropna(how="all")
@@ -266,17 +275,20 @@ class TRANSFORM_DAILY() :
              data = pd.DataFrame(data)
           data.replace([np.inf, -np.inf], np.nan, inplace=True)
           return data
-          return data.dropna(how='all')
       @classmethod
       def enrich(cls, data, **kwargs) :
           ret = cls.validate(data,**kwargs)
           if cls._daily in ret.columns.values :
              return ret
-          ret[cls._daily] = cls.daily(data)
-          return ret
+          daily = cls.daily(data)
+          if cls._prices in ret.columns.values :
+             ret[cls._daily] = daily
+             return ret
+          return daily
       @classmethod
       def daily(cls, data) :
-          ret = data.pct_change(periods = 1, fill_method='ffill')
+          ret = data.pct_change(periods = 1, fill_method='bfill')
+          ret = ret.dropna(how='all')
           return ret
       @classmethod
       def alt_daily(cls, data) :
@@ -291,8 +303,6 @@ class TRANSFORM_DAILY() :
           #logging.info(ret.head(3))
           #logging.info(ret.tail(3))
           return ret
-
-
 
 class TRANSFORM_SHARPE :
       '''
@@ -367,79 +377,6 @@ class TRANSFORM_SHARPE :
           return risk, returns
           rolling = returns_s.rolling(window=self.periods)
           rolling_sharpe_s = np.sqrt(self.periods) * (rolling.mean() / rolling.std())
-
-class RISK :
-      column = 'risk'
-      @classmethod
-      def shave(cls, data, size) :
-          ret = data.sort_values([cls.column]).head(size)
-          logging.info(ret.sort_values([cls.column]).head(5))
-          return ret
-      @classmethod
-      def trim(cls, data) :
-          desc = data.describe()
-          risk =  desc[cls.column]['75%']
-          ret = data[data[cls.column] <= risk]
-          logging.info(ret.sort_values([cls.column]).head(5))
-          return ret
-      @classmethod
-      def cut(cls, data) :
-          desc = data.describe()
-          risk =  desc[cls.column]['25%']
-          ret = data[data[cls.column] <= risk]
-          logging.info(ret.sort_values([cls.column]).head(5))
-          return ret
-
-class RETURNS :
-      column = 'returns'
-      @classmethod
-      def shave(cls, data, size) :
-          ret = data.sort_values([cls.column]).tail(size)
-          logging.info(ret.sort_values([cls.column]).tail(5))
-          return ret
-      @classmethod
-      def trim(cls, data) :
-          desc = data.describe()
-          returns =  desc[cls.column]['25%']
-          ret = data[data[cls.column] >= returns]
-          logging.info(ret.sort_values([cls.column]).tail(5))
-          return ret
-      @classmethod
-      def cut(cls, data) :
-          desc = data.describe()
-          returns =  desc[cls.column]['75%']
-          ret = data[data[cls.column] >= returns]
-          logging.info(ret.sort_values([cls.column]).tail(5))
-          return ret
-
-class BIN :
-      @classmethod
-      def descending(cls, data,target) :
-          desc = data.describe()
-          _bin1 =  desc[target]['75%']
-          _bin2 =  desc[target]['50%']
-          _bin3 =  desc[target]['25%']
-          bin1 = data[data[target] > _bin1]
-          bin2 = data[(data[target] <= _bin1) & (data[target] > _bin2)]
-          bin3 = data[(data[target] <= _bin2) & (data[target] > _bin3)]
-          bin4 = data[data[target] <= _bin3]
-          ret = [ bin1, bin2, bin3, bin4 ]
-          ret = filter(lambda x : len(x) > 0, ret)
-          return ret
-
-      @classmethod
-      def ascending(cls, data,target) :
-          desc = data.describe()
-          _bin1 =  desc[target]['75%']
-          _bin2 =  desc[target]['50%']
-          _bin3 =  desc[target]['25%']
-          bin4 = data[data[target] < _bin3]
-          bin3 = data[(data[target] >= _bin3) & (data[target] < _bin2)]
-          bin2 = data[(data[target] >= _bin2) & (data[target] < _bin1)]
-          bin1 = data[data[target] >= _bin1]
-          ret = [ bin4, bin3, bin2, bin1 ]
-          ret = filter(lambda x : len(x) > 0, ret)
-          return ret
 
 '''
 #	Asset	                        CAGR	Expected Return*	Standard Deviation	Sharpe Ratio*	Min. Weight	Max. Weight

@@ -11,7 +11,7 @@ class EXTRACT() :
     _singleton = None
     _background_cache = None
     _prices = 'Adj Close'
-    _floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE']
+    _floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE','RETURNS']
 
     def __init__(self, _env, local_dir, sector,background, benchmark, config_list, input_file, output_file,file_list) :
         self._env = _env
@@ -132,7 +132,7 @@ class EXTRACT() :
         return prices
 
 class TRANSFORM():
-    keys = ['RISK','SHARPE','CAGR','GROWTH']
+    keys = ['RISK','SHARPE','CAGR','GROWTH','RETURNS']
     @classmethod
     def by_sector(cls,background) :
         sector_list = background['SECTOR']
@@ -196,6 +196,7 @@ class TRANSFORM_PORTFOLIO() :
     def getList(cls, data, prices) :
         ret = pd.DataFrame()
         for stock_list in cls.stocks(data) :
+            logging.debug(stock_list)
             ret = cls.portfolio(prices,stock_list,ret)
             ret = cls.truncate(ret)
         if len(ret) > 5 :
@@ -329,8 +330,8 @@ def process_stock(data) :
         output_file = "{}/sector_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(' ','_')
         data = reduceTickerList(group)
-        print(group)
-        print(data)
+        print(group.sort_values(['SHARPE']))
+        print(data.sort_values(['SHARPE']))
         t = data.to_dict()
         for k in sorted(t.keys()) :
             if k not in ret :
@@ -349,8 +350,6 @@ def process_fund(data) :
     local_dir = EXTRACT.instance().local_dir
     for sector, group in TRANSFORM.by_sector(data) :
         output_file = "{}/fund_{}.ini".format(local_dir, sector)
-        output_file = output_file.replace('(','')
-        output_file = output_file.replace(')','')
         output_file = output_file.replace(' ','_')
         data = reduceTickerList(group)
         LOAD.config(output_file,**data.to_dict())
@@ -359,38 +358,51 @@ def process_fund(data) :
         output_file = output_file.replace(" ", "_")
         process_Step01(output_file,data)
         
-def cleanup(ret) :
-    ret['NAME'] = ret['NAME'].str.replace("'", "")
-    ret['NAME'] = ret['NAME'].str.replace(" - ", ", ")
-    ret['NAME'] = ret['NAME'].str.replace(", ", " ")
-    ret['NAME'] = ret['NAME'].str.replace("Common Stock", "Cmn Stk")
-    ret['NAME'] = ret['NAME'].str.replace("Limited", "Ltd.")
-    ret['NAME'] = ret['NAME'].str.replace("Corporation", "Corp.")
-    ret['NAME'] = ret['NAME'].str.replace("Pharmaceuticals", "Pharm.")
-    ret['NAME'] = ret['NAME'].str.replace("Technologies", "Tech.")
-    ret['NAME'] = ret['NAME'].str.replace("Technology", "Tech.")
-    ret['NAME'] = ret['NAME'].str.replace("International", "Int.")
-    return ret
+@trace
+def prep() :
+    #logging.info('reading from file {}'.format(EXTRACT.instance().input_file))
+    ret = EXTRACT.background()
+    TRANSFORM.stats('raw',ret)
+    ret = ret[ret['LEN'] > 8*FINANCE.YEAR]
+    TRANSFORM.stats('established',ret)
+    ret = ret[ret['CAGR'] > 0]
+    TRANSFORM.stats('profitable',ret)
+    ret = ret[ret['RETURNS'] > 0]
+    TRANSFORM.stats('profiable 2',ret)
+    ret = ret[ret['SHARPE'] > 0]
+    TRANSFORM.stats('sharpe',ret)
+    ret = ret[ret['RISK'] < 1]
+    TRANSFORM.stats('sane',ret)
+    n = ret['NAME'].copy(deep=True)
+    n = n.str.replace("'", "")
+    n = n.str.replace(" - ", ", ")
+    n = n.str.replace(", ", " ")
+    n = n.str.replace("Common Stock", "Cmn Stk")
+    n = n.str.replace("Limited", "Ltd.")
+    n = n.str.replace("Corporation", "Corp.")
+    n = n.str.replace("Pharmaceuticals", "Pharm.")
+    n = n.str.replace("Technologies", "Tech.")
+    n = n.str.replace("Technology", "Tech.")
+    n = n.str.replace("International", "Int.")
+    ret['NAME'] = n
+    stock = ret[ret['ENTITY'] == 'stock']
+    fund = ret[ret['ENTITY'] == 'fund']
+    s = fund['SECTOR'].copy(deep=True)
+    s = s.str.replace("(", "")
+    s = s.str.replace(")", "")
+    fund['SECTOR'] = s
+    for sector in sorted(stock['SECTOR'].unique()) :
+        x = stock[stock['SECTOR'] == sector ]
+        TRANSFORM.stats(sector,x)
+    TRANSFORM.stats('stock',stock)
+    TRANSFORM.stats('fund',fund)
+    return stock, fund
 
 @exit_on_exception
 @trace
 def main() : 
-    logging.info('reading from file {}'.format(EXTRACT.instance().input_file))
-    ret = EXTRACT.background()
-    ret = ret[ret['LEN'] > 8*FINANCE.YEAR]
-    ret = cleanup(ret)
-    stock = ret[ret['ENTITY'] == 'stock']
-    fund = ret[ret['ENTITY'] == 'fund']
-    TRANSFORM.stats('stock',stock)
-    stock = stock[stock['RISK'] < 0.5]
-    stock = stock[stock['SHARPE'] > 0.4]
-    TRANSFORM.stats('reduced',stock)
+    stock, fund = prep()
     process_stock(stock)
-
-    TRANSFORM.stats('fund',fund)
-    fund = fund[fund['RISK'] < 0.4]
-    fund = fund[fund['SHARPE'] > 0.5]
-    TRANSFORM.stats('reduced',fund)
     process_fund(fund)
 
 if __name__ == '__main__' :
