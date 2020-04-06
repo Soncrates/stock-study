@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, exit_on_exception, log_on_exception
+from libCommon import INI_BASE, INI_WRITE, exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
 from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
@@ -112,11 +112,7 @@ class LOAD() :
     @classmethod
     def background(cls, **config) :
         save_file = EXTRACT.instance().background_file
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,[])
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file,**config)
         logging.info("results saved to {}".format(save_file))
 
 def process_names(nasdaq) :

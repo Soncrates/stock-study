@@ -1,6 +1,7 @@
 import logging
 import sys
-sys.path.append(sys.path[0].replace('test','bin'))
+
+import context
 from libDebug import trace, cpu
 
 if __name__ == '__main__' :

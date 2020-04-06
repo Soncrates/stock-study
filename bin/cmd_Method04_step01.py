@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI,combinations, exit_on_exception, log_on_exception
+from libCommon import INI_READ,INI_WRITE,combinations, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from newSharpe import PORTFOLIO
 from libDebug import trace, cpu
@@ -70,7 +70,7 @@ class EXTRACT() :
            return cls._background_cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
-        for path, key, stock, value in INI.loadList(*load_file) :
+        for path, key, stock, value in INI_READ.read(*load_file) :
             if "File Creation Time" in stock :
                 continue
             if stock not in ret :
@@ -83,7 +83,7 @@ class EXTRACT() :
 
         load_file = cls.instance().sector
         logging.info('reading file {}'.format(load_file))
-        for path, section, key, ticker_list in INI.loadList(*load_file) :
+        for path, section, key, ticker_list in INI_READ.read(*load_file) :
             entity = 'stock'
             if 'fund' in path :
                key = '{} ({})'.format(section,key)
@@ -104,7 +104,7 @@ class EXTRACT() :
     def dep_config() :
         ini_list = EXTRACT.instance().config_list
         logging.info("loading results {}".format(ini_list))
-        for path, section, key, stock_list in INI.loadList(*ini_list) :
+        for path, section, key, stock_list in INI_READ.read(*ini_list) :
             yield path, section, key, stock_list
     @classmethod
     @log_on_exception
@@ -236,23 +236,11 @@ class LOAD() :
     @classmethod
     def config(cls, save_file, **config) :
         logging.info("results saved to {}".format(save_file))
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,{})
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
-
+        INI_WRITE.write(save_file, **config)
     @classmethod
     def portfolio(cls, save_file, **portfolio) :
         logging.info("saving results to file {}".format(save_file))
-        ret = INI.init()
-        name_list = sorted(portfolio.keys())
-        value_list = map(lambda key : portfolio[key], name_list)
-        for i, name in enumerate(name_list) :
-            if not isinstance(value_list,list) :
-               value_list = list(value_list)
-            INI.write_section(ret,name,**value_list[i])
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file, **portfolio)
         logging.info("results saved to file {}".format(save_file))
 
 def reduceLessThan(target, _data) :
@@ -330,8 +318,8 @@ def process_stock(data) :
         output_file = "{}/sector_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(' ','_')
         data = reduceTickerList(group)
-        print(group.sort_values(['SHARPE']))
-        print(data.sort_values(['SHARPE']))
+        #print(group.sort_values(['SHARPE']))
+        #print(data.sort_values(['SHARPE']))
         t = data.to_dict()
         for k in sorted(t.keys()) :
             if k not in ret :
@@ -410,7 +398,7 @@ if __name__ == '__main__' :
    import logging
    from libCommon import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

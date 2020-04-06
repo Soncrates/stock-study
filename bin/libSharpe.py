@@ -12,6 +12,8 @@ import pandas as pd
 from libFinance import HELPER as FINANCE
 from libDebug import cpu
 '''
+DEPRECATED
+
 Sharpe Ratio
 
 (Portfollio Expected Return - Risk Free Rate) / Portfolio Risk
@@ -230,7 +232,7 @@ if __name__ == "__main__" :
    import sys
    import logging
 
-   from libCommon import ENVIRONMENT, INI
+   from libCommon import ENVIRONMENT, INI_READ
    from libFinance import STOCK_TIMESERIES
 
    env = ENVIRONMENT()
@@ -241,7 +243,7 @@ if __name__ == "__main__" :
    def prep(*ini_list) :
        ini_list = filter(lambda x : "benchmark" in x , ini_list)
        print (ini_list)
-       for path, section, key, stock_list in INI.loadList(*ini_list) :
+       for path, section, key, stock_list in INI_READ.read(*ini_list) :
            if section == 'Index' : pass
            else : continue
            yield key, stock_list

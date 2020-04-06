@@ -1,13 +1,13 @@
 #/usr/bin/env python
 
 import sys
-sys.path.append(sys.path[0].replace('test','bin'))
 import logging
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch    
 
-from libCommon import log_exception
+import context
+from libCommon import log_on_exception
 
 def horizontalscale(canvas):    
     textobject = canvas.beginText()
@@ -36,7 +36,14 @@ def embedImage(canvas) :
     f = open(path_to_file, 'rb')
     story.append( Image(f) )
 
-def main(save_file) :
+@log_on_exception
+def main() :
+    target = 'test_dir'
+    test_dir = globals().get(target,None)
+    target = 'save_file'
+    save_file = globals().get(target,None)
+
+    env.mkdir(test_dir)
     c = canvas.Canvas(save_file)
     c.drawString(100,750,"Welcome to Reportlab!")
     fonts(c)
@@ -57,8 +64,8 @@ if __name__ == '__main__' :
    local_dir = '{pwd_parent}/local'.format(**vars(env))
    test_dir = 'testResults'
    save_file = '{}/hello.pdf'.format(test_dir)
-   env.mkdir(test_dir)
-   main(save_file)
+
+   main()
 
 
 

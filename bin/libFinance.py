@@ -280,16 +280,17 @@ class TRANSFORM_DAILY() :
           ret = cls.validate(data,**kwargs)
           if cls._daily in ret.columns.values :
              return ret
-          daily = cls.daily(data)
           if cls._prices in ret.columns.values :
+             daily = cls.daily(ret[cls._prices])
              ret[cls._daily] = daily
              return ret
+          daily = cls.daily(data)
           return daily
       @classmethod
       def daily(cls, data) :
           ret = data.pct_change(periods = 1, fill_method='bfill')
           ret = ret.dropna(how='all')
-          return ret
+          return ret 
       @classmethod
       def alt_daily(cls, data) :
           ret = data.pct_change(1).fillna(0.0)
@@ -388,7 +389,7 @@ if __name__ == "__main__" :
 
    import sys
    import logging
-   from libCommon import ENVIRONMENT, INI
+   from libCommon import ENVIRONMENT, INI_READ as INI
 
    env = ENVIRONMENT()
 
@@ -401,7 +402,7 @@ if __name__ == "__main__" :
    ini_list = filter(lambda x : 'stock_' in x, ini_list)
 
    def prep(*ini_list) :
-       for path, section, key, value in INI.loadList(*ini_list) :
+       for path, section, key, value in INI.read(*ini_list) :
            if 'Industry' not in section : continue
            if 'Gas' not in key : continue
            if 'Util' not in key : continue

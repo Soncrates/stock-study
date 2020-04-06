@@ -1,10 +1,10 @@
 import sys
-sys.path.append(sys.path[0].replace('test','bin'))
 
 import pandas as pd
 from pandas import DataFrame as df
 import matplotlib.pyplot as plt
 
+import context
 from libCommon import log_exception
 
 def load_file(filename) :

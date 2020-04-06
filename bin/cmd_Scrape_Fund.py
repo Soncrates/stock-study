@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, exit_on_exception, log_on_exception
+from libCommon import INI_READ, INI_WRITE, exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
 from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
@@ -51,7 +51,7 @@ class EXTRACT() :
     def config() :
         ini_list = EXTRACT.instance().config_list
         logging.info("loading results {}".format(ini_list))
-        for path, section, key, stock_list in INI.loadList(*ini_list) :
+        for path, section, key, stock_list in INI_READ.read(*ini_list) :
             yield path, section, key, stock_list
 
 class TRANSFORM() :
@@ -118,43 +118,45 @@ class LOAD() :
     @classmethod
     def config(cls, **config) :
         save_file = EXTRACT.instance().output_file_by_type
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,[])
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file,**config)
         logging.info("results saved to {}".format(save_file))
     @classmethod
     def background(cls, **config) :
         save_file = EXTRACT.instance().background_file
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,[])
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file,**config)
         logging.info("results saved to {}".format(save_file))
 
 def process_names(fund_list) :
-    ticker_list = map(lambda x : TRANSFORM.ticker(x), fund_list)
+    target = 'Fund Symbol'
+    ticker_list = map(lambda fund : fund.get(target,None), fund_list)
     ticker_list = list(ticker_list)
-    name_list = map(lambda fund : TRANSFORM.name(fund), fund_list)
+    target = 'Fund Name'
+    name_list = map(lambda fund : fund.get(target,None), fund_list)
     name_list = map(lambda name : name.replace('%', ' percent'), name_list)
     name_list = map(lambda name : name.replace(' Fd', ' Fund'), name_list)
     ret = dict(zip(ticker_list,name_list))
     return ret
 
+def _filter_by_type(fund) :
+    logging.debug(fund)
+    section = FUND.Type(fund)
+    key = FUND.Category(fund)
+
+    if section is None or len(section) == 0 :
+       return False, None, None
+    if key is None or len(key) == 0 :
+       return False, None, None
+    return True, section, key
 def process_by_type(fund_list) :
     recognized = FUND._Type.values()
-    logging.info(fund_list[0])
     ret = {}
+    target = 'Fund Symbol'
     for i, fund in enumerate(fund_list) :
-        section = TRANSFORM.type(fund)
-        key = TRANSFORM.category(fund)
-        name = TRANSFORM.ticker(fund)
-        if section is None or len(section) == 0 :
-            continue
-        if key is None or len(key) == 0 :
-            continue
+        flag, section, key = _filter_by_type(fund)
+        if flag :
+           continue
+        name = fund.get(target,None)
+
         if section not in recognized :
            key = "{}_{}".format(section,key)
            section = 'UNKNOWN'
@@ -186,7 +188,7 @@ if __name__ == '__main__' :
    import logging
    from libCommon import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

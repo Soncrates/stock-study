@@ -2,10 +2,11 @@
 
 import logging
 import pandas as pd
-from libCommon import INI,combinations, exit_on_exception, log_on_exception
+from libCommon import INI_READ,INI_WRITE,combinations, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from newSharpe import PORTFOLIO
 from libDebug import trace, cpu
+from libKMeans import EXTRACT_K
 
 class EXTRACT() :
     _singleton = None
@@ -70,7 +71,7 @@ class EXTRACT() :
            return cls._background_cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
-        for path, key, stock, value in INI.loadList(*load_file) :
+        for path, key, stock, value in INI_READ.read(*load_file) :
             if "File Creation Time" in stock :
                 continue
             if stock not in ret :
@@ -83,7 +84,7 @@ class EXTRACT() :
 
         load_file = cls.instance().sector
         logging.info('reading file {}'.format(load_file))
-        for path, section, key, ticker_list in INI.loadList(*load_file) :
+        for path, section, key, ticker_list in INI_READ.read(*load_file) :
             entity = 'stock'
             if 'fund' in path :
                key = '{} ({})'.format(section,key)
@@ -98,17 +99,17 @@ class EXTRACT() :
         ret['SECTOR'] = ret['SECTOR'].fillna("Unknown") 
         ret['NAME'] = ret['NAME'].fillna("Unavailable") 
         ret.fillna(0.0, inplace = True) 
-        for sector, category in TRANSFORM.by_sector(ret) : pass
-        ret = FILTER.background(ret)
-        for sector, category in TRANSFORM.by_sector(ret) : pass
-        cls._background_cache = ret
+        #for sector, category in TRANSFORM.by_sector(ret) : pass
+        #ret = FILTER.background(ret)
+        #for sector, category in TRANSFORM.by_sector(ret) : pass
+        #cls._background_cache = ret
         return ret
 
     @classmethod
     def config() :
         ini_list = EXTRACT.instance().config_list
         logging.info("loading results {}".format(ini_list))
-        for path, section, key, stock_list in INI.loadList(*ini_list) :
+        for path, section, key, stock_list in INI_READ.read(*ini_list) :
             yield path, section, key, stock_list
     @classmethod
     @log_on_exception
@@ -134,6 +135,30 @@ class EXTRACT() :
         prices = pd.DataFrame(prices)
         prices.fillna(method='bfill', inplace=True)
         return prices
+
+class EXTRACT_SECTOR() :
+    @classmethod
+    def enrich(cls,data) :
+        stock_list = []
+        if isinstance(data,pd.DataFrame) :
+           stock_list = data.index.values
+        elif isinstance(data,dict) :
+           stock_list = sorted(data.keys())
+        elif isinstance(data,list) :
+           stock_list = sorted(data)
+        stock_list = cls.read().index.intersection(stock_list)
+        ret = cls.read().loc[stock_list]
+        logging.info(ret)
+        return ret
+    @classmethod
+    def enumerate(cls,ret) :
+        _list = ret['SECTOR']
+        _list = sorted(set(_list))
+        for entry in _list :
+            group = ret[ret['SECTOR'] == entry]
+            FILTER.analysis(group)
+            logging.info((entry,len(group),sorted(group.index.values)))
+            yield entry, group
 
 class FILTER() :
     @classmethod
@@ -181,9 +206,9 @@ class FILTER() :
         DRAWDOWN = kwargs.get(target,-0.20)
         return LEN, RISK, CAGR, DRAWDOWN
     @classmethod
-    def background(cls,ret) :
+    def background(cls,ret,**kwargs) :
         stock = cls.see_stock(ret)
-        stock = cls._background(stock)
+        stock = cls._background(stock,**kwargs)
 
         fund = cls.see_fund(ret)
         fund = cls._background(fund)
@@ -191,7 +216,8 @@ class FILTER() :
         return stock
     @classmethod
     def analysis(cls,ret) :
-        logging.debug(ret.iloc[0])
+        if len(ret) > 0 :
+           logging.debug(ret.iloc[0])
         msg = ret[EXTRACT._floats_in_summary]
         msg = msg.describe().loc[['count','mean']]
         logging.info(msg.T)
@@ -200,7 +226,7 @@ class FILTER() :
 class TRANSFORM():
     keys = ['RISK','SHARPE','CAGR','GROWTH']
     @classmethod
-    def by_sector(cls,background) :
+    def def_by_sector(cls,background) :
         sector_list = background['SECTOR']
         sector_list = sorted(set(sector_list))
         for sector in sector_list :
@@ -295,12 +321,7 @@ class LOAD() :
     @classmethod
     def config(cls, save_file, **config) :
         logging.info("results saved to {}".format(save_file))
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,{})
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
-
+        INI_WRITE.write(save_file,**config)
     @classmethod
     def portfolio(cls, save_file, **portfolio) :
         logging.info("saving results to file {}".format(save_file))
@@ -315,25 +336,39 @@ class LOAD() :
         logging.info("results saved to file {}".format(save_file))
 
 def reduceTickerList(data) :
-    if len(data) < 15 :
+    if len(data) < 20 :
        return data
     ret = data
-    while len(ret) >= 15 :
+    initial_count = len(ret)
+    while len(ret) >= 20 :
         target = 'RISK'
-        data = ret[ret[target] <= ret[target].mean()]
-        if len(data) < 15 :
+        cap = ret[target].mean() + ret[target].std()
+        data = ret[ret[target] <= cap]
+        if len(data) < 20 :
            return data
         target = 'MAX DRAWDOWN'
         ret = data
-        data = ret[ret[target] <= ret[target].mean()]
-        if len(data) < 15 :
+        cap = ret[target].mean()
+        if ret[target].std() > 0 :
+           cap -= ret[target].std()
+        else :
+           cap += ret[target].std()
+        cap = ret[target].mean() - ret[target].std()
+        data = ret[ret[target] >= cap]
+        if len(data) < 20 :
            return data
         target = 'CAGR'
         ret = data
-        data = ret[ret[target] >= ret[target].mean()-ret[target].std()]
-        if len(data) < 15 :
+        cap = ret[target].mean() - ret[target].std()
+        data = ret[ret[target] >= cap]
+        if len(data) < 20 :
            return data
         ret = data
+        if len(ret) == initial_count :
+           ret = ret.sort_values('RISK').head(len(ret)-2)
+        initial_count = len(ret)
+        logging.info(initial_count)
+    logging.info(len(ret))
     return ret
 def process_Step01(output_file, data) :
     stock_list = data.index.values
@@ -344,12 +379,28 @@ def process_Step01(output_file, data) :
     LOAD.portfolio(output_file,**portfolio_list.to_dict())
 
 def process_stock(data) :
+    data = FILTER.background(data, CAGR=0.0)
+    _YYY = ['CAGR', 'RISK', 'SHARPE', 'MAX DRAWDOWN']
+    _YYY = ['CAGR', 'RISK', 'MAX DRAWDOWN']
+    _ZZZ = [ 'RISK', 'SHARPE','MAX DRAWDOWN']
+    _XXX = ['CAGR', 'RISK', 'SHARPE', 'MAX DRAWDOWN', 'K STOCK','K SECTOR','K','NAME']
+    _XXX = ['CAGR', 'RISK', 'SHARPE', 'MAX DRAWDOWN', 'K','L','NAME']
     local_dir = EXTRACT.instance().local_dir
     ret = {}
-    for sector, group in TRANSFORM.by_sector(data) :
+    cluster = int(len(data)/5)+1
+    data['K STOCK'] = EXTRACT_K.cluster(data[_YYY],cluster)
+    logging.info(data)
+
+    for sector, group in EXTRACT_SECTOR.enumerate(data) :
+        clusters = int(len(group)/5)+1
+        group['K SECTOR'] = EXTRACT_K.cluster(group[_YYY],clusters)
+        data = reduceTickerList(group)
+        FILTER.analysis(data)
+        clusters = int(len(data)/3)+1
+        data['K'] = EXTRACT_K.cluster(data[_YYY],clusters)
+        data['L'] = EXTRACT_K.cluster(data[_ZZZ],clusters)
         output_file = "{}/sector_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(' ','_')
-        data = reduceTickerList(group)
         t = data.to_dict()
         for k in sorted(t.keys()) :
             if k not in ret :
@@ -357,6 +408,8 @@ def process_stock(data) :
             ret[k].update(t[k])
         LOAD.config(output_file,**data.to_dict())
         logging.info('saved file {}'.format(output_file))
+        data = data.sort_values(_YYY)
+        print(data[_XXX])
 
         #output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
         #output_file = output_file.replace(" ", "_")

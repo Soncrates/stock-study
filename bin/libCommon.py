@@ -9,6 +9,7 @@ from time import time as _now
 import inspect
 import functools
 from ftplib import FTP as _ftp
+from json import dumps, loads
 
 from itertools import combinations as iter_combo
 
@@ -56,16 +57,27 @@ def log_on_exception(func):
     return exception_guard
 
 class ENVIRONMENT(object) :
-      def __init__(self, *largs, **kvargs) :
+      _env_vars = ['HOME','LOGNAME','OLDPWD','PATH','PWD','USER','USERNAME']
+      _singleton = None
+      @classmethod
+      def instance(cls, *largs, **kvargs) :
+          if not (cls._singleton is None) :
+             return cls._singleton
+
+          ret = cls(*largs, **kvargs)
+          ret.__dict__.update(**cls._env())
+          ret.__dict__.update(**kvargs)
+          cls._singleton = ret
+          return cls._singleton
+      @classmethod
+      def _env(cls, *largs, **kvargs) :
           env = os.environ
-          self.HOME = env.get( "HOME", None)
-          self.LOGNAME = env.get( "LOGNAME", None)
-          self.OLDPWD = env.get( "OLDPWD", None)
-          self.PATH = env.get( "PATH", None)
-          self.PATH = self.PATH.split(':')
-          self.PWD = env.get( "PWD", os.getcwd())
-          self.USER = env.get( "USER", None)
-          self.USERNAME = env.get( "USERNAME", None)
+          value_list = map(lambda x : env.get(x,None), cls._env_vars)
+          ret = dict(zip(cls._env_vars,value_list))
+          target = 'PATH'
+          ret[target] = ret[target].split(':')
+          return ret
+      def __init__(self, *largs, **kvargs) :
           self.pwd = os.getcwd()
           self.pwd_parent = os.path.dirname(self.pwd)
           self.path = sys.path
@@ -82,14 +94,6 @@ class ENVIRONMENT(object) :
           ret = list(ret)
           ret = "\n".join(ret)
           return ret
-      @classmethod
-      def parse(cls, *largs, **kvargs) :
-          if len(largs) > 0 :
-             extension = largs[0]
-          else :
-             target = 'extension'
-             extension = kvargs.get(target, '*.*')
-          return extension
       def mkdir(self, path) :
           _path = [self.pwd, self.pwd_parent]
           _path = [self.pwd]
@@ -104,79 +108,102 @@ class ENVIRONMENT(object) :
              logging.info('Creating directory {}'.format(_path))
           os.mkdir(path)
       @classmethod
-      def find(cls, path1, path2) :
-          ret = glob(path1)
-          if len(ret) == 0 :
-             ret = glob(path2)
-          ret = sorted(ret)
+      def parse(cls, *largs, **kvargs) :
+          if len(largs) > 0 :
+             return largs[0]
+          ret = 'extension'
+          ret = kvargs.get(ret, '*.*')
           return ret
+      @classmethod
+      def find(cls, *path_list) :
+          for path in path_list :
+              ret = glob(path)
+              if len(ret) > 0 :
+                 return sorted(ret)
+          return []
       def list_filenames(self, *largs, **kvargs) :
           extension = ENVIRONMENT.parse(*largs, **kvargs)
           path1 = '{}/{}'.format(self.pwd,extension)
           path2 = '{}/{}'.format(self.pwd_parent,extension)
-          #logging.info(path1)
-          #logging.info(path2)
-          ret = ENVIRONMENT.find(path1, path2)
+          ret = ENVIRONMENT.find(*[path1, path2])
           return ret
-
-class INI(object) :
+'''
+'''
+class INI_BASE(object) :
       @classmethod
       def init(cls) :
           ret = ConfigParser.ConfigParser()
           ret.optionxform=str
           return ret
       @classmethod
-      def read(cls, ini_file) :
-          config = INI.init()
-          ret = open(ini_file)
-          config.readfp(ret)
-          return config
+      def load(cls, ret) :
+          ret = ret.strip()
+          if ret.startswith('{') and ret.endswith('}') :
+             ret = ret.replace("'",'"')
+             ret = ret.replace("`","'")
+             ret = loads(ret)
+             return ret
+          if ',' not in ret :
+             return [ret]
+          ret = ret.split(',')
+          ret = map(lambda key : key.strip(), ret)
+          return list(ret)
       @classmethod
-      def loadList(cls, *file_list) :
-          #file_list = filter(lambda p : p.endswith('ini'), file_list)
-          file_list = sorted(file_list)
-          for ini_file in file_list :
-              for name, key, value in INI._loadList(ini_file) :
+      def _dump(cls, ret) :
+          if not isinstance(ret,str) :
+            if isinstance(ret,dict) :
+               ret = dumps(ret)
+            else :
+               ret = str(ret)
+          ret = ret.replace("'","`")
+          ret = ret.replace('"',"'")
+          return ret
+      @classmethod
+      def dump(cls, ret) :
+          if isinstance(ret,list) :
+             return ",".join(ret)
+          return cls._dump(ret)
+
+class INI_READ(object) :
+      @classmethod
+      def read(cls, *file_list) :
+          for ini_file in sorted(file_list) :
+              for name, key, value in cls.read_ini(ini_file) :
                   yield ini_file, name, key, value
       @classmethod
-      def _loadList(cls, path) :
-          config = INI.read(path)
-          for name, key, value in INI.read_section(config) :
-              value = INI._transform(value)
+      def read_ini(cls, path) :
+          fp = open(path)
+          config = INI_BASE.init()
+          config.read_file(fp)
+          for name, key, value in cls.read_section(config) :
+              value = INI_BASE.load(value)
               yield name, key, value
-      @classmethod
-      def _transform(cls, value) :
-          if '{' in value :
-              # TODO : json.loads
-              return value
-          if ',' in value :
-              value = value.split(',')
-              value = map(lambda key : key.strip(), value)
-              value = list(value)
-              return value
-          return [value]
+          fp.close()
       @classmethod
       def read_section(cls, config) :
           for name in sorted(config._sections) :
               for key, value in config.items(name) :
                   if len(value) == 0 : continue
                   yield name, key, value
+
+class INI_WRITE(object) :
       @classmethod
-      def _validate(cls, data) :
-          if isinstance(data,str) :
-             return data
-          return str(data)
+      def write(cls, filename,**data) :
+          config = INI_BASE.init()
+          cls.write_ini(config,**data)
+          fp = open(filename, 'w')
+          config.write(fp)
+          fp.close()
       @classmethod
-      def validate(cls, data) :
-          if isinstance(data,list) :
-             return ",".join(data)
-          return cls._validate(data)
+      def write_ini(cls, config,**data) :
+          for section in sorted(data.keys()) :
+              values = data.get(section,{})
+              cls.write_section(config,section,**values)
       @classmethod
       def write_section(cls, config,section,**data) :
           config.add_section(section)
           for key in sorted(data.keys()) :
-              value = cls.validate(data[key])
-              #logging.info((key,type(value)))
+              value = INI_BASE.dump(data[key])
               config.set(section,key,value)
 
 class FTP:
@@ -226,15 +253,16 @@ class CSV :
       def to_dict(cls, path) :
           logging.info("reading file {}".format(path))
           with open(path, 'rt') as csvfile:
-               row_list = csv.reader(csvfile)
-               ret = {row[0]:row[1] for row in row_list}
-               yield ret
+               row_list = csv.DictReader(csvfile)
+               #ret = {row[0]:row[1] for row in row_list}
+               for row in row_list :
+                   yield row
       @classmethod
       def rows(cls, path) :
           logging.info("reading file {}".format(path))
           with open(path, 'rt') as csvfile:
-               obj = csv.reader(csvfile)
-               for row in obj :
+               row_list = csv.reader(csvfile)
+               for row in row_list :
                    yield row
       @classmethod
       def grep(cls, path, *arg_list) :
@@ -297,7 +325,7 @@ if __name__ == "__main__" :
    import sys
    import logging
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    for key in sorted(vars(env)) :
        print((key,vars(env)[key]))
    file_list = env.list_filenames('local/historical_prices/*pkl')
@@ -306,7 +334,7 @@ if __name__ == "__main__" :
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    ini_list = env.list_filenames('local/*.ini')
-   for path, section, key, value in INI.loadList(*ini_list) :
+   for path, section, key, value in INI_READ.read(*ini_list) :
        if 'Industry' not in section : continue
        if 'Gas' not in key : continue
        if 'Util' not in key : continue

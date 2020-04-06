@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import logging
-from json import loads
 from copy import deepcopy
 import locale
 
@@ -10,7 +9,7 @@ from reportlab.platypus import PageBreak
 from reportlab.platypus import Paragraph
 from reportlab.platypus import Table
 
-from libCommon import INI, CSV, exit_on_exception
+from libCommon import INI_READ, exit_on_exception
 from libDebug import trace
 from libReport import StockTemplate, ReturnsTemplate, SectorTemplate
 
@@ -55,7 +54,7 @@ class EXTRACT :
         ini_list = cls.instance().input_file
         logging.info('Reading input file {}'.format(ini_list))
         ret = {}
-        for path, section, key, value_list in INI.loadList(*[ini_list]) :
+        for path, section, key, value_list in INI_READ.read(*[ini_list]) :
             if section not in ret :
                ret[section] = {}
             ret[section][key] = value_list
@@ -63,19 +62,6 @@ class EXTRACT :
 
 class TRANSFORM() :
     column_headers = ['Initial Balance', 'Final Balance', 'CAGR','Stdev','Sharpe Ratio']
-    @classmethod
-    def _modifyDescription(cls, arg_list) :
-        if not isinstance(arg_list,list) :
-           arg_list = list(arg_list)
-        if len(arg_list) == 0 :
-             return arg_list
-        for i, value in enumerate(arg_list) : 
-            if '{' != value[0] : continue
-            value = value.replace("'",'"')
-            logging.info(value)
-            value = loads(value)
-            arg_list[i] = value
-        return arg_list
     @classmethod
     def humanReadable(cls, header, ret) :
         flag_currency = header in ['Initial Balance', 'Final Balance']
@@ -253,18 +239,21 @@ class RETURNS :
 
 def process_summary() :
     input_file = EXTRACT.config()
+    logging.info(input_file)
     target = 'summary'
     summary = input_file.get(target,{})
+    logging.info(summary)
     target = 'images'
     image_list = summary.get(target,[])
+    logging.info(image_list)
     target = 'captions'
     captions_list = summary.get(target,[])
+    logging.info(captions_list)
     target = 'table'
     summary_text = summary.get(target,{})
-
-    summary_text = summary_text.replace("'",'"')
     logging.info(summary_text)
-    summary_text = loads(summary_text)
+    logging.info(type(summary_text))
+
     summary_tbl = TRANSFORM.addSummaryTable(summary_text) 
 
     image_list = map(lambda path : StockTemplate.alter_aspect(path, 3.5 * inch), image_list)
@@ -295,13 +284,13 @@ def process_portfolio_list() :
         target_list = filter(lambda key : 'description1' in key, summary)
         target_list = sorted(target_list)
         description_list = map(lambda key : summary.get(key,None), target_list)
-        description_list = TRANSFORM._modifyDescription(description_list)
+        description_list = list(description_list)
         diverse_list = DIVERSE.add(description_list) 
         target_list = filter(lambda key : 'description' in key, summary)
         target_list = filter(lambda key : 'description1' not in key, target_list)
         target_list = sorted(target_list)
         description_list = map(lambda key : summary.get(key,None), target_list)
-        description_list = TRANSFORM._modifyDescription(description_list)
+        description_list = list(description_list)
         returns_list = RETURNS.add(description_list)
         logging.debug(name)
         logging.debug(image_list)
@@ -342,7 +331,7 @@ if __name__ == '__main__' :
    import sys
    from libCommon import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)

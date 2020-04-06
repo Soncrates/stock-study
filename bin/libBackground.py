@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, ENVIRONMENT, exit_on_exception, log_on_exception
+from libCommon import ENVIRONMENT, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
 from libFinance import TRANSFORM_DRAWDOWN as DRAWDOWN, TRANSFORM_DAILY as DAILY

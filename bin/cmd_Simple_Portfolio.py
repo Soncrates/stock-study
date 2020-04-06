@@ -3,7 +3,7 @@
 import logging
 import sys
 import pandas as pd
-from libCommon import INI, combinations, exit_on_exception
+from libCommon import INI_READ, INI_WRITE, combinations, exit_on_exception
 from libDebug import trace, cpu
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libSharpe import PORTFOLIO, HELPER as SHARPE
@@ -48,7 +48,7 @@ class EXTRACT() :
         data = cls.singleton().input_file
         logging.info('reading file {}'.format([data]))
         ret = {}
-        for path, section, stock_sector, stock_list in INI.loadList(*[data]) :
+        for path, section, stock_sector, stock_list in INI_READ.read(*[data]) :
             if section not in ret :
                ret[section] = {}
             ret[section][stock_sector] = stock_list
@@ -180,12 +180,7 @@ class LOAD() :
     @classmethod
     def config(cls,data) :
         save_file = EXTRACT.singleton().output_file
-        ret = INI.init()
-        for key in sorted(data) :
-            logging.info(key)
-            value = data[key]
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file,**data)
         logging.info('writing to file {}'.format(save_file))
 
 @exit_on_exception

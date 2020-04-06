@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import sys
-sys.path.append(sys.path[0].replace('test','bin'))
 import logging
 from reportlab.lib import utils
 from reportlab.lib.units import inch
@@ -10,7 +9,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT
 
-from libCommon import log_exception
+import context
+from libCommon import log_on_exception
 
 def partition_portfolios(file_list, ini_list) :
     logging.debug(file_list)
@@ -54,19 +54,22 @@ def addTable(name_list, image_list) :
         row = [ im, Paragraph(caption, styles["Normal"]) ]
         ret.append(row)
     return Table(ret)
-@log_exception
+@log_on_exception
 def main(file_list, ini_list,save_file) :
     doc = SimpleDocTemplate(save_file, pagesize=letter)
     returns_list, diverse_list, other_list = partition_portfolios(file_list, ini_list)
     ret = []
     image_list = map(lambda x : file_list[x], other_list)
     image_list = map(lambda path : alter_aspect(path, 3.5 * inch), image_list)
+    image_list = list(image_list)
     tbl = addTable(other_list,image_list)
     ret.append(tbl)
     image_div_list = map(lambda x : file_list[x], diverse_list)
     image_div_list = map(lambda path : alter_aspect(path, 4 * inch), image_div_list)
+    image_div_list = list(image_div_list)
     image_return_list = map(lambda x : file_list[x], returns_list)
     image_return_list = map(lambda path : alter_aspect(path, 3.5 * inch), image_return_list)
+    image_return_list = list(image_return_list)
 
     name_list = []
     image_list = []
@@ -92,13 +95,16 @@ if __name__ == '__main__' :
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    local_dir = '{pwd_parent}/local'.format(**vars(env))
-   target = 'local/*.ini'
+   target = 'testConfig/*.ini'
    ini_list = env.list_filenames(target)
-   target = 'local/images/*.png'
+   target = 'testResults/images/*.png'
    file_list = env.list_filenames(target)
    file_name = map(lambda x : os.path.basename(x), file_list)
    file_list = dict(zip(file_name, file_list))
    test_dir = 'testResults'
    save_file = '{}/image.pdf'.format(test_dir)
    env.mkdir(test_dir)
-   main(file_list,ini_list,save_file)
+   '''
+   test files must be created
+   '''
+   #main(file_list,ini_list,save_file)

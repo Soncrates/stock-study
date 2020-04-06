@@ -3,7 +3,7 @@
 import re
 import logging
 from functools import reduce
-from libCommon import INI, exit_on_exception
+from libCommon import INI_BASE, INI_READ, INI_WRITE, exit_on_exception
 from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
 from libWeb import WEB_UTIL
 from libDebug import trace
@@ -314,7 +314,7 @@ class TRANSFORM() :
           config = EXTRACT.instance().draft
           logging.info('loading config files {}'.format(config))
           ret = DICT_HELPER.init()
-          for path, section, key, stock in INI.loadList(*[config]) :
+          for path, section, key, stock in INI_READ.read(*[config]) :
               ret.append(key,*stock)
           omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
           for omit in omit_list :
@@ -328,7 +328,7 @@ class LOAD() :
       def draft(cls,data) :
           save_file = EXTRACT.instance().draft
           logging.info('Loading results : {}'.format(save_file))
-          config = INI.init()
+          config = INI_BASE.init()
           for i, SECTION in enumerate(sorted(data)) :
               target = 'alias'
               if SECTION == target :
@@ -336,17 +336,15 @@ class LOAD() :
                   continue
               logging.info((i,SECTION))
               value = data.get(SECTION)
-              INI.write_section(config, SECTION, **value)
+              INI_WRITE.write_section(config, SECTION, **value)
           for name in sorted(alias) :
-              INI.write_section(config,name,**alias[name])
+              INI_WRITE.write_section(config,name,**alias[name])
           config.write(open(save_file, 'w'))
       @classmethod
       def final(cls,data) :
           save_file = EXTRACT.instance().final
           logging.info('Loading results : {}'.format(save_file))
-          config = INI.init()
-          INI.write_section(config,"MERGED",**data)
-          config.write(open(save_file, 'w'))
+          INI_WRITE.write(save_file,**{'MERGED' : data})
 
 def extract():
 

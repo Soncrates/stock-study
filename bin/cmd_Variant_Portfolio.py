@@ -76,7 +76,7 @@ class EXTRACT() :
         data = cls.instance().input_file
         logging.info('reading file {}'.format([data]))
         ret = {}
-        for path, section, stock_sector, stock_list in INI.loadList(*[data]) :
+        for path, section, stock_sector, stock_list in INI_READ.read(*[data]) :
             if section not in ret :
                ret[section] = {}
             ret[section][stock_sector] = stock_list
@@ -100,7 +100,7 @@ class EXTRACT_SECTOR() :
            return cls._cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
-        for path, section, key, ticker_list in INI.loadList(*load_file) :
+        for path, section, key, ticker_list in INI_READ.read(*load_file) :
             entity = 'Stock'
             if 'fund' in path :
                key = '{} ({})'.format(section,key)
@@ -147,7 +147,7 @@ class EXTRACT_SUMMARY() :
            return cls._background_cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
-        for path, key, stock, value in INI.loadList(*load_file) :
+        for path, key, stock, value in INI_READ.read(*load_file) :
             if "File Creation Time" in stock :
                 continue
             if stock not in ret :
@@ -293,12 +293,7 @@ class LOAD() :
     @classmethod
     def config(cls,data) :
         save_file = EXTRACT.instance().output_file
-        ret = INI.init()
-        for key in sorted(data) :
-            logging.info(key)
-            value = data[key]
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file,**data)
         logging.info('writing to file {}'.format(save_file))
 
 def df_crossjoin(df_left, df_right, **kwargs):

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
-from libCommon import INI, exit_on_exception
+from libCommon import INI_BASE, INI_READ, INI_WRITE, exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save, HELPER as GRAPH
@@ -82,7 +82,7 @@ class EXTRACT() :
         portfolio = EXTRACT.instance().input_file
         logging.info('reading file {}'.format(portfolio))
         ret = {}
-        for path, section, key, weight in INI.loadList(*[portfolio]) :
+        for path, section, key, weight in INI_READ.read(*[portfolio]) :
             if section.startswith('dep_') :
                continue
             if section not in ret :
@@ -142,7 +142,7 @@ class EXTRACT_SUMMARY() :
            return cls._background_cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
-        for path, key, stock, value in INI.loadList(*load_file) :
+        for path, key, stock, value in INI_READ.read(*load_file) :
             if "File Creation Time" in stock :
                 continue
             if stock not in ret :
@@ -217,7 +217,7 @@ class EXTRACT_SECTOR() :
            return cls._cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
-        for path, section, key, ticker_list in INI.loadList(*load_file) :
+        for path, section, key, ticker_list in INI_READ.read(*load_file) :
             if 'fund' in path :
                key = '{} ({})'.format(section,key)
             for ticker in ticker_list :
@@ -255,7 +255,7 @@ class EXTRACT_BENCHMARK() :
         benchmark = EXTRACT.instance()._benchmark
         logging.info('reading file {}'.format(benchmark))
         ret = {}
-        for path, section, key, stock_list in INI.loadList(*benchmark) :
+        for path, section, key, stock_list in INI_READ.read(*benchmark) :
             #if section not in ['MOTLEYFOOL', 'Index'] : continue
             if section not in ['PERSONAL', 'Index'] : continue
             if section == 'MOTLEYFOOL' :
@@ -456,13 +456,13 @@ class LOAD() :
     @classmethod
     def config(cls,summary,portfolio) :
         save_file = EXTRACT.instance().output_file
-        ret = INI.init()
-        INI.write_section(ret,"summary",**summary)
+        ret = INI_BASE.init()
+        INI_WRITE.write_section(ret,"summary",**summary)
         for key in portfolio.keys() :
             values = portfolio[key]
             if not isinstance(values,dict) :
                values = values.to_dict()
-            INI.write_section(ret,key,**values)
+            INI_WRITE.write_section(ret,key,**values)
         ret.write(open(save_file, 'w'))
         logging.info('saving file {}'.format(save_file))
 class Group :

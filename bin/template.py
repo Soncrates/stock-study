@@ -2,7 +2,7 @@
 
 import logging
 import sys
-from libCommon import exit_on_exception
+from libCommon import INI_READ, INI_WRITE, exit_on_exception
 from libDebug import trace, cpu
 
 class EXTRACT() :
@@ -43,19 +43,14 @@ class EXTRACT() :
     def config() :
         ini_list = EXTRACT.instance().config_list
         logging.info("loading results {}".format(ini_list))
-        for path, section, key, stock_list in INI.loadList(*ini_list) :
+        for path, section, key, stock_list in INI_READ.read(*ini_list) :
             yield path, section, key, stock_list
 
 class LOAD() :
     @classmethod
     def config(cls, **config) :
         save_file = EXTRACT.instance().output_file
-        ret = INI.init()
-        for key in sorted(config) :
-            value = config.get(key,[])
-            logging.info(value)
-            INI.write_section(ret,key,**value)
-        ret.write(open(save_file, 'w'))
+        INI_WRITE.write(save_file,**config)
         logging.info("results saved to {}".format(save_file))
 
 @exit_on_exception

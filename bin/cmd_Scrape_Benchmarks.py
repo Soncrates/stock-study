@@ -2,7 +2,7 @@
 
 import logging
 import pandas as pd
-from libCommon import INI, ENVIRONMENT, exit_on_exception, log_on_exception
+from libCommon import INI_READ,INI_WRITE, ENVIRONMENT, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES
 from cmd_Scrape_Stock_Sector import DICT_HELPER
 from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
@@ -51,7 +51,7 @@ class EXTRACT() :
     def config(cls) :
         config = cls.instance().config_file
         logging.info("loading results {}".format(config))
-        for path, section, key, stock_list in INI.loadList(*config) :
+        for path, section, key, stock_list in INI_READ.read(*config) :
             yield path, section, key, stock_list
     @classmethod
     def benchmarks(cls) :
@@ -91,11 +91,7 @@ class LOAD() :
       @classmethod
       def background(cls, **config) :
           save_file = EXTRACT.instance().output_file
-          ret = INI.init()
-          for key in sorted(config) :
-              value = config.get(key,[])
-              INI.write_section(ret,key,**value)
-          ret.write(open(save_file, 'w'))
+          INI_WRITE.write(save_file,**config)
           logging.info("results saved to {}".format(save_file))
 
 @exit_on_exception
