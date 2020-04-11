@@ -2,10 +2,11 @@
 
 import logging
 import pandas as pd
-from libCommon import INI_READ, INI_WRITE, exit_on_exception, log_on_exception
+from libCommon import INI_READ, INI_WRITE,exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
-from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
+from libBackground import EXTRACT_TICKER
+from libFinance import TRANSFORM_BACKGROUND
 
 class EXTRACT() :
     _singleton = None
@@ -70,17 +71,17 @@ class TRANSFORM() :
           ret = filter(lambda x : cls._validate(x), data)
           return list(ret)
       @classmethod
-      def safe(cls, name) :
+      def dep_safe(cls, name) :
           name = name.replace('%', ' percent')
           return name
       @classmethod
-      def get_symbol(cls, entry) :
+      def dep_get_symbol(cls, entry) :
           ret = entry.get(cls._primary,None)
           if not (ret is None) :
              return ret
           return entry.get(cls._secondary,None)
       @classmethod
-      def get_name(cls,stock_list, data) :
+      def dep_get_name(cls,stock_list, data) :
           for i, ticker in enumerate(stock_list) :
               if '=' in ticker :
                   continue
@@ -90,28 +91,12 @@ class TRANSFORM() :
                  continue
               yield i, ticker, ret[0]
       @classmethod
-      def to_dict(cls,stock_list, data) :
+      def dep_to_dict(cls,stock_list, data) :
           ret = {}
           for i, ticker, entry in cls.get_name(stock_list, data) :
               value = entry[cls._security]
               ret[ticker] = cls.safe(value)
           return ret
-      @classmethod
-      def _summary(cls, data_store, ticker) :
-          logging.info(ticker)
-          prices = EXTRACT_TICKER.load(data_store, ticker)
-          ret = TRANSFORM_TICKER.summary(prices)
-          ret.rename(columns={0:ticker},inplace=True)
-          return ret
-      @classmethod
-      def summary(cls, data_store, ticker_list) :
-          ret = []
-          for i, ticker in enumerate(ticker_list) :
-              summary = cls._summary(data_store,ticker)
-              ret.append(summary)
-          ret = pd.concat(ret, axis=1)
-          logging.info(ret)
-          return ret.T.to_dict()
         
 class LOAD() :
 
@@ -120,68 +105,65 @@ class LOAD() :
         save_file = EXTRACT.instance().output_file_by_type
         INI_WRITE.write(save_file,**config)
         logging.info("results saved to {}".format(save_file))
-    @classmethod
-    def background(cls, **config) :
-        save_file = EXTRACT.instance().background_file
-        INI_WRITE.write(save_file,**config)
-        logging.info("results saved to {}".format(save_file))
 
-def process_names(fund_list) :
-    target = 'Fund Symbol'
-    ticker_list = map(lambda fund : fund.get(target,None), fund_list)
-    ticker_list = list(ticker_list)
-    target = 'Fund Name'
-    name_list = map(lambda fund : fund.get(target,None), fund_list)
-    name_list = map(lambda name : name.replace('%', ' percent'), name_list)
-    name_list = map(lambda name : name.replace(' Fd', ' Fund'), name_list)
-    ret = dict(zip(ticker_list,name_list))
-    return ret
-
-def _filter_by_type(fund) :
-    logging.debug(fund)
-    section = FUND.Type(fund)
-    key = FUND.Category(fund)
+def filter_by_type(fund) :
+    target = 'Type'
+    section = fund.get(target, None)
+    target = 'Category'
+    category = fund.get(target, None)
 
     if section is None or len(section) == 0 :
-       return False, None, None
-    if key is None or len(key) == 0 :
-       return False, None, None
-    return True, section, key
-def process_by_type(fund_list) :
-    recognized = FUND._Type.values()
-    ret = {}
+       return True, None, None, None, None
+    if category is None or len(category) == 0 :
+       return True, None, None, None, None
     target = 'Fund Symbol'
-    for i, fund in enumerate(fund_list) :
-        flag, section, key = _filter_by_type(fund)
+    ticker = fund.get(target,None)
+    target = 'Fund Name'
+    name = fund.get(target,None)
+    name = name.replace('%', ' percent')
+    name = name.replace(' Fd', ' Fund')
+    recognized = FUND._Type.values()
+    if section not in recognized :
+       category = "{}_{}".format(section,category)
+       section = 'UNKNOWN'
+    return False, section, category, name, ticker
+
+@exit_on_exception
+@trace
+def action(data_store,fund_list) : 
+    ret = {}
+    transpose = {}
+    for fund in fund_list :
+        flag, section, category, name, ticker = filter_by_type(fund)
         if flag :
            continue
-        name = fund.get(target,None)
 
-        if section not in recognized :
-           key = "{}_{}".format(section,key)
-           section = 'UNKNOWN'
-        if section not in ret :
-           ret[section] = {}
-        curr = ret[section]
-        if key not in curr :
-           curr[key] = []
-        curr[key].append(name)
-    return ret
+        prices = EXTRACT_TICKER.load(data_store, ticker)
+        entry = TRANSFORM_BACKGROUND.find(prices)
+        del prices
+        if 'LEN' not in entry :
+           continue
+        entry['NAME'] = name
+        entry['CATEGORY'] = category
+        entry['TYPE'] = section
+        logging.debug(entry)
+        ret[ticker] = entry
+        for key in entry :
+            if key not in transpose :
+               transpose[key] = {}
+            transpose[key][ticker] = entry[key]
+    return ret, transpose
 
 @exit_on_exception
 @trace
 def main() : 
     data_store = EXTRACT.instance().data_store
-
     fund_list = NASDAQ.init().fund_list()
-    config = process_by_type(fund_list)
-    LOAD.config(**config)
+    ret, transpose = action(data_store,fund_list)
 
-    names = process_names(fund_list)
-    ticker_list = sorted(names.keys())
-    background = TRANSFORM.summary(data_store, ticker_list)
-    background['NAME'] = names
-    LOAD.background(**background)
+    save_file = EXTRACT.instance().background_file
+    INI_WRITE.write(save_file,**transpose)
+    logging.info("results saved to {}".format(save_file))
 
 if __name__ == '__main__' :
    import sys

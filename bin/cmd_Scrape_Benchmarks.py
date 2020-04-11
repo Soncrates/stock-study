@@ -3,19 +3,18 @@
 import logging
 import pandas as pd
 from libCommon import INI_READ,INI_WRITE, ENVIRONMENT, exit_on_exception, log_on_exception
-from libFinance import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES 
 from cmd_Scrape_Stock_Sector import DICT_HELPER
-from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
+from libBackground import main as EXTRACT_BACKGROUND, load as TICKER, TRANSFORM_TICKER
 from libDebug import trace
 
 class EXTRACT() :
     _singleton = None
-    def __init__(self, _env, data_store, config_file,output_file, reader) :
+    def __init__(self, _env, data_store, config_file,output_file) :
         self.env = _env
         self.data_store = data_store
         self.config_file = config_file
         self.output_file = output_file
-        self.reader = reader
         self.benchmarks = ['Index','MOTLEYFOOL','PERSONAL']
         self.benchmarks = ['Index']
         self.omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
@@ -43,9 +42,8 @@ class EXTRACT() :
            config_file = [_env.argv[1]]
         if len(_env.argv) > 2 :
            output_file = [_env.argv[2]]
-        reader = STOCK_TIMESERIES.init()
         env.mkdir(data_store)
-        cls._singleton = cls(_env,data_store,config_file,output_file,reader)
+        cls._singleton = cls(_env,data_store,config_file,output_file)
         return cls._singleton
     @classmethod
     def config(cls) :
@@ -66,33 +64,6 @@ class EXTRACT() :
         logging.info(ret)
         stock_list = ret.values()
         return ret.data, stock_list
-    @classmethod
-    @trace
-    def robust(cls,data_store, ticker_list) :
-        retry = EXTRACT_TICKER.save_list(data_store, ticker_list)
-        if len(retry) > 0 :
-           retry = EXTRACT_TICKER.save_list(data_store, retry)
-        if len(retry) > 0 :
-           logging.error((len(retry), sorted(retry)))
-
-class TRANSFORM() :
-    def summary(data_store, ticker_list) :
-        ret = []
-        for ticker in ticker_list :
-            prices = EXTRACT_TICKER.load(data_store, ticker)
-            summary = TRANSFORM_TICKER.summary(prices)
-            summary.rename(columns={0:ticker},inplace=True)
-            ret.append(summary)
-        ret = pd.concat(ret, axis=1)
-        logging.info(ret)
-        return ret.T.to_dict()
-
-class LOAD() :
-      @classmethod
-      def background(cls, **config) :
-          save_file = EXTRACT.instance().output_file
-          INI_WRITE.write(save_file,**config)
-          logging.info("results saved to {}".format(save_file))
 
 @exit_on_exception
 @trace
@@ -100,11 +71,16 @@ def main() :
     data_store = EXTRACT.instance().data_store
 
     data, stock_list = EXTRACT.benchmarks()
-    EXTRACT.robust(data_store, stock_list)
-    background = TRANSFORM.summary(data_store, stock_list)
+    TICKER(data_store=data_store, ticker_list=stock_list)
+    ret = EXTRACT_BACKGROUND(data_store=data_store, ticker_list=stock_list)
+    ret = ret.T
     names = TRANSFORM_TICKER.data(data)
-    background['NAME'] = names
-    LOAD.background(**background)
+    names = pd.DataFrame([names]).T
+    ret['NAME'] = names
+
+    save_file = EXTRACT.instance().output_file
+    INI_WRITE.write(save_file,**ret)
+    logging.info("results saved to {}".format(save_file))
 
 if __name__ == '__main__' :
    import sys
@@ -114,8 +90,8 @@ if __name__ == '__main__' :
    env = ENVIRONMENT()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    local_dir = '{}/local'.format(env.pwd_parent)
    data_store = '{}/historical_prices'.format(local_dir)

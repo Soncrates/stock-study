@@ -92,7 +92,8 @@ class trace(WRAPPER):
         return ret
 
 class cpu(WRAPPER):
-    sortby = [ 'calls','cumulative']
+    sortby = [ 'cumulative','calls']
+    #sortby = [ 'calls','cumulative']
     #sortby = [ 'calls','pcalls','file','module','cumulative']
 
     def __init__(self, f):

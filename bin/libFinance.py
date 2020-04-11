@@ -6,7 +6,7 @@ import pandas as pd
 import pandas_datareader as web
 
 from libCommon import log_on_exception
-from libDebug import trace
+from libDebug import trace, cpu
 
 '''
   STOCK_SERIES - perhaps the only legit class in the entire library
@@ -226,48 +226,70 @@ class HELPER :
 class TRANSFORM_CAGR() :
       key_list = ['CAGR', 'GROWTH']
       @classmethod
-      def find(cls, data):
-          first, last, periods = cls.validate(data)
-          growth, cagr = cls._find(first, last, periods)
+      def enrich(cls, data, stock=None, summary = None):
+          growth, periods = cls.validate(data)
+          ret = cls.find(growth, periods)
+          ret = pd.DataFrame(ret, index=[stock])
+          if summary is None :
+             return ret
+          ret = ret.append(summary)
+          return ret
+      @classmethod
+      def find(cls, growth, periods):
+          cagr = growth**(1/periods)-1
           values = map(lambda x : round(x,4), [cagr,growth])
           ret = dict(zip(cls.key_list,values))
           return ret
       @classmethod
-      def _find(cls, first, last, periods):
-          growth = (last/first)
-          cagr = growth**(1/periods)-1
-          return growth, cagr
-      @classmethod
       def validate(cls, data):
           _ret = data.dropna(how='all')
+          _ret = _ret.divide(_ret.iloc[0])
+          growth = _ret.iloc[-1]
           periods = len(_ret) / float(HELPER.YEAR)
-          ret = map(lambda x : _ret.iloc[x], [0,-1])
-          ret = list(ret)
-          return ret[0], ret[1], periods
+          return growth, periods
 
 class TRANSFORM_DRAWDOWN() :
       key_list = ['MAX DRAWDOWN','MAX INCREASE']
       @classmethod
-      def find(cls, daily):
-          logging.debug(daily.cumsum())
-          logging.debug(daily.cummax())
-          ret = daily.cumsum() - daily.cummax()
-          values = [ ret.min() ]
-          return dict(zip(cls.key_list, values))
+      def enrich(cls, data, stock=None, summary = None):
+          ret = cls.validate(data)
+          ret = cls.find(ret)
+          ret = pd.DataFrame(ret, index=[stock])
+          if summary is None :
+             return ret
+          ret = ret.append(summary)
+          return ret
       @classmethod
-      def find(cls, daily):
-          peak = daily.cummax()
-          trough = daily.cumsum()
-          #logging.info(peak.max())
-          #peak = daily[daily >= peak]
-          #logging.info(peak)
+      def validate(cls, data):
+          ret = data.dropna(how='all')
+          ret = ret.pct_change()
+          return ret
+      @classmethod
+      def find(cls, ret):
+          peak = ret.cummax()
+          trough = ret.cumsum()
+          logging.debug(peak)
+          logging.debug(trough)
           ret = trough - peak
           values = [ ret.min(), ret.max() ]
-          return dict(zip(cls.key_list, values))
+          ret =  dict(zip(cls.key_list, values))
+          logging.debug(ret)
+          return ret
 
 class TRANSFORM_DAILY() :
       _prices = 'Adj Close'
       _daily = 'daily'
+      @classmethod
+      def enrich(cls, data, **kwargs) :
+          ret = cls.validate(data,**kwargs)
+          if cls._daily in ret.columns.values :
+             return ret
+          if cls._prices in ret.columns.values :
+             daily = cls.find(ret[cls._prices])
+             ret[cls._daily] = daily
+             return ret
+          daily = cls.find(data)
+          return daily
       @classmethod
       def validate(cls, data, **kwargs) :
           if not isinstance(data,pd.DataFrame) :
@@ -276,27 +298,16 @@ class TRANSFORM_DAILY() :
           data.replace([np.inf, -np.inf], np.nan, inplace=True)
           return data
       @classmethod
-      def enrich(cls, data, **kwargs) :
-          ret = cls.validate(data,**kwargs)
-          if cls._daily in ret.columns.values :
-             return ret
-          if cls._prices in ret.columns.values :
-             daily = cls.daily(ret[cls._prices])
-             ret[cls._daily] = daily
-             return ret
-          daily = cls.daily(data)
-          return daily
-      @classmethod
-      def daily(cls, data) :
+      def find(cls, data) :
           ret = data.pct_change(periods = 1, fill_method='bfill')
           ret = ret.dropna(how='all')
           return ret 
       @classmethod
-      def alt_daily(cls, data) :
+      def alt_find(cls, data) :
           ret = data.pct_change(1).fillna(0.0)
           return ret
       @classmethod
-      def altalt_daily(cls, data) :
+      def altalt_find(cls, data) :
           #ret = data / data.iloc[0]
           ret = data.pct_change()
           ret.iloc[0] = 0  # set first day pseudo-price
@@ -310,14 +321,29 @@ class TRANSFORM_SHARPE :
         Computes sharpe calculation for a single stock
       '''
       key_list = ['RETURNS','RISK', 'SHARPE','LEN']
-      _prices = 'Adj Close'
+      #_prices = 'Adj Close'
       @classmethod
-      def find(cls, data, **kwargs) :
-          data, risk_free_rate, period, span, size = cls.validate(data, **kwargs)
-          if data is None :
+      def enrich(cls, data, stock=None, summary = None, **kwargs):
+          data, risk_free_rate, period, span, size = cls.validate(data,**kwargs)
+          ret = cls.find(data, risk_free_rate, period, span, size)
+          ret = pd.DataFrame(ret, index=[stock])
+          if summary is None :
+             return ret
+          ret = ret.append(summary)
+          return ret
+      @classmethod
+      def find(cls, data, risk_free_rate, period, span, size) :
+          flag_1 = data is None
+          flag_2 = len(data) == 0
+          if flag_1 or flag_2 :
              ret =  dict(zip(cls.key_list, [0, 0, 0, size]))
              return ret
-          daily = TRANSFORM_DAILY.enrich(data)['daily']
+          daily = TRANSFORM_DAILY.find(data)
+          flag_1 = daily is None
+          flag_2 = len(daily) == 0
+          if flag_1 or flag_2 :
+             ret =  dict(zip(cls.key_list, [0, 0, 0, size]))
+             return ret
           risk, returns = cls.extractRR(daily,span)
           risk, returns = cls.annualize(risk, returns, period)
           sharpe = cls.sharpe(risk, returns, risk_free_rate)
@@ -326,6 +352,18 @@ class TRANSFORM_SHARPE :
           ret = dict(zip(cls.key_list, values))
           logging.debug(ret)
           return ret
+      @classmethod
+      def extractRR(cls, data, span=0) :
+          if span == 0 :
+             returns = data.mean()
+             risk = data.std()
+             return risk, returns
+          #weigth recent history more heavily that older history
+          returns = data.ewm(span=span).mean().iloc[-1]
+          risk = data.ewm(span=span).std().iloc[-1]
+          return risk, returns
+          rolling = returns_s.rolling(window=self.periods)
+          rolling_sharpe_s = np.sqrt(self.periods) * (rolling.mean() / rolling.std())
       @classmethod
       def annualize(cls, risk, returns, period) :
           if isinstance(returns,pd.Series) : returns = returns[0]
@@ -339,7 +377,6 @@ class TRANSFORM_SHARPE :
           if risk != 0 :
              ret = ( returns - risk_free_rate ) / risk
           return ret
-
       @classmethod
       def validate(cls, data, **kwargs) :
           target = "period"
@@ -359,26 +396,56 @@ class TRANSFORM_SHARPE :
              logging.warn("risk_free_rate must be positive")
              risk_free_rate = 0
           if not isinstance(data,pd.DataFrame) :
-             logging.warn("prices are not in a dataframe {}".format(type(data)))
+             logging.warning("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
           _ret = data.dropna(how='all')
           height = HELPER.get_height(data)
           if height < period :
              _ret = None
           return _ret, risk_free_rate, period, span, height
-      @classmethod
-      def extractRR(cls, data, span=0) :
-          if span == 0 :
-             returns = data.mean()
-             risk = data.std()
-             return risk, returns
-          #weigth recent history more heavily that older history
-          returns = data.ewm(span=span).mean().iloc[-1]
-          risk = data.ewm(span=span).std().iloc[-1]
-          return risk, returns
-          rolling = returns_s.rolling(window=self.periods)
-          rolling_sharpe_s = np.sqrt(self.periods) * (rolling.mean() / rolling.std())
 
+class TRANSFORM_BACKGROUND() :
+    _prices = 'Adj Close'
+    _daily = 'daily'
+    '''
+       .06 seconds per call
+    '''
+    @classmethod
+    def enrich(cls, data, stock, summary, **kwargs) :
+        if data is None :
+           return pd.DataFrame()
+
+        prices = data[cls._prices]
+        #daily = TRANSFORM_DAILY.enrich(prices)
+        sharpe = TRANSFORM_SHARPE.enrich(prices, stock=stock, **kwargs)
+        cagr = TRANSFORM_CAGR.enrich(prices, stock)
+        drawdown = TRANSFORM_DRAWDOWN.enrich(prices, stock)
+        ret = pd.concat([sharpe, cagr], axis=1, join='inner')
+        ret = pd.concat([ret, drawdown], axis=1, join='inner')
+        if not (summary is None) :
+           ret = ret.append(summary)
+        return ret
+    '''
+       .04 seconds per call
+    '''
+    @classmethod
+    def find(cls, data, **kwargs) :
+        if data is None :
+           return {}
+
+        prices = data[cls._prices]
+        data, risk_free_rate, period, span, size = TRANSFORM_SHARPE.validate(prices,**kwargs)
+        sharpe = TRANSFORM_SHARPE.find(data, risk_free_rate, period, span, size)
+        growth, periods = TRANSFORM_CAGR.validate(prices)
+        cagr = TRANSFORM_CAGR.find(growth, periods)
+        ret = TRANSFORM_DRAWDOWN.validate(prices)
+        drawdown = TRANSFORM_DRAWDOWN.find(ret)
+
+        ret = {}
+        ret.update(sharpe)
+        ret.update(cagr)
+        ret.update(drawdown)
+        return ret
 '''
 #	Asset	                        CAGR	Expected Return*	Standard Deviation	Sharpe Ratio*	Min. Weight	Max. Weight
 1	Apple Inc. (AAPL)	        22.03%	34.34%	                43.73%	                0.713	        0.00%	100.00%

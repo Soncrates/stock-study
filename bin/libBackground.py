@@ -1,29 +1,33 @@
 #!/usr/bin/env python
 
+import os
 import logging
 import pandas as pd
 from libCommon import ENVIRONMENT, exit_on_exception, log_on_exception
-from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libFinance import TRANSFORM_SHARPE as SHARPE, TRANSFORM_CAGR as CAGR
-from libFinance import TRANSFORM_DRAWDOWN as DRAWDOWN, TRANSFORM_DAILY as DAILY
+from libFinance import STOCK_TIMESERIES, TRANSFORM_BACKGROUND
 from libDebug import trace
 
 class EXTRACT_TICKER() :
       reader = None
       @classmethod
-      def save(cls, local_dir, ticker,dud) :
-          filename = '{}/{}.pkl'.format(local_dir,ticker)
+      def read(cls, ticker) :
           if cls.reader is None :
-              cls.reader = STOCK_TIMESERIES.init()
-          prices = cls.reader.extract_from_yahoo(ticker)
-          if prices is None :
+             cls.reader = STOCK_TIMESERIES.init()
+          return cls.reader.extract_from_yahoo(ticker)
+      @classmethod
+      def save(cls, local_dir, ticker,dud = None) :
+          if dud is None :
+             dud = []
+          data = cls.read(ticker)
+          if data is None :
              dud.append(ticker)
              return dud
-          STOCK_TIMESERIES.save(filename, ticker, prices)
+          filename = '{}/{}.pkl'.format(local_dir,ticker)
+          STOCK_TIMESERIES.save(filename, ticker, data)
           return dud
       @classmethod
       def save_list(cls,local_dir, ticker_list) :
-          dud = []
+          dud = None
           for ticker in ticker_list :
               dud = cls.save(local_dir, ticker,dud)
           size = len(ticker_list) - len(dud)
@@ -36,6 +40,10 @@ class EXTRACT_TICKER() :
       @log_on_exception
       def load(cls, data_store, ticker) :
           filename = '{}/{}.pkl'.format(data_store,ticker)
+          #if not os.path.exists(filename) :
+          #   data = cls.read(ticker)
+          #   STOCK_TIMESERIES.save(filename, ticker, data)
+          #   return data
           name, data = STOCK_TIMESERIES.load(filename)
           if ticker == name :
              return data
@@ -60,55 +68,42 @@ class TRANSFORM_TICKER() :
         ret = dict(zip(value_list,key_list))
         return ret
 
-    @classmethod
-    def summary(cls, data) :
-        if data is None :
-           return pd.DataFrame()
-        prices = data[cls._prices]
-        ret = SHARPE.find(prices, period=FINANCE.YEAR, span=2*FINANCE.YEAR)
-        cagr = CAGR.find(prices)
-        ret.update(cagr)
-        daily = DAILY.enrich(prices)
-        drawdown = DRAWDOWN.find(daily['daily'])
-        ret.update(drawdown)
-        ret = pd.DataFrame([ret]).T
-        logging.debug(ret)
-        return ret
+@trace
+def load(**kwargs) :
+    target = 'data_store'
+    data_store = kwargs.get(target,"")
+    target = 'ticker_list'
+    ticker_list = kwargs.get(target,[])
+    retry = EXTRACT_TICKER.save_list(data_store, ticker_list)
+    if len(retry) > 0 :
+       retry = EXTRACT_TICKER.save_list(data_store, retry)
+    if len(retry) > 0 :
+       logging.error((len(retry), sorted(retry)))
 
-class LOAD() :
-      @classmethod
-      @trace
-      def robust(cls,data_store, ticker_list) :
-          retry = cls.prices(data_store, ticker_list)
-          if len(retry) > 0 :
-             retry = cls.prices(data_store, retry)
-          if len(retry) > 0 :
-             logging.error((len(retry), sorted(retry)))
-
-def process_prices(ticker_list) :
-    data_store = EXTRACT.instance().data_store
-    ret = []
-    for ticker in ticker_list :
-        prices = EXTRACT.prices(data_store, ticker)
-        summary = TRANSFORM.prices(prices)
-        summary.rename(columns={0:ticker},inplace=True)
-        ret.append(summary)
-    ret = pd.concat(ret, axis=1)
-    ret.rename(index={'risk':'RISK','len':'LEN','sharpe':'SHARPE','returns':'RETURNS'},inplace=True)
-    logging.info(ret)
-    return ret.T.to_dict()
+@trace
+def main(**kwargs) :
+    target = 'data_store'
+    data_store = kwargs.get(target,"")
+    target = 'ticker_list'
+    ticker_list = kwargs.get(target,[])
+    ret = {}
+    for i, ticker in enumerate(ticker_list) :
+        prices = EXTRACT_TICKER.load(data_store, ticker)
+        ret[ticker] = TRANSFORM_BACKGROUND.find(prices)
+    ret = pd.DataFrame(ret)
+    logging.debug(ret)
+    return ret
 
 if __name__ == '__main__' :
    import sys
    import logging
    from libCommon import ENVIRONMENT
 
-
    _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN','MAX INCREASE']
    _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN',]
    _XXX = sorted(_XXX)
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
@@ -123,13 +118,7 @@ if __name__ == '__main__' :
    ticker_list = ['^GSPC','AAPL','RAFGX','SPY']
    ticker_list = ['AAPL','RAFGX','SPY']
    ticker_list = ['SPY','RAFGX','AAPL','^GSPC']
-   ret = []
-   for ticker in ticker_list :
-       prices = EXTRACT_TICKER.load(data_store, ticker)
-       summary = TRANSFORM_TICKER.summary(prices)
-       summary.rename(columns={0:ticker},inplace=True)
-       ret.append(summary)
-   ret = pd.concat(ret, axis=1)
+   ret = main(data_store=data_store, ticker_list=ticker_list)
    logging.info(ret.loc[_XXX])
    logging.info(ret.T[_XXX])
 

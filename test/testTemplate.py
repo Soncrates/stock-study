@@ -45,6 +45,7 @@ if __name__ == '__main__' :
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')

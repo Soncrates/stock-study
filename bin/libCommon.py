@@ -56,6 +56,54 @@ def log_on_exception(func):
            return ret
     return exception_guard
 
+'''
+unused
+'''
+def to_json(func):
+    def json_guard(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        if ret is None : 
+            return ret
+        if not isinstance(ret, (dict, list)):
+            return ret
+        return jsonify(ret)
+    return json_guard
+'''
+unused
+'''
+def to_dict(func):
+    def dict_guard(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        if not isinstance(ret, dict):
+           return ret
+        return ret
+    return dict_guard
+'''
+unused
+'''
+def singleton(cls):
+    instance = [None]
+    def wrapper(*args, **kwargs):
+        if instance[0] is None:
+            instance[0] = cls(*args, **kwargs)
+        return instance[0]
+    return wrapper
+
+'''
+unused
+'''
+def accepts(*types):
+    def check_accepts(f):
+        assert len(types) == f.__code__.co_argcount
+        def new_f(*args, **kwds):
+            for (a, t) in zip(args, types):
+                assert isinstance(a, t), \
+                       "arg %r does not match %s" % (a,t)
+            return f(*args, **kwds)
+        new_f.__name__ = f.__name__
+        return new_f
+    return check_accepts
+
 class ENVIRONMENT(object) :
       _env_vars = ['HOME','LOGNAME','OLDPWD','PATH','PWD','USER','USERNAME']
       _singleton = None
@@ -136,6 +184,17 @@ class INI_BASE(object) :
           ret.optionxform=str
           return ret
       @classmethod
+      def dump_name(cls, ret) :
+          ret = ret.replace('%', '_pct_')
+          ret = ret.replace('=', '_eq_')
+          return ret
+      @classmethod
+      def load_name(cls, ret) :
+          ret = ret.replace('_pct_','%')
+          ret = ret.replace('_eq_','=')
+          return ret
+
+      @classmethod
       def load(cls, ret) :
           ret = ret.strip()
           if ret.startswith('{') and ret.endswith('}') :
@@ -176,6 +235,7 @@ class INI_READ(object) :
           config = INI_BASE.init()
           config.read_file(fp)
           for name, key, value in cls.read_section(config) :
+              key = INI_BASE.load_name(key)
               value = INI_BASE.load(value)
               yield name, key, value
           fp.close()
@@ -204,6 +264,7 @@ class INI_WRITE(object) :
           config.add_section(section)
           for key in sorted(data.keys()) :
               value = INI_BASE.dump(data[key])
+              key = INI_BASE.dump_name(key)
               config.set(section,key,value)
 
 class FTP:

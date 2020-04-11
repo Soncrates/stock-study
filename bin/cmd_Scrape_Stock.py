@@ -5,7 +5,10 @@ import pandas as pd
 from libCommon import INI_BASE, INI_WRITE, exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
-from libBackground import EXTRACT_TICKER, TRANSFORM_TICKER
+#from libBackground import main as EXTRACT_BACKGROUND
+from libBackground import EXTRACT_TICKER
+from libFinance import TRANSFORM_BACKGROUND
+
 
 class EXTRACT() :
     _singleton = None
@@ -90,30 +93,6 @@ class TRANSFORM() :
               value = entry[cls._security]
               ret[ticker] = cls.safe(value)
           return ret
-      @classmethod
-      def _summary(cls, data_store, ticker) :
-          logging.info(ticker)
-          prices = EXTRACT_TICKER.load(data_store, ticker)
-          ret = TRANSFORM_TICKER.summary(prices)
-          ret.rename(columns={0:ticker},inplace=True)
-          return ret
-
-      @classmethod
-      def summary(cls, data_store, ticker_list) :
-          ret = []
-          for i, ticker in enumerate(ticker_list) :
-              summary = cls._summary(data_store,ticker)
-              ret.append(summary)
-          ret = pd.concat(ret, axis=1)
-          logging.info(ret)
-          return ret.T.to_dict()
-
-class LOAD() :
-    @classmethod
-    def background(cls, **config) :
-        save_file = EXTRACT.instance().background_file
-        INI_WRITE.write(save_file,**config)
-        logging.info("results saved to {}".format(save_file))
 
 def process_names(nasdaq) :
     listed, csv = nasdaq.listed()
@@ -131,21 +110,42 @@ def process_names(nasdaq) :
     etf_names = TRANSFORM.to_dict(etf_list,data)
     return stock_names, etf_names
 
-@exit_on_exception
-@trace
-def main() : 
-    data_store = EXTRACT.instance().data_store
+def init() :
     nasdaq = NASDAQ.init()
-
     stock_list, etf_list, alias = nasdaq.stock_list()
     stock_names, etf_names = process_names(nasdaq)
     names = {}
     names.update(etf_names)
     names.update(stock_names)
-    ticker_list = sorted(names.keys())
-    background = TRANSFORM.summary(data_store, stock_list)
-    background['NAME'] = names
-    LOAD.background(**background)
+    return names, stock_list, etf_list, alias, stock_names, etf_names 
+
+@exit_on_exception
+@trace
+def action(data_store,ticker_list) :
+    ret = {}
+    transpose = {}
+    for ticker in ticker_list :
+        prices = EXTRACT_TICKER.load(data_store, ticker)
+        entry = TRANSFORM_BACKGROUND.find(prices)
+        entry['NAME'] = ticker_list[ticker]
+        logging.debug(entry)
+        ret[ticker] = entry
+        for key in entry :
+            if key not in transpose :
+               transpose[key] = {}
+            transpose[key][ticker] = entry[key]
+    return ret, transpose
+
+@exit_on_exception
+@trace
+def main() : 
+    data_store = EXTRACT.instance().data_store
+    names, stock_list, etf_list, alias, stock_names, etf_names = init()
+    ret, transpose = action(data_store, names)
+
+    save_file = EXTRACT.instance().background_file
+    INI_WRITE.write(save_file,**transpose)
+    logging.info("results saved to {}".format(save_file))
 
 if __name__ == '__main__' :
    import sys

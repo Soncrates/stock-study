@@ -226,7 +226,6 @@ class NASDAQ() :
           for i, name in enumerate(self.file_list) :
               logging.info((i, name))
           return ret
-
       def listed(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[9])
           temp = NASDAQ.to_dict(raw)
@@ -278,6 +277,9 @@ class NASDAQ() :
           logging.info(('ETF',len(etf)))
           return stock, etf, alias 
       def fund_list(self) :
+          ret, csv = self.funds()
+          return ret
+      def by_family(self) :
           ret = {}
           fund_list, csv = self.funds()
           for fund in fund_list :
@@ -287,7 +289,7 @@ class NASDAQ() :
                  ret[name] = []
               ret[name].append(fund)
           for family in ret :
-              logging.debug((family,ret[family]))
+              logging.debug((family,ret[family][0]))
           logging.info(('Funds',len(fund_list)))
           return fund_list
 
