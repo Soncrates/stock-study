@@ -3,7 +3,7 @@ import logging
 import unittest
 
 import context
-from libCommon import ENVIRONMENT as TEST
+from libUtils import ENVIRONMENT as TEST
 
 class TemplateTest(unittest.TestCase):
 
