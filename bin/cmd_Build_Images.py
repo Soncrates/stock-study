@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
-from libCommon import INI_BASE, INI_READ, INI_WRITE, exit_on_exception
+from libCommon import INI_BASE, INI_READ, INI_WRITE
+from libUtils import exit_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save, HELPER as GRAPH
@@ -624,9 +625,9 @@ if __name__ == '__main__' :
 
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
 
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'

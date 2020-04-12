@@ -15,7 +15,7 @@ else :
    import pandas_datareader as web
    from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 
-from libCommon import exit_on_exception
+from libUtils import exit_on_exception
 from libDebug import trace
 
 '''
@@ -81,9 +81,9 @@ def main(save_file) :
 if __name__ == '__main__' :
    import logging
    import sys
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)

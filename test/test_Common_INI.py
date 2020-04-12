@@ -5,7 +5,8 @@ import sys
 import unittest
 
 import context
-from libCommon import INI_READ as READ, INI_WRITE as WRITE, INI_BASE, log_on_exception
+from libCommon import INI_READ as READ, INI_WRITE as WRITE, INI_BASE
+from libUtils import log_on_exception
 from libDebug import trace
 
 class TEST_READ(unittest.TestCase):
@@ -60,8 +61,8 @@ def prep() :
 
 if __name__ == '__main__' :
 
-   from libCommon import ENVIRONMENT
-   env = ENVIRONMENT()
+   from libUtils import ENVIRONMENT
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

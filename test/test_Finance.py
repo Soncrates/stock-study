@@ -7,7 +7,7 @@ import unittest
 import pandas as pd
 import context
 
-from libCommon import log_on_exception
+from libUtils import log_on_exception
 from libDebug import trace, cpu
 from libFinance import STOCK_TIMESERIES, HELPER
 from libFinance import TRANSFORM_DAILY as TEST_DAILY
@@ -174,7 +174,7 @@ class TEST_06_BACKGROUND(unittest.TestCase):
 if __name__ == '__main__' :
 
    import sys
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))

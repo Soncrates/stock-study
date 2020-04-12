@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import logging
-from libCommon import ENVIRONMENT, exit_on_exception
+import time
+from libUtils import ENVIRONMENT, exit_on_exception
 from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
 from libFinance import STOCK_TIMESERIES
 from libDebug import trace
@@ -36,21 +37,29 @@ class EXTRACT() :
 
 class LOAD() :
       @classmethod
+      @trace
       def _prices(cls, local_dir, ticker,dud) :
+          logging.info(ticker)
+          if dud is None :
+             dud = []
           filename = '{}/{}.pkl'.format(local_dir,ticker)
           reader =  EXTRACT.instance().reader
           prices = reader.extract_from_yahoo(ticker)
           if prices is None :
              dud.append(ticker)
+             time.sleep(4)
              return dud
           STOCK_TIMESERIES.save(filename, ticker, prices)
+          del prices
           return dud
 
       @classmethod
+      @trace
       def prices(cls,local_dir, ticker_list) :
-          dud = []
+          dud = None
           for ticker in ticker_list :
               dud = cls._prices(local_dir, ticker,dud)
+              time.sleep(.3)
           size = len(ticker_list) - len(dud)
           logging.info("Total {}".format(size))
           if len(dud) > 0 :
@@ -66,14 +75,17 @@ class LOAD() :
           if len(retry) > 0 :
              logging.error((len(retry), sorted(retry)))
 
-@exit_on_exception
-@trace
-def main() : 
+def init() :
     nasdaq = NASDAQ.init()
     stock_list, etf_list, alias = nasdaq.stock_list()
     fund_list = nasdaq.fund_list()
+    return fund_list,stock_list, etf_list, alias
 
+@exit_on_exception
+@trace
+def main() : 
     data_store = EXTRACT.instance().data_store_stock
+    fund_list,stock_list, etf_list, alias = init()
     LOAD.robust(data_store, stock_list)
     LOAD.robust(data_store, etf_list)
 
@@ -85,9 +97,9 @@ def main() :
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

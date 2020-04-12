@@ -311,9 +311,9 @@ class NASDAQ() :
 if __name__ == '__main__' :
    import logging
    import sys
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 

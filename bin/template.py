@@ -2,7 +2,8 @@
 
 import logging
 import sys
-from libCommon import INI_READ, INI_WRITE, exit_on_exception
+from libCommon import INI_READ, INI_WRITE
+from libUtils import exit_on_exception
 from libDebug import trace, cpu
 
 class EXTRACT() :
@@ -62,9 +63,9 @@ def main() :
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

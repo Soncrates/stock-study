@@ -82,9 +82,9 @@ if __name__ == "__main__" :
    
    import sys
    import pandas as pd
-   from libCommon import ENVIRONMENT
+   from libUtil import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
    ini_list = env.list_filenames('local/*.ini')

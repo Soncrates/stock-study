@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
-import sys
-sys.path.append(sys.path[0].replace('test','bin'))
-
+#import sys
+#sys.path.append(sys.path[0].replace('test','bin'))
 from itertools import combinations as iter_combo
 
-from libCommon import INI, log_exception
+import context
+from libCommon import INI
+from libUtils import log_exception
 from libFinance import STOCK_TIMESERIES
 from libSharpe import HELPER as MONTECARLO
 
@@ -76,9 +77,9 @@ if __name__ == '__main__' :
 
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
 
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'

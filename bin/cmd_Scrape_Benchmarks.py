@@ -2,9 +2,9 @@
 
 import logging
 import pandas as pd
-from libCommon import INI_READ,INI_WRITE, ENVIRONMENT, exit_on_exception, log_on_exception
+from libCommon import INI_READ, INI_WRITE
+from libUtils import ENVIRONMENT, DICT_HELPER, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES 
-from cmd_Scrape_Stock_Sector import DICT_HELPER
 from libBackground import main as EXTRACT_BACKGROUND, load as TICKER, TRANSFORM_TICKER
 from libDebug import trace
 
@@ -85,13 +85,13 @@ def main() :
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    local_dir = '{}/local'.format(env.pwd_parent)
    data_store = '{}/historical_prices'.format(local_dir)

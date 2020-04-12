@@ -217,11 +217,11 @@ if __name__ == '__main__' :
 
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
    from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
    from libSharpe import HELPER as MONTECARLO
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
 
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)

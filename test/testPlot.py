@@ -5,7 +5,7 @@ from pandas import DataFrame as df
 import matplotlib.pyplot as plt
 
 import context
-from libCommon import log_exception
+from libUtils import log_exception
 
 def load_file(filename) :
     data = pd.read_pickle(filename)
@@ -117,9 +117,9 @@ def main(local_dir) :
 if __name__ == '__main__' :
    import os,sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

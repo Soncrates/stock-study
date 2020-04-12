@@ -7,7 +7,8 @@ from sklearn.cluster import KMeans
 import  pylab as pl
 import numpy as np
 
-from libCommon import INI,combinations, exit_on_exception, log_on_exception
+from libCommon import INI
+from libUtils import combinations, exit_on_exception, log_on_exception
 
 class EXTRACT_K():
     @classmethod
@@ -50,9 +51,9 @@ class EXTRACT_K():
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

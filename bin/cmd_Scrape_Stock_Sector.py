@@ -3,7 +3,8 @@
 import re
 import logging
 from functools import reduce
-from libCommon import INI_BASE, INI_READ, INI_WRITE, exit_on_exception
+from libCommon import INI_BASE, INI_READ, INI_WRITE
+from libUtils import DICT_HELPER, exit_on_exception
 from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
 from libWeb import WEB_UTIL
 from libDebug import trace
@@ -75,40 +76,6 @@ class TRANSFORM_SECTOR() :
         logging.warn(name)
         return name
 
-
-class DICT_HELPER() :
-    def __init__(self, *largs, **kwargs):
-        self.data = kwargs
-    def __delitem__(self, key):
-        value = self.data.pop(key)
-        self.data.pop(value, None)
-    def __setitem__(self, key, value):
-        if key in self.data:
-            del self.data[key]
-        self.data[key] = value
-    def __getitem__(self, key):
-        return self.data[key]
-    def __str__(self):
-        msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
-        if not isinstance(msg,list) :
-           msg = list(msg)
-        msg.append("Total : {}".format(len(self.values())))
-        return "\n".join(msg)
-    def append(self, key, *value_list):
-        if key not in self.data:
-           self.data[key] = []
-        for value in value_list :
-            self.data[key].append(value)
-    def values(self):
-        if len(self.data) == 0 :
-           return []
-        ret = reduce(lambda a, b : a+b, self.data.values())
-        ret = sorted(list(set(ret)))
-        return ret
-    @classmethod
-    def init(cls, *largs, **kwargs) :
-        ret = cls(*largs, **kwargs)
-        return ret
 class YAHOO() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
       @classmethod
@@ -397,9 +364,9 @@ def main() :
 if __name__ == '__main__' :
 
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

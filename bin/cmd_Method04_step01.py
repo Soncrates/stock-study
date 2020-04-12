@@ -2,7 +2,8 @@
 
 import logging
 import pandas as pd
-from libCommon import INI_READ,INI_WRITE,combinations, exit_on_exception, log_on_exception
+from libCommon import INI_READ,INI_WRITE
+from libUtils import combinations, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from newSharpe import PORTFOLIO
 from libDebug import trace, cpu
@@ -396,7 +397,7 @@ def main() :
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))

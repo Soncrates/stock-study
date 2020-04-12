@@ -2,7 +2,8 @@
 
 import logging
 import pandas as pd
-from libCommon import INI_READ, INI_WRITE,exit_on_exception, log_on_exception
+from libCommon import INI_READ, INI_WRITE
+from libUtils import exit_on_exception, log_on_exception
 from libDebug import trace, cpu
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
 from libBackground import EXTRACT_TICKER
@@ -168,7 +169,7 @@ def main() :
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))

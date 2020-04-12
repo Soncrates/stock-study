@@ -177,9 +177,9 @@ if __name__ == "__main__" :
 
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    pdf_landscape = '{pwd_parent}/local/example_landscape.pdf'.format(**vars(env))
    pdf_portrait = '{pwd_parent}/local/example_portrait.pdf'.format(**vars(env))
 

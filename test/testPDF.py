@@ -7,7 +7,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch    
 
 import context
-from libCommon import log_on_exception
+from libUtils import log_on_exception
 
 def horizontalscale(canvas):    
     textobject = canvas.beginText()
@@ -53,9 +53,9 @@ def main() :
 if __name__ == '__main__' :
    import os,sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)

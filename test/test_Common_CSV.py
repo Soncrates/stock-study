@@ -6,7 +6,8 @@ import unittest
 #import pandas.util.testing as pd_test
 import context
 
-from libCommon import CSV as TEST, log_on_exception
+from libCommon import CSV as TEST
+from libUtils import log_on_exception
 from libDebug import trace
 
 class TemplateTest(unittest.TestCase):
@@ -32,7 +33,7 @@ class TemplateTest(unittest.TestCase):
 if __name__ == '__main__' :
 
    import sys
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pandas_datareader as web
 
-from libCommon import log_on_exception
+from libUtils import log_on_exception
 from libDebug import trace, cpu
 
 '''
@@ -456,9 +456,10 @@ if __name__ == "__main__" :
 
    import sys
    import logging
-   from libCommon import ENVIRONMENT, INI_READ as INI
+   from libCommon import INI_READ as INI
+   from libUtils import ENVIRONMENT
 
-   env = ENVIRONMENT()
+   env = ENVIRONMENT.instance()
 
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)

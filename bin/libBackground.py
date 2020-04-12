@@ -3,7 +3,7 @@
 import os
 import logging
 import pandas as pd
-from libCommon import ENVIRONMENT, exit_on_exception, log_on_exception
+from libUtils import ENVIRONMENT, exit_on_exception, log_on_exception
 from libFinance import STOCK_TIMESERIES, TRANSFORM_BACKGROUND
 from libDebug import trace
 
@@ -97,7 +97,7 @@ def main(**kwargs) :
 if __name__ == '__main__' :
    import sys
    import logging
-   from libCommon import ENVIRONMENT
+   from libUtils import ENVIRONMENT
 
    _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN','MAX INCREASE']
    _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN',]
