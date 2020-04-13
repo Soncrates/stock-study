@@ -57,7 +57,8 @@ class LOAD() :
       @trace
       def prices(cls,local_dir, ticker_list) :
           dud = None
-          for ticker in ticker_list :
+          total = len(ticker_list)
+          for i, ticker in enumerate(ticker_list) :
               dud = cls._prices(local_dir, ticker,dud)
               time.sleep(.3)
           size = len(ticker_list) - len(dud)

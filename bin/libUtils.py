@@ -155,7 +155,7 @@ class ENVIRONMENT(object) :
           return ret
       @classmethod
       def find(cls, *path_list) :
-          for path in path_list :
+          for i, path in enumerate(path_list) :
               ret = glob(path)
               if len(ret) > 0 :
                  return sorted(ret)
@@ -189,7 +189,7 @@ class DICT_HELPER() :
     def append(self, key, *value_list):
         if key not in self.data:
            self.data[key] = []
-        for value in value_list :
+        for i, value in enumerate(value_list) :
             self.data[key].append(value)
     def values(self):
         if len(self.data) == 0 :

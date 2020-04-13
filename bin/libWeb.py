@@ -97,7 +97,7 @@ class YAHOO_PROFILE_PARSE() :
           if soup.body is None : return {}
           span_list = soup.body.findAll('span')
           data = []
-          for span in span_list :
+          for i, span in enumerate(span_list) :
               data.append(span.text)
           if len(data) == 0 :
              return {}
@@ -179,14 +179,14 @@ if __name__ == "__main__" :
    reader = FINANCEMODELLING_PROFILE()
 
    ret_list = FINANCEMODELLING_STOCK_LIST.get()
-   for ret in ret_list :
-       print (ret)
+   for i,ret in enumerate(ret_list) :
+       print ((i, ret))
    stock_list = ['AAPL','GOOG','SPY', 'SRCpA','SRC-A', 'SRC$A', 'SRCA']
    print (worker(5,*stock_list))
-   for stock in stock_list :
-       print (stock)
+   for i, stock in enumerate(stock_list) :
+       print ((i,stock))
        ret = reader(stock)
-       print (ret)
+       print ((i,ret))
    for index in FINANCEMODELLING_INDEX.get() :
        print (index)
 

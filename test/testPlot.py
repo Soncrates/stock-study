@@ -5,7 +5,7 @@ from pandas import DataFrame as df
 import matplotlib.pyplot as plt
 
 import context
-from libUtils import log_exception
+from context import test_plot_dir, test_plot_stock_list
 
 def load_file(filename) :
     data = pd.read_pickle(filename)
@@ -85,10 +85,13 @@ def action(stock_list) :
            del ret
            continue
         yield name, ret 
-
     
-def main(local_dir) :
-   stock_list = ["SPY", "HD", "PYPL", "SBUX", "UNH", "WEC"]
+def main() :
+   target = 'test_plot_dir'
+   local_dir = globals().get(target,None)
+   target = 'test_plot_stock_list'
+   stock_list = globals().get(target,None)
+
    target_01 = 'Adj Close'
    target_02 = 'Volume'
    stocks = {}
@@ -115,7 +118,7 @@ def main(local_dir) :
    save("{}/step_04_{}.png".format(local_dir,target_02))
 
 if __name__ == '__main__' :
-   import os,sys
+   import sys
    import logging
    from libUtils import ENVIRONMENT
 
@@ -127,9 +130,5 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
-
-   local_dir = '{pwd_parent}/local'.format(**vars(env))
-   test_dir = 'testResults'
-   env.mkdir(test_dir)
-   main(test_dir)
+   main()
 

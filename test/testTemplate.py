@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import logging
+import sys
 import unittest
 #import numpy.testing as np_test
 #import pandas.util.testing as pd_test

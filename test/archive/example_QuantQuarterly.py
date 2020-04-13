@@ -10,7 +10,7 @@ pwd = os.getcwd()
 pwd = pwd.replace('test','bin')
 sys.path.append(pwd)
 
-from libCOMMON import STOCK_TIMESERIES
+from libFinance import STOCK_TIMESERIES
 from libProcess import CompareStock, StockTransform, Monthly_Transform
 
 def loadData(*file_list) :
@@ -39,7 +39,7 @@ def main(*file_list) :
     for key, contender_name, contender_data, contender_quarter, spy_name, spy_data, spy_quarter in loadData(*file_list) :
         if key == 1 :
            if isinstance(name,basestring) :
-              print name, q, pair_list
+              logging(( name, q, pair_list))
            q = []
            pair_list = []
            name = None
@@ -57,7 +57,7 @@ def main(*file_list) :
         flag_stable = 1.5*std_list[spy_name] > std_list[contender_name]
         flag_isNum = not math.isnan(std_list[contender_name])
         if not flag_isNum :
-           print contender_quarter
+           logging.info( contender_quarter)
         if not flag_isNum or not flag_stable : 
            del obj
            del contender_quarter
@@ -92,4 +92,4 @@ if __name__ == '__main__' :
    pwd = pwd.replace('test','local')
    file_list = glob('{}/historical_prices/*pkl'.format(pwd))
    main(*file_list)
-   print "Done"
+   logging.info( "Done")

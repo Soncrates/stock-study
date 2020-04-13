@@ -6,6 +6,7 @@ import unittest
 #import pandas.util.testing as pd_test
 import pandas as pd
 import context
+from context import test_finance_end, test_finance_stock_list
 
 from libUtils import log_on_exception
 from libDebug import trace, cpu
@@ -22,16 +23,17 @@ class T() :
     def _init(cls) :
         if not (cls._data_list is None) :
            return cls._data_list
-        target = 'reader'
-        reader = globals().get(target,None)
-        target = 'stock_list'
+        target = 'test_finance_end'
+        end = globals().get(target,None)
+        reader = STOCK_TIMESERIES.init(end=end)
+        target = 'test_finance_stock_list'
         stock_list = globals().get(target,[])
         cls._data_list = map(lambda stock : reader.extract_from_yahoo(stock), stock_list)
         cls._data_list = list(cls._data_list)
         return cls._data_list
     @classmethod 
     def extract(cls) :
-        target = 'stock_list'
+        target = 'test_finance_stock_list'
         stock_list = globals().get(target,[])
         for i, stock in enumerate(stock_list) :
             yield stock, cls._init()[i].copy()
@@ -182,10 +184,10 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
-   end = "2019-06-01"
-   reader = STOCK_TIMESERIES.init(end=end)
-   stock_list = ['AAPL','IBM']
-   stock_list = ['IBM','AAPL','^GSPC']
+   #end = "2019-06-01"
+   #reader = STOCK_TIMESERIES.init(end=end)
+   #stock_list = ['AAPL','IBM']
+   #stock_list = ['IBM','AAPL','^GSPC']
 
    unittest.main()
 

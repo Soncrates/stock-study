@@ -7,6 +7,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch    
 
 import context
+from context import test_pdf_save_file
 from libUtils import log_on_exception
 
 def horizontalscale(canvas):    
@@ -38,12 +39,9 @@ def embedImage(canvas) :
 
 @log_on_exception
 def main() :
-    target = 'test_dir'
-    test_dir = globals().get(target,None)
-    target = 'save_file'
+    target = 'test_pdf_save_file'
     save_file = globals().get(target,None)
 
-    env.mkdir(test_dir)
     c = canvas.Canvas(save_file)
     c.drawString(100,750,"Welcome to Reportlab!")
     fonts(c)
@@ -51,7 +49,7 @@ def main() :
     c.save()
 
 if __name__ == '__main__' :
-   import os,sys
+   import sys
    import logging
    from libUtils import ENVIRONMENT
 
@@ -60,10 +58,6 @@ if __name__ == '__main__' :
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
-
-   local_dir = '{pwd_parent}/local'.format(**vars(env))
-   test_dir = 'testResults'
-   save_file = '{}/hello.pdf'.format(test_dir)
 
    main()
 

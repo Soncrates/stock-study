@@ -6,6 +6,7 @@ import unittest
 #import pandas.util.testing as pd_test
 import pandas as pd
 import context
+from context import test_stock_data_store, test_stock_ticker_list
 
 from libUtils import log_on_exception
 from libDebug import trace
@@ -18,7 +19,7 @@ class T() :
     def _init(cls) :
         if not (cls._data_list is None) :
            return cls._data_list
-        target = 'ticker_list'
+        target = 'test_stock_ticker_list'
         ticker_list = globals().get(target,[])
 
         names, stock_list, etf_list, alias, stock_names, etf_names = TEST_INIT()
@@ -36,9 +37,9 @@ class T() :
 class TemplateTest(unittest.TestCase):
 
     def test_01_(self) :
-        target = 'data_store'
+        target = 'test_stock_data_store'
         data_store = globals().get(target,[])
-        target = 'ticker_list'
+        target = 'test_stock_ticker_list'
         ticker_list = globals().get(target,[])
         stock_list = T.extract()
         logging.debug(stock_list)
@@ -59,9 +60,5 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   ini_list = env.list_filenames('local/*ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
-   data_store = '../local/historical_prices'
-   ticker_list = ['SYY','SBUX','CHTR','AAPL','ELS','XPO','BASI','FNV','COST','HE']
    unittest.main()
 

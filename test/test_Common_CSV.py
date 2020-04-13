@@ -5,6 +5,7 @@ import unittest
 #import numpy.testing as np_test
 #import pandas.util.testing as pd_test
 import context
+from context import test_csv
 
 from libCommon import CSV as TEST
 from libUtils import log_on_exception
@@ -12,21 +13,21 @@ from libDebug import trace
 
 class TemplateTest(unittest.TestCase):
 
-    def test_01_(self) :
+    def test_01_rows(self) :
         target = 'test_csv'
         target = globals().get(target,None)
         counter = 15
         for a in TEST.rows(target[0]) :
-            logging.debug(a)
+            logging.info(a)
             counter -= 1
             if counter == 0 :
                break
-    def test_02_(self) :
+    def test_02_dict(self) :
         target = 'test_csv'
         target = globals().get(target,None)
         counter = 15
         for a in TEST.to_dict(target[0]) :
-            logging.debug(a)
+            logging.info(a)
             counter -= 1
             if counter == 0 :
                break

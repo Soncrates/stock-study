@@ -6,6 +6,7 @@ import unittest
 #import pandas.util.testing as pd_test
 import pandas as pd
 import context
+from context import test_fund_data_store, test_fund_ticker_list
 
 from libUtils import log_on_exception
 from libDebug import trace
@@ -19,7 +20,7 @@ class T() :
     def _init(cls) :
         if not (cls._data_list is None) :
            return cls._data_list
-        target = 'ticker_list'
+        target = 'test_fund_ticker_list'
         ticker_list = globals().get(target,[])
         fund_list = NASDAQ.init().fund_list()
         ret = filter(lambda fund : fund[cls._name] in  ticker_list, fund_list)
@@ -34,9 +35,9 @@ class T() :
 class TemplateTest(unittest.TestCase):
 
     def test_01_(self) :
-        target = 'data_store'
+        target = 'test_fund_data_store'
         data_store = globals().get(target,[])
-        target = 'ticker_list'
+        target = 'test_fund_ticker_list'
         ticker_list = globals().get(target,[])
         fund_list = []
         for ticker, fund in T.extract() :
@@ -59,9 +60,5 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   ini_list = env.list_filenames('local/*ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
-   data_store = '../local/historical_prices_fund'
-   ticker_list = ['VBIAX','FBALX','FTBFX','YCGEX','VWELX','FCNTX','FSDIX','PRSVX','TRBCX','IAAAAX']
    unittest.main()
 

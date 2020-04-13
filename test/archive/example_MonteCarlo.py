@@ -2,6 +2,7 @@
 
 
 import os,sys
+import logging
 import pandas as pd
 
 pwd = os.getcwd()
@@ -9,12 +10,14 @@ pwd = pwd.replace('test','bin')
 sys.path.append(pwd)
 
 from libMonteCarlo import MonteCarlo
-from libCommon import INI, STOCK_TIMESERIES, combinations
+from libCommon import INI_READ as READ
+from libUtils import combinations
+from libFinance import STOCK_TIMESERIES
 
 def init(*ini_list) :
     performers = {}
     stability = {}
-    for file_name, name, key, value in INI.loadList(*ini_list) :
+    for file_name, name, key, value in READ.read(*ini_list) :
         config = None
         if name == "Stability" :
            config = stability
@@ -49,18 +52,18 @@ def main(file_list, stock_list) :
     stock_data[name] = spy_data['Adj Close']
 
     max_sharp, min_vol = annual([name],stock_data) 
-    print max_sharp
-    print min_vol
+    logging.info( max_sharp)
+    logging.info( min_vol)
 
     stock_name = []
     for name, stock in read(file_list, stock_list) :
         stock_name.append(name)
         stock_data[name] = stock['Adj Close']
     for subset in combinations(stock_name) : 
-        print subset
+        logging.info(subset)
         max_sharp, min_vol = annual(subset,stock_data) 
-        print max_sharp
-        print min_vol
+        logging.info(max_sharp)
+        logging.info(min_vol)
 
 if __name__ == '__main__' :
 

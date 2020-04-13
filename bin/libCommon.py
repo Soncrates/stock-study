@@ -72,7 +72,7 @@ class INI_BASE(object) :
 class INI_READ(object) :
       @classmethod
       def read(cls, *file_list) :
-          for ini_file in sorted(file_list) :
+          for i, ini_file in enumerate(sorted(file_list)) :
               for name, key, value in cls.read_ini(ini_file) :
                   yield ini_file, name, key, value
       @classmethod
@@ -87,7 +87,7 @@ class INI_READ(object) :
           fp.close()
       @classmethod
       def read_section(cls, config) :
-          for name in sorted(config._sections) :
+          for i, name in enumerate(sorted(config._sections)) :
               for key, value in config.items(name) :
                   if len(value) == 0 : continue
                   yield name, key, value
@@ -102,13 +102,13 @@ class INI_WRITE(object) :
           fp.close()
       @classmethod
       def write_ini(cls, config,**data) :
-          for section in sorted(data.keys()) :
+          for i, section in enumerate(sorted(data.keys())) :
               values = data.get(section,{})
               cls.write_section(config,section,**values)
       @classmethod
       def write_section(cls, config,section,**data) :
           config.add_section(section)
-          for key in sorted(data.keys()) :
+          for i, key in enumerate(sorted(data.keys())) :
               value = INI_BASE.dump(data[key])
               key = INI_BASE.dump_name(key)
               config.set(section,key,value)

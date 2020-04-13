@@ -2,6 +2,7 @@
 
 import datetime
 import pandas as pd
+from logging
 
 import os,sys
 
@@ -9,7 +10,8 @@ pwd = os.getcwd()
 pwd = pwd.replace('test','bin')
 sys.path.append(pwd)
 
-from libCommon import INI, STOCK_TIMERIES
+from libCommon import INI_READ as READ
+from libFinance import STOCK_TIMERIES
 from libQuantTrial_01 import DataFrame, DateFinder, CompoundAnnualGrowthRate
 
 def prototype(path) :
@@ -26,7 +28,7 @@ def prototype(path) :
 def init(*ini_list) :
     performers = {}
     stability = {}
-    for file_name, name, key, value in INI.loadList(*ini_list) :
+    for file_name, name, key, value in READ.read(*ini_list) :
         config = None
         if name == "Stability" :
            config = stability

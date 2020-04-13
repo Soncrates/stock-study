@@ -114,7 +114,7 @@ class STOCK_TIMESERIES :
           return name, data
       @classmethod
       def bulk(cls, file_list ) :
-          for path in file_list :
+          for i, path in enumerate(file_list) :
               ticker, ret = cls.load(path)
               yield ticker, ret 
       @classmethod
@@ -122,12 +122,12 @@ class STOCK_TIMESERIES :
           if not isinstance(stock_list,list) :
              stock_list = list(stock_list)
           if stock_list is None or len(stock_list) == 0 :
-             for path in file_list :
+             for i, path in enumerate(file_list) :
                  name, ret = cls.load(path)
                  yield name, ret
              return
               
-          for path in file_list :
+          for i, path in enumerate(file_list) :
               flag = filter(lambda x : x in path, stock_list)
               flag = list(flag)
               flag = len(flag) > 0
@@ -480,7 +480,7 @@ if __name__ == "__main__" :
    def demo_stock() :
        end = "2019-06-01"
        reader = STOCK_TIMESERIES.init(end=end)
-       for stock in stock_list :
+       for i, stock in enumerate(stock_list) :
            ret = reader.extract_from_yahoo(stock)
            logging.debug (stock)
            logging.debug (ret.describe().round(2))

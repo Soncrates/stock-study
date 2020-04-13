@@ -5,14 +5,15 @@ import sys
 import unittest
 
 import context
+from context import test_ini_input_file, test_ini_output_file, test_ini_output_data
 from libCommon import INI_READ as READ, INI_WRITE as WRITE, INI_BASE
 from libUtils import log_on_exception
 from libDebug import trace
 
 class TEST_READ(unittest.TestCase):
 
-    def test_03_(self) :
-        target = 'read_many'
+    def test_03_read(self) :
+        target = 'test_ini_input_file'
         ini_list = globals().get(target,[])
         count = 12
         for a,b,c,d in READ.read(*ini_list) :
@@ -37,28 +38,13 @@ class TEST_READ(unittest.TestCase):
 
 class TEST_WRITE(unittest.TestCase):
 
-    data = { 'stanza 1 simple' : {'string' : 'I am a string', 'string with single quote' : "I don't like single quotes", 'int0' : 0, 'int2' : 2, 'int negative' : -2}
-            , 'stanza 2 complex' : { 'list' : ['a','b','c']
-                , 'dictionary' : { 'letters' : ['a','b','c']
-                    , 'numbers' : [0,1,2]
-                    , 'single quote' : "I don't like single quotes"} 
-                } 
-            }
-    def test_03_(self) :
-        target = 'write'
-        target = globals().get(target,'error.ini')
-        WRITE.write(target, **TEST_WRITE.data)
+    def test_03_write(self) :
+        target = 'test_ini_output_data'
+        data = globals().get(target,{})
+        target = 'test_ini_output_file'
+        target = globals().get(target,'testResults/error.ini')
+        WRITE.write(target, **test_ini_output_data)
         
-@log_on_exception
-@trace
-def prep() : 
-    target = 'read_one'
-    read_one = globals().get(target,[])
-    logging.info(read_one)
-    target = 'read_many'
-    read_many = globals().get(target,[])
-    logging.info(read_many)
-
 if __name__ == '__main__' :
 
    from libUtils import ENVIRONMENT
@@ -68,10 +54,5 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   read_one = env.list_filenames('testConfig/refined_stock_list.ini')
-   read_many = env.list_filenames('testConfig/test*.ini')
-   write = 'testResults/testWrite.ini'
-
-   prep()
    unittest.main()
 

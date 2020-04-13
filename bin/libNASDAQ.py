@@ -122,7 +122,7 @@ class NASDAQ_FILTER() :
       def test(cls,data) :
           test = []
           ret = []
-          for row in data:
+          for i, row in enumerate(data) :
               curr, row = cls._test(row,ret,test)
               curr.append(row)
           return ret, test
@@ -184,7 +184,7 @@ class NASDAQ_TRANSFORM() :
           stock = set([])
           etf = set([])
           alias = {}
-          for row in row_list :
+          for i, row in enumerate(row_list) :
               curr = NASDAQ_FILTER.ETF(row,stock,etf)
               exchange = filter(lambda x : 'Exchange' in x , row.keys())
               exchange = map(lambda x : row.get(x,x) , exchange)
@@ -282,13 +282,13 @@ class NASDAQ() :
       def by_family(self) :
           ret = {}
           fund_list, csv = self.funds()
-          for fund in fund_list :
+          for i, fund in enumerate(fund_list) :
               target = 'Fund Family Name' 
               name = fund.pop(target,target)
               if name not in ret :
                  ret[name] = []
               ret[name].append(fund)
-          for family in ret :
+          for i, family in enumerate(ret) :
               logging.debug((family,ret[family][0]))
           logging.info(('Funds',len(fund_list)))
           return fund_list
@@ -304,7 +304,7 @@ class NASDAQ() :
           data = str(ret)
           reader = _csv.DictReader(data.split('\n'), delimiter='|')
           ret = []
-          for row in reader:
+          for i, row in enumerate(reader):
               ret.append(row)
           return ret
 
