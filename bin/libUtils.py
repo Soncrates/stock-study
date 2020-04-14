@@ -134,6 +134,8 @@ class ENVIRONMENT(object) :
           ret = "\n".join(ret)
           return ret
       def mkdir(self, path) :
+          if path is None :
+              return
           _path = [self.pwd, self.pwd_parent]
           _path = [self.pwd]
           _path = map(lambda x : '{}/{}'.format(x,path),_path)

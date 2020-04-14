@@ -20,6 +20,8 @@ class EXTRACT() :
            return cls._singleton
         target = 'env'
         env = globals().get(target,None)
+        if env is None :
+            env = ENVIRONMENT.instance()
         target = 'data_store_stock'
         stock = globals().get(target,'')
         if not isinstance(stock,str) :
@@ -39,7 +41,6 @@ class LOAD() :
       @classmethod
       @trace
       def _prices(cls, local_dir, ticker,dud) :
-          logging.info(ticker)
           if dud is None :
              dud = []
           filename = '{}/{}.pkl'.format(local_dir,ticker)
@@ -59,6 +60,7 @@ class LOAD() :
           dud = None
           total = len(ticker_list)
           for i, ticker in enumerate(ticker_list) :
+              logging.info("{} ({}/{})".format(ticker,i,total))
               dud = cls._prices(local_dir, ticker,dud)
               time.sleep(.3)
           size = len(ticker_list) - len(dud)
