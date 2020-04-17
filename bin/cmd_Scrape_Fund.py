@@ -123,7 +123,7 @@ def filter_by_type(fund) :
     name = fund.get(target,None)
     name = name.replace('%', ' percent')
     name = name.replace(' Fd', ' Fund')
-    recognized = FUND._Type.values()
+    recognized = FUND.TYPE.values()
     if section not in recognized :
        category = "{}_{}".format(section,category)
        section = 'UNKNOWN'

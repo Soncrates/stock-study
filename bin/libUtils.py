@@ -6,6 +6,8 @@ from time import time as _now
 from functools import reduce
 
 from itertools import combinations as iter_combo
+import requests
+from bs4 import BeautifulSoup
 
 '''
   Kitchen Sink
@@ -168,6 +170,59 @@ class ENVIRONMENT(object) :
           path2 = '{}/{}'.format(self.pwd_parent,extension)
           ret = ENVIRONMENT.find(*[path1, path2])
           return ret
+'''
+'''
+class WEB(object) :
+      @classmethod
+      @log_on_exception
+      def invoke_url(cls, url,headers=None, raw=False) :
+          ret = WEB_BASE.get(url,headers)
+          if raw :
+             ret = ret['text']
+          else :
+             ret = ret['content']
+          return ret
+      @classmethod
+      @log_on_exception
+      def json(cls, url,headers=None) :
+          ret = WEB_BASE.get_json(url,headers)
+          ret = ret['json']
+          return ret
+      @classmethod
+      def format_as_soup(cls, url_response, raw=False) :
+          ret = BeautifulSoup(url_response,'lxml')
+          if not raw :
+             for script in ret(["script", "style"]):
+                 script.extract() # Remove these two elements from the BS4 object
+          return ret
+
+def http_200(func):
+    def wrap(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        if ret.status_code != 200 :
+           msg = ','.join(args)
+           msg = "{} {}".format(ret.status_code,msg)
+           logging.error(msg)
+        return ret
+    wrap.__name__ = func.__name__
+    return wrap
+class WEB_BASE(object) :
+      PARAMS = ['text','content','json']
+      @classmethod
+      def get(cls, url,headers=None) :
+          ret = cls._get(url,headers)
+          return dict(zip(cls.PARAMS,[ret.text,ret.content]))
+      @classmethod
+      def get_json(cls, url,headers=None) :
+          ret = cls._get(url,headers)
+          return dict(zip(cls.PARAMS,[ret.text,ret.content,ret.json()]))
+      @classmethod
+      @http_200
+      def _get(cls, url,headers=None) :
+          if headers is not None :
+             return requests.get(url, headers=headers)
+          else :
+             return requests.get(url)
 '''
 '''
 

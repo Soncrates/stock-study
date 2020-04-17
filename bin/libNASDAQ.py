@@ -7,8 +7,10 @@ from libCommon import FTP
 Web Scraping Utils
 
 '''
-class TRANSFORM_PARTICIPANT() :
-      _type = {
+class CONSTANTS() :
+      FAMILY_FIELD = 'Fund Family Name' 
+      PARTICIPANT_FIELD = 'MP Type'
+      PARTICIPANT = {
               'A' : 'Agency Quote'
               , 'C' : 'Electronic Communications Network (ECN)'
               , 'E' : 'Exchange'
@@ -19,19 +21,13 @@ class TRANSFORM_PARTICIPANT() :
               , 'Q' : 'Query Only Firm'
               , 'S' : 'Specialist'
               }
-      @classmethod
-      def Type(cls,row) :
-          target = 'MP Type'
-          value = row.get(target,'') 
-          replace = cls._type.get(value,value)
-          row[target] = replace
-          return row
-class TRANSFORM_STOCK() :
-      market = { 'Q' : 'NASDAQ Global Select MarketSM'
+      MARKET_FIELD = 'Market Category'
+      MARKET = { 'Q' : 'NASDAQ Global Select MarketSM'
                    , 'G' : 'NASDAQ Global MarketSM'
                    , 'S' : 'NASDAQ Capital Market'
                    }
-      finance = { 'D' : 'Deficient: Issuer Failed to Meet NASDAQ Continued Listing Requirements'
+      FINANCE_FIELD = 'Financial Status'
+      FINANCE = { 'D' : 'Deficient: Issuer Failed to Meet NASDAQ Continued Listing Requirements'
                  , 'E' : 'Delinquent: Issuer Missed Regulatory Filing Deadline'
                  , 'Q' : 'Bankrupt: Issuer Has Filed for Bankruptcy'
                  , 'N' : 'Normal (Default): Issuer Is NOT Deficient, Delinquent, or Bankrupt.'
@@ -40,43 +36,17 @@ class TRANSFORM_STOCK() :
                  , 'J' : 'Delinquent and Bankrupt'
                  , 'K' : 'Deficient, Delinquent, and Bankrupt'
                  }
-      exchange = {
+      EXCHANGE_FIELD = 'Listing Exchange'
+      EXCHANGE_FIELD2 = 'Exchange'
+      EXCHANGE = {
               'A' : 'NYSE MKT'
               , 'N' : 'New York Stock Exchange (NYSE)'
               , 'P' : 'NYSE ARCA'
               , 'Z' : 'BATS Global Markets (BATS)'
               , 'V' : "Investors' Exchange, LLC (IEXG)"
               }
-      @classmethod
-      def Market(cls,row) :
-          target = 'Market Category'
-          value = row.get(target,'') 
-          replace = cls.market.get(value,value)
-          row[target] = replace
-          return row
-      @classmethod
-      def Finance(cls,row) :
-          target = 'Financial Status'
-          value = row.get(target,'') 
-          replace = cls.finance.get(value,value)
-          row[target] = replace
-          return row
-      @classmethod
-      def Exchange(cls,row) :
-          target = 'Listing Exchange'
-          value = row.get(target,'') 
-          replace = cls.exchange.get(value,value)
-          row[target] = replace
-          return row
-      @classmethod
-      def Exchange2(cls,row) :
-          target = 'Exchange'
-          value = row.get(target,'') 
-          replace = cls.exchange.get(value,value)
-          row[target] = replace
-          return row
-class TRANSFORM_FUND() :
-      _Type = { 'AN' : 'Annuities'
+      TYPE_FIELD = 'Type'
+      TYPE = { 'AN' : 'Annuities'
               , 'MF' : 'Mutual Fund'
               , 'MS' : 'Supplemental Mutual Fund'
               , '$$' : 'Money Market Fund'
@@ -85,7 +55,8 @@ class TRANSFORM_FUND() :
               , 'US' : 'UIT Supplemental List'
               , 'UT' : 'UIT News Media List'
               }
-      _Category = {
+      CATEGORY_FIELD = 'Category' 
+      CATEGORY = {
               'M' : 'Variable'
               , 'N' : 'Equity Indexed'
               , 'O' : 'Open-end'
@@ -103,19 +74,64 @@ class TRANSFORM_FUND() :
               , 'F' : 'Not Used/Reserved'
               , 'D' : 'Fixed Income'
               }
+      NASDAQ_URL = 'ftp.nasdaqtrader.com'
+      NASDAQ_FILE_LIST = ['bondslist.txt', 'bxoptions.txt', 'bxo_lmm.csv', 'bxtraded.txt'
+              , 'gmniListedStrikesWithOptionIds.zip', 'iseListedStrikesWithOptionIds.zip'
+              , 'mcryListedStrikesWithOptionIds.zip', 'mfundslist.txt', 'mpidlist.txt'
+              , 'nasdaqlisted.txt', 'nasdaqtraded.txt', 'options.txt', 'otclist.txt', 'otherlisted.txt'
+              , 'pbot.csv', 'phlxListedStrikesWithOptionIds.zip', 'phlxoptions.csv', 'phlxStrikesOld.zip', 'psxtraded.txt'
+              , 'regnms', 'regsho', 'regshopilot', 'regshopilotlist', 'shorthalts'
+              , 'TradingSystemAddsDeletes.txt']
+class TRANSFORM_PARTICIPANT() :
+      TYPE = CONSTANTS.PARTICIPANT.copy()
+      TYPE_FIELD = CONSTANTS.PARTICIPANT_FIELD
+      @classmethod
+      def Type(cls,row) :
+          value = row.get(cls.TYPE_FIELD,'') 
+          row[cls.TYPE_FIELD] = cls.TYPE.get(value,value)
+          return row
+class TRANSFORM_STOCK() :
+      MARKET = CONSTANTS.MARKET.copy()
+      MARKET_FIELD = CONSTANTS.MARKET_FIELD
+      FINANCE = CONSTANTS.FINANCE.copy()
+      FINANCE_FIELD = CONSTANTS.FINANCE_FIELD
+      EXCHANGE = CONSTANTS.EXCHANGE.copy()
+      EXCHANGE_FIELD = CONSTANTS.EXCHANGE_FIELD
+      EXCHANGE_FIELD2 = CONSTANTS.EXCHANGE_FIELD2
+      @classmethod
+      def Market(cls,row) :
+          value = row.get(cls.MARKET_FIELD,'') 
+          row[cls.MARKET_FIELD] = cls.MARKET.get(value,value)
+          return row
+      @classmethod
+      def Finance(cls,row) :
+          value = row.get(cls.FINANCE_FIELD,'') 
+          row[cls.FINANCE_FIELD] = cls.FINANCE.get(value,value)
+          return row
+      @classmethod
+      def Exchange(cls,row) :
+          value = row.get(cls.EXCHANGE_FIELD,'') 
+          row[cls.EXCHANGE_FIELD] = cls.EXCHANGE.get(value,value)
+          return row
+      @classmethod
+      def Exchange2(cls,row) :
+          value = row.get(cls.EXCHANGE_FIELD2,'') 
+          row[cls.EXCHANGE_FIELD2] = cls.EXCHANGE.get(value,value)
+          return row
+class TRANSFORM_FUND() :
+      TYPE = CONSTANTS.TYPE.copy()
+      TYPE_FIELD = CONSTANTS.TYPE_FIELD
+      CATEGORY = CONSTANTS.CATEGORY.copy()
+      CATEGORY_FIELD = CONSTANTS.CATEGORY_FIELD
       @classmethod
       def Type(cls,row) : 
-          target = 'Type'
-          value = row.get(target,'') 
-          replace = cls._Type.get(value,value)
-          row[target] = replace
+          value = row.get(cls.TYPE_FIELD,'') 
+          row[cls.TYPE_FIELD] = cls.TYPE.get(value,value)
           return row
       @classmethod
       def Category(cls,row) : 
-          target = 'Category' 
-          value = row.get(target,'') 
-          replace = cls._Category.get(value,value)
-          row[target] = replace
+          value = row.get(cls.CATEGORY_FIELD,'') 
+          row[cls.CATEGORY_FIELD] = cls.CATEGORY.get(value,value)
           return row
 class NASDAQ_FILTER() :
       @classmethod
@@ -201,13 +217,9 @@ class NASDAQ_TRANSFORM() :
                  alias[name] = alt_name
           return stock, etf, alias
 class NASDAQ() :
-      url = 'ftp.nasdaqtrader.com'
-      file_list = ['bondslist.txt', 'bxoptions.txt', 'bxo_lmm.csv', 'bxtraded.txt'
-              , 'gmniListedStrikesWithOptionIds.zip', 'iseListedStrikesWithOptionIds.zip', 'mcryListedStrikesWithOptionIds.zip', 'mfundslist.txt', 'mpidlist.txt'
-              , 'nasdaqlisted.txt', 'nasdaqtraded.txt', 'options.txt', 'otclist.txt', 'otherlisted.txt'
-              , 'pbot.csv', 'phlxListedStrikesWithOptionIds.zip', 'phlxoptions.csv', 'phlxStrikesOld.zip', 'psxtraded.txt'
-              , 'regnms', 'regsho', 'regshopilot', 'regshopilotlist', 'shorthalts'
-              , 'TradingSystemAddsDeletes.txt']
+      URL = CONSTANTS.NASDAQ_URL
+      file_list = CONSTANTS.NASDAQ_FILE_LIST.copy()
+      FAMILY_FIELD = CONSTANTS.FAMILY_FIELD
 
       def __init__(self,ftp,*file_list) :
           self.ftp = ftp
@@ -278,13 +290,13 @@ class NASDAQ() :
           return stock, etf, alias 
       def fund_list(self) :
           ret, csv = self.funds()
+          logging.info(('Funds',len(ret)))
           return ret
       def by_family(self) :
           ret = {}
           fund_list, csv = self.funds()
           for i, fund in enumerate(fund_list) :
-              target = 'Fund Family Name' 
-              name = fund.pop(target,target)
+              name = fund.pop(cls.FAMILY_FIELD,cls.FAMILY_FIELD)
               if name not in ret :
                  ret[name] = []
               ret[name].append(fund)
@@ -295,7 +307,7 @@ class NASDAQ() :
 
       @classmethod
       def init(cls) :
-          ftp = FTP.init(server=cls.url)
+          ftp = FTP.init(server=cls.URL)
           file_list = map(lambda x : '/symboldirectory/{}'.format(x), cls.file_list)
           ret = cls(ftp,*file_list)
           return ret

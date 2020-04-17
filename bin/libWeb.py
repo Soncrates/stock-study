@@ -3,6 +3,7 @@ try:
 except ImportError:
     from backports.functools_lru_cache import lru_cache
 
+'''
 try:
     import urlparse
     from urllib import urlencode
@@ -10,12 +11,11 @@ except: # For Python 3
     import urllib.parse as urlparse
     from urllib.parse import urlencode
 
+'''
 import logging
-import requests
 import re
-from bs4 import BeautifulSoup
-from json import load
 
+from libUtils import WEB as WEB_UTIL
 '''
 
 Web Scraping Utils
@@ -23,44 +23,6 @@ Web Scraping Utils
 
 https://financialmodelingprep.com/developer/docs/
 '''
-class WEB_UTIL(object) :
-      @classmethod
-      def invoke_url(cls, url,headers=None, raw=False) :
-          ret = None
-          try :
-              ret = cls._invoke_url(url,headers,raw)
-          except Exception as e : logging.error(e, exc_info=True)
-          return ret
-      @classmethod
-      def json(cls, url,headers=None) :
-          ret = None
-          try :
-              ret = cls._base_invoke(url,headers)
-          except Exception as e : logging.error(e, exc_info=True)
-          return ret.json()
-      @classmethod
-      def _invoke_url(cls, url,headers=None, raw=False) :
-        ret = cls._base_invoke(url,headers)
-        if not raw : ret = ret.text
-        else : ret = ret.content
-        return ret
-      @classmethod
-      def _base_invoke(cls, url,headers=None) :
-        if headers is not None :
-          ret = requests.get(url, headers=headers)        
-        else :
-          ret = requests.get(url)
-        if ret.status_code != 200 :
-           msg = "{} {}".format(ret.status_code,url)
-           logging.error(msg)
-        return ret
-      @classmethod
-      def format_as_soup(cls, url_response, raw=False) :
-        ret = BeautifulSoup(url_response,'lxml')
-        if not raw : 
-          for script in ret(["script", "style"]):
-                script.extract() # Remove these two elements from the BS4 object
-        return ret
 
 '''
    Downloading background profiles via yahoo api takes 90 minutes for ~8K calls
@@ -69,16 +31,23 @@ class WEB_UTIL(object) :
      The Bastards.
 
 '''
+class CONSTANTS() :
+      YAHOO_BASE_URL = "https://finance.yahoo.com"
+      YAHOO_PROFILE = YAHOO_BASE_URL + "/quote/{0}/profile?p={0}"
+
+      FINANCE_BASE_URL = "https://financialmodelingprep.com"
+      FINANCE_STOCK_LIST = FINANCE_BASE_URL + "/api/v3/company/stock/list"
+      STOCK_LIST_FIELD = "symbolsList"
+      FINANCE_INDEX = FINANCE_BASE_URL + "/api/v3/majors-indexes"
+      INDEX_FIELD = "majorIndexesList"
+      FINANCE_PROFILE = FINANCE_BASE_URL + "/api/v3/company/profile/{0}"
+      PROFILE_FIELD= "profile"
+
 class YAHOO_PROFILE() :
-      url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
-      def __call__(self, stock) :
-          ret = YAHOO_PROFILE.get(stock)
-          logging.debug(ret)
-          return ret
 
       @classmethod
       def get(cls, stock) :
-          url = cls.url.format(stock)
+          url = CONSTANTS.YAHOO_PROFILE.format(stock)
           response = WEB_UTIL.invoke_url(url)
           soup = WEB_UTIL.format_as_soup(response)
           ret = YAHOO_PROFILE_PARSE.parse(soup)
@@ -117,52 +86,30 @@ class YAHOO_PROFILE_PARSE() :
           return ret
 
 class FINANCEMODELLING_STOCK_LIST() :
-      url = "https://financialmodelingprep.com/api/v3/company/stock/list"
-      def __call__(self, stock) :
-          ret = FINANCEMODELLING_STOCK_LIST.get(stock)
-          logging.debug(ret)
-          return ret
 
       @classmethod
       def get(cls) :
-          response = WEB_UTIL.json(cls.url)
-          target = "symbolsList"
-          ret = response.get(target,{})
-          logging.info(ret)
+          response = WEB_UTIL.json(CONSTANTS.FINANCE_STOCK_LIST)
+          ret = response.get(CONSTANTS.STOCK_LIST_FIELD,{})
           return ret
 
 class FINANCEMODELLING_INDEX() :
-      url = "https://financialmodelingprep.com/api/v3/majors-indexes"
-      def __call__(self, stock) :
-          ret = FINANCEMODELLING_INDEX.get()
-          logging.debug(ret)
-          return ret
 
       @classmethod
       def get(cls) :
-          response = WEB_UTIL.json(cls.url)
-          target = "majorIndexesList"
-          ret = response.get(target,{})
-          logging.info(ret)
+          response = WEB_UTIL.json(CONSTANTS.FINANCE_INDEX)
+          ret = response.get(CONSTANTS.INDEX_FIELD,{})
           return ret
 
 class FINANCEMODELLING_PROFILE() :
-      url = "https://financialmodelingprep.com/api/v3/company/profile/{0}"
-      def __call__(self, stock) :
-          ret = FINANCEMODELLING_PROFILE.get(stock)
-          logging.debug(ret)
-          return ret
 
       @classmethod
       def get(cls, stock) :
-          url = cls.url.format(stock)
+          url = CONSTANTS.FINANCE_PROFILE.format(stock)
           response = WEB_UTIL.json(url)
-          target = "profile"
-          ret = response.get(target,{})
+          ret = response.get(CONSTANTS.PROFILE_FIELD,{})
           ret['Stock'] = stock
-          logging.info(ret)
           return ret
-
 
 if __name__ == "__main__" :
    from multiprocessing import Pool
