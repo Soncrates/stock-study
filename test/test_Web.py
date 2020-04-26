@@ -17,24 +17,24 @@ class TemplateTest(unittest.TestCase):
     def test_02_stock_list(self) :
         ret_list = FINANCEMODELLING_STOCK_LIST.get()
         for i,ret in enumerate(ret_list) :
-            print ((i, ret))
+            logging.info ((i, ret))
     def test_03_profile(self) :
         target = 'stock_list'
         stock_list = globals().get(target,[])
         for i, stock in enumerate(stock_list) :
-            print ((i,stock))
+            logging.info ((i,stock))
             ret = YAHOO_PROFILE.get(stock)
-            print ((i,ret))
+            logging.info ((i,ret))
     def test_04_profile(self) :
         target = 'stock_list'
         stock_list = globals().get(target,[])
         for i, stock in enumerate(stock_list) :
-            print ((i,stock))
+            logging.info ((i,stock))
             ret = FINANCEMODELLING_PROFILE.get(stock)
-            print ((i,ret))
+            logging.info ((i,ret))
     def test_05_index(self) :
         for index in FINANCEMODELLING_INDEX.get() :
-            print (index)
+            logging.info (index)
 
 if __name__ == '__main__' :
 

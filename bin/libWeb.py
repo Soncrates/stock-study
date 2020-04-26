@@ -48,7 +48,7 @@ class YAHOO_PROFILE() :
       @classmethod
       def get(cls, stock) :
           url = CONSTANTS.YAHOO_PROFILE.format(stock)
-          response = WEB_UTIL.invoke_url(url)
+          response = WEB_UTIL.get_content(url)
           soup = WEB_UTIL.format_as_soup(response)
           ret = YAHOO_PROFILE_PARSE.parse(soup)
           ret['Stock'] = stock
@@ -58,8 +58,6 @@ class YAHOO_PROFILE() :
 Stocks and Funds on the nasdaq have the same api but very different content
 '''
 class YAHOO_PROFILE_PARSE() :
-      def __call__(self, soup) :
-          return YAHOO_PROFILE_PARSE.parse(soup)
       @classmethod
       def parse(cls, soup) :
           if soup is None : return {}
@@ -86,27 +84,24 @@ class YAHOO_PROFILE_PARSE() :
           return ret
 
 class FINANCEMODELLING_STOCK_LIST() :
-
       @classmethod
       def get(cls) :
-          response = WEB_UTIL.json(CONSTANTS.FINANCE_STOCK_LIST)
+          response = WEB_UTIL.get_json(CONSTANTS.FINANCE_STOCK_LIST)
           ret = response.get(CONSTANTS.STOCK_LIST_FIELD,{})
           return ret
 
 class FINANCEMODELLING_INDEX() :
-
       @classmethod
       def get(cls) :
-          response = WEB_UTIL.json(CONSTANTS.FINANCE_INDEX)
+          response = WEB_UTIL.get_json(CONSTANTS.FINANCE_INDEX)
           ret = response.get(CONSTANTS.INDEX_FIELD,{})
           return ret
 
 class FINANCEMODELLING_PROFILE() :
-
       @classmethod
       def get(cls, stock) :
           url = CONSTANTS.FINANCE_PROFILE.format(stock)
-          response = WEB_UTIL.json(url)
+          response = WEB_UTIL.get_json(url)
           ret = response.get(CONSTANTS.PROFILE_FIELD,{})
           ret['Stock'] = stock
           return ret

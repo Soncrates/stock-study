@@ -3,7 +3,6 @@ import csv as _csv
 from libCommon import FTP
 
 '''
-
 Web Scraping Utils
 
 '''
@@ -240,48 +239,47 @@ class NASDAQ() :
           return ret
       def listed(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[9])
-          temp = NASDAQ.to_dict(raw)
+          temp = NASDAQ.to_list(raw)
           ret, test_list = NASDAQ_FILTER.test(temp)
           ret = map(lambda row : TRANSFORM_STOCK.Market(row), ret)
           ret = map(lambda row : TRANSFORM_STOCK.Finance(row), ret)
-          return ret, raw 
+          return list(ret), raw 
       def traded(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[10])
-          temp = NASDAQ.to_dict(raw)
+          temp = NASDAQ.to_list(raw)
           ret, test_list = NASDAQ_FILTER.test(temp)
           ret = map(lambda row : TRANSFORM_STOCK.Market(row), ret)
           ret = map(lambda row : TRANSFORM_STOCK.Finance(row), ret)
           ret = map(lambda row : TRANSFORM_STOCK.Exchange(row), ret)
-          return ret, raw 
+          return list(ret), raw 
       def other(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[13])
-          temp = NASDAQ.to_dict(raw)
+          temp = NASDAQ.to_list(raw)
           ret, test_list = NASDAQ_FILTER.test(temp)
           ret = map(lambda row : TRANSFORM_STOCK.Exchange2(row), ret)
-          return ret, raw
+          return list(ret), raw 
       def funds(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[7])
-          ret = NASDAQ.to_dict(raw)
+          ret = NASDAQ.to_list(raw)
           ret = map(lambda row : TRANSFORM_FUND.Type(row), ret)
           ret = map(lambda row : TRANSFORM_FUND.Category(row), ret)
-          ret = list(ret)
-          return ret, raw
+          return list(ret), raw 
       def bonds(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[0])
-          ret = NASDAQ.to_dict(raw)
+          ret = NASDAQ.to_list(raw)
           return ret, raw
       def participants(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[8])
-          ret = NASDAQ.to_dict(raw)
+          ret = NASDAQ.to_list(raw)
           ret = map(lambda row : TRANSFORM_PARTICIPANT.Type(row), ret)
-          return ret, raw
+          return list(ret), raw 
       def stock_list(self) :
           listed, csv = self.listed()
           #traded, csv = self.traded()
           other, csv = self.other()
           _list = []
           #_list += listed + traded + other
-          _list += list(listed) + list(other)
+          _list += listed + other
           stock, etf, alias = NASDAQ_TRANSFORM.stock_list(_list)
           stock = sorted(list(stock))
           etf = sorted(list(etf))
@@ -312,7 +310,7 @@ class NASDAQ() :
           ret = cls(ftp,*file_list)
           return ret
       @classmethod
-      def to_dict(cls,ret) :
+      def to_list(cls,ret) :
           data = str(ret)
           reader = _csv.DictReader(data.split('\n'), delimiter='|')
           ret = []

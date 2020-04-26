@@ -5,6 +5,7 @@ from glob import glob
 from time import time as _now
 from functools import reduce
 
+import feedparser
 from itertools import combinations as iter_combo
 import requests
 from bs4 import BeautifulSoup
@@ -45,57 +46,6 @@ def log_on_exception(func):
            return ret
     exception_guard.__name__ = func.__name__
     return exception_guard
-
-'''
-unused
-'''
-def to_json(func):
-    def json_guard(*args, **kwargs):
-        ret = func(*args, **kwargs)
-        if ret is None : 
-            return ret
-        if not isinstance(ret, (dict, list)):
-            return ret
-        return jsonify(ret)
-    json_guard.__name__ = func.__name__
-    return json_guard
-'''
-unused
-'''
-def to_dict(func):
-    def dict_guard(*args, **kwargs):
-        ret = func(*args, **kwargs)
-        if not isinstance(ret, dict):
-           return ret
-        return ret
-    dict_guard.__name__ = func.__name__
-    return dict_guard
-'''
-unused
-'''
-def singleton(cls):
-    instance = [None]
-    def wrapper(*args, **kwargs):
-        if instance[0] is None:
-            instance[0] = cls(*args, **kwargs)
-        return instance[0]
-    wrapper.__name__ = func.__name__
-    return wrapper
-
-'''
-unused
-'''
-def accepts(*types):
-    def check_accepts(f):
-        assert len(types) == f.__code__.co_argcount
-        def new_f(*args, **kwds):
-            for (a, t) in zip(args, types):
-                assert isinstance(a, t), \
-                       "arg %r does not match %s" % (a,t)
-            return f(*args, **kwds)
-        new_f.__name__ = f.__name__
-        return new_f
-    return check_accepts
 
 class ENVIRONMENT(object) :
       _env_vars = ['HOME','LOGNAME','OLDPWD','PATH','PWD','USER','USERNAME']
@@ -170,32 +120,6 @@ class ENVIRONMENT(object) :
           path2 = '{}/{}'.format(self.pwd_parent,extension)
           ret = ENVIRONMENT.find(*[path1, path2])
           return ret
-'''
-'''
-class WEB(object) :
-      @classmethod
-      @log_on_exception
-      def invoke_url(cls, url,headers=None, raw=False) :
-          ret = WEB_BASE.get(url,headers)
-          if raw :
-             ret = ret['text']
-          else :
-             ret = ret['content']
-          return ret
-      @classmethod
-      @log_on_exception
-      def json(cls, url,headers=None) :
-          ret = WEB_BASE.get_json(url,headers)
-          ret = ret['json']
-          return ret
-      @classmethod
-      def format_as_soup(cls, url_response, raw=False) :
-          ret = BeautifulSoup(url_response,'lxml')
-          if not raw :
-             for script in ret(["script", "style"]):
-                 script.extract() # Remove these two elements from the BS4 object
-          return ret
-
 def http_200(func):
     def wrap(*args, **kwargs):
         ret = func(*args, **kwargs)
@@ -206,23 +130,50 @@ def http_200(func):
         return ret
     wrap.__name__ = func.__name__
     return wrap
-class WEB_BASE(object) :
-      PARAMS = ['text','content','json']
+'''
+'''
+class WEB(object) :
       @classmethod
-      def get(cls, url,headers=None) :
-          ret = cls._get(url,headers)
-          return dict(zip(cls.PARAMS,[ret.text,ret.content]))
+      @log_on_exception
+      def get_content(cls, url,headers=None) :
+          return cls.get(url,headers).content
       @classmethod
+      @log_on_exception
+      def get_text(cls, url,headers=None) :
+          return cls.get(url,headers).text
+      @classmethod
+      @log_on_exception
       def get_json(cls, url,headers=None) :
-          ret = cls._get(url,headers)
-          return dict(zip(cls.PARAMS,[ret.text,ret.content,ret.json()]))
+          return cls.get(url,headers).json()
       @classmethod
       @http_200
-      def _get(cls, url,headers=None) :
-          if headers is not None :
-             return requests.get(url, headers=headers)
-          else :
-             return requests.get(url)
+      def get(cls, url,headers=None) :
+          return requests.get(url, headers=headers)
+      @classmethod
+      def format_as_soup(cls, url_response, raw=False) :
+          ret = BeautifulSoup(url_response,'lxml')
+          if not raw :
+             for script in ret(["script", "style"]):
+                 script.extract() # Remove these two elements from the BS4 object
+          return ret
+
+class RSS() :
+      @classmethod
+      def to_dict(cls,rss) :
+          feed = feedparser.parse(rss)
+          _title = feed['feed']['title']
+          yield _title
+          for entry in feed.entries :
+              yield entry
+      @classmethod
+      def narrow(cls,*field_list,**entry) :
+          logging.info(field_list)
+          ret = {}
+          for field in field_list :
+              ret[field] = entry.get(field,'NA')
+          return ret
+
+
 '''
 '''
 
