@@ -31,11 +31,15 @@ class INI_BASE(object) :
           return ret
       @classmethod
       def dump_name(cls, ret) :
+          if not isinstance(ret,str) :
+             return ret
           ret = ret.replace('%', '_pct_')
           ret = ret.replace('=', '_eq_')
           return ret
       @classmethod
       def load_name(cls, ret) :
+          if not isinstance(ret,str) :
+             return ret
           ret = ret.replace('_pct_','%')
           ret = ret.replace('_eq_','=')
           return ret
@@ -83,6 +87,7 @@ class INI_READ(object) :
           for name, key, value in cls.read_section(config) :
               key = INI_BASE.load_name(key)
               value = INI_BASE.load(value)
+              value = INI_BASE.load_name(value)
               yield name, key, value
           fp.close()
       @classmethod
@@ -110,6 +115,7 @@ class INI_WRITE(object) :
           config.add_section(section)
           for i, key in enumerate(sorted(data.keys())) :
               value = INI_BASE.dump(data[key])
+              value = INI_BASE.dump_name(value)
               key = INI_BASE.dump_name(key)
               config.set(section,key,value)
 

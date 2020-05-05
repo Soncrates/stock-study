@@ -4,33 +4,29 @@ import re
 import logging
 from functools import reduce
 from libCommon import INI_BASE, INI_READ, INI_WRITE
-from libUtils import DICT_HELPER, exit_on_exception
-from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
-from libWeb import WEB_UTIL
+from libUtils import DICT_HELPER, WEB as WEB_UTIL
+from libNASDAQ import NASDAQ
+from libDecorators import exit_on_exception, singleton
 from libDebug import trace
 '''
    Web Scraper
    Use RESTful interface to to get web pages and parse for relevant info about stocks and funds
 '''
-class EXTRACT() :
-    _singleton = None
-    def __init__(self, _env, draft,final) :
-        self.env = _env
-        self.draft = draft
-        self.final = final
-    @classmethod
-    def instance(cls) :
-        if not (cls._singleton is None) :
-           return cls._singleton
-        target = 'env'
-        env = globals().get(target,None)
-        target = 'draft'
-        draft = globals().get(target,None)
-        target = 'final'
-        final = globals().get(target,None)
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
 
-        cls._singleton = cls(env,draft,final)
-        return cls._singleton
+@singleton
+class VARIABLES() :
+    var_names = ['env','draft','final','omit_list']
+    def __init__(self) :
+        values = get_globals(*VARIABLES.var_names)
+        self.__dict__.update(**values)
 
 class TRANSFORM_SECTOR() :
     normalized = ['Basic Materials'
@@ -81,7 +77,9 @@ class YAHOO() :
       @classmethod
       def get(cls, stock) :
           url = cls.url.format(stock)
-          response = WEB_UTIL.invoke_url(url)
+          response = WEB_UTIL.get_content(url)
+          if response is None :
+             response = WEB_UTIL.get_content(url)
           soup = WEB_UTIL.format_as_soup(response)
           ret = cls.parse(soup)
           ret['Stock'] = stock
@@ -106,9 +104,13 @@ class YAHOO() :
                 if len(data) == 0 :
                    return {}
           logging.debug(data)
-          key_list = data[0:10:2]
-          value_list = data[1:10:2]
+          key_list = data[0::2]
+          value_list = data[1::2]
           ret = dict(zip(key_list,value_list))
+          ret = { key:value for (key,value) in ret.items() if len(key) > 0 and key[0] != '1'}
+          ret = { key:value for (key,value) in ret.items() if key != ret[key]}
+          ret = { key:value for (key,value) in ret.items() if ret[key]!='N/A'}
+
           logging.debug(ret)
           return ret
       @classmethod
@@ -133,7 +135,7 @@ class FINANCEMODELLING_STOCK_LIST() :
       url = "https://financialmodelingprep.com/api/v3/company/stock/list"
       @classmethod
       def get(cls) :
-          response = WEB_UTIL.json(cls.url)
+          response = WEB_UTIL.get_json(cls.url)
           target = "symbolsList"
           ret = response.get(target,{})
           logging.debug(ret)
@@ -144,7 +146,7 @@ class FINANCEMODELLING() :
       @classmethod
       def get(cls, stock) :
           url = cls.url.format(stock)
-          response = WEB_UTIL.json(url)
+          response = WEB_UTIL.get_json(url)
           target = "profile"
           ret = response.get(target,{})
           ret['Stock'] = stock
@@ -190,6 +192,13 @@ class STOCKMONITOR() :
       , 'technology'
       , 'utilities'
       ]
+      header = { 'Host' : 'www.stockmonitor.com'
+               , 'User-Agent' : 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'
+               , 'Accept' : 'text/css,*/*;q=0.1'
+               , 'Accept-Language' : 'en-US,en;q=0.5'
+               , 'Accept-Encoding' : 'gzip, deflate, br'
+               , 'Connection' : 'keep-alive'
+               }
       def __init__(self, url_list) :
           self.url_list = url_list
       def __str__(self) :
@@ -208,7 +217,7 @@ class STOCKMONITOR() :
           return ret
       @classmethod
       def get(cls,url) :
-          response = WEB_UTIL.invoke_url(url)
+          response = WEB_UTIL.get_text(url, headers=cls.header)
           soup = WEB_UTIL.format_as_soup(response)
           ret = set([])
           for link in soup.findAll('a', attrs={'href': re.compile("^/quote")}):
@@ -217,7 +226,6 @@ class STOCKMONITOR() :
       @classmethod
       @trace
       def extract(cls) :
-          logging.info("start {}".format(cls))
           obj = STOCKMONITOR.init()
           ret = DICT_HELPER.init()
           for sector in sorted(obj.url_list) : 
@@ -239,52 +247,18 @@ def handle_alias(*stock_list,**alias) :
     retry = map(lambda x : list(x), retry)
     if not isinstance(retry,list) :
        retry = list(retry)
-    retry = reduce(lambda a, b : a+b, retry)
+    if len(retry) != 0 :
+       retry = reduce(lambda a, b : a+b, retry)
     return ret, retry, left_overs 
 
 class TRANSFORM() :
       @classmethod
-      def _validate(cls, entry) :
-          flag_1 = 'Symbol' in entry and 'Security Name' in entry
-          flag_2 = 'NASDAQ Symbol' in entry and 'Security Name' in entry
-          flag = flag_1 or flag_2
-          return flag
-      @classmethod
-      def validate(cls, data) :
-          data = filter(lambda x : cls._validate(x), data)
-          return list(data)
-      @classmethod
-      def safe(cls, name) :
-          name = name.replace('%', ' percent')
-          return name
-      @classmethod
-      def symbol(cls, entry) :
-          ret = entry.get('Symbol',None)
-          if ret is None :
-             ret = entry.get('NASDAQ Symbol',None)
-          return ret
-      @classmethod
-      def to_dict(cls,stock_list, data) :
-          ret = {}
-          for i, ticker in enumerate(stock_list) :
-              if '=' in ticker :
-                  continue
-              entry = filter(lambda x : cls.symbol(x) == ticker, data)
-              entry = list(entry)
-              if len(entry) == 0 :
-                 continue
-              entry = entry[0]
-              ret[ticker] = cls.safe(entry['Security Name'])
-          return ret
-      @classmethod
       def merge(cls) :
-          config = EXTRACT.instance().draft
-          logging.info('loading config files {}'.format(config))
           ret = DICT_HELPER.init()
-          for path, section, key, stock in INI_READ.read(*[config]) :
+          logging.info('loading config files {}'.format(VARIABLES().draft))
+          for path, section, key, stock in INI_READ.read(*[VARIABLES().draft]) :
               ret.append(key,*stock)
-          omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
-          for omit in omit_list :
+          for omit in VARIABLES().omit_list :
               ret.data.pop(omit,None)
 
           stock_list = ret.values()
@@ -293,8 +267,7 @@ class TRANSFORM() :
 class LOAD() :
       @classmethod
       def draft(cls,data) :
-          save_file = EXTRACT.instance().draft
-          logging.info('Loading results : {}'.format(save_file))
+          logging.info('Loading results : {}'.format(VARIABLES().draft))
           config = INI_BASE.init()
           for i, SECTION in enumerate(sorted(data)) :
               target = 'alias'
@@ -306,35 +279,37 @@ class LOAD() :
               INI_WRITE.write_section(config, SECTION, **value)
           for name in sorted(alias) :
               INI_WRITE.write_section(config,name,**alias[name])
-          config.write(open(save_file, 'w'))
+          config.write(open(VARIABLES().draft, 'w'))
+          logging.info('Saved results : {}'.format(VARIABLES().draft))
       @classmethod
       def final(cls,data) :
-          save_file = EXTRACT.instance().final
-          logging.info('Loading results : {}'.format(save_file))
-          INI_WRITE.write(save_file,**{'MERGED' : data})
+          logging.info('Loading results : {}'.format(VARIABLES().final))
+          INI_WRITE.write(VARIABLES().final,**{'MERGED' : data})
 
-def extract():
-
+def get_tickers() :
     nasdaq = NASDAQ.init()
-
     stock_list, etf_list, alias = nasdaq.stock_list()
+    stock_names = stock_list.index.values.tolist()
+    return stock_names, alias
+
+def action(stock_names, alias):
 
     sm, stocks = STOCKMONITOR.extract()
-    stock_list = set(stock_list) - set(stocks)
-    stock_list = sorted(list(stock_list))
+    stock_names = set(stock_names) - set(stocks)
+    stock_names = sorted(list(stock_names))
 
-    fm, stocks = FINANCEMODELLING.extract(stock_list)
-    stock_list = set(stock_list) - set(stocks)
-    stock_list = sorted(list(stock_list))
+    fm, stocks = FINANCEMODELLING.extract(stock_names)
+    stock_names = set(stock_names) - set(stocks)
+    stock_names = sorted(list(stock_names))
 
-    y, stocks = YAHOO.extract(stock_list)
-    stock_list = set(stock_list) - set(stocks)
-    stock_list = sorted(list(stock_list))
+    y, stocks = YAHOO.extract(stock_names)
+    stock_names = set(stock_names) - set(stocks)
+    stock_names = sorted(list(stock_names))
 
     '''
     Try a set of alternative names
     '''
-    _retry, retry, stock_list = handle_alias(*stock_list,**alias) 
+    _retry, retry, stock_list = handle_alias(*stock_names,**alias) 
 
     fm2, stocks = FINANCEMODELLING.extract(retry)
     retry = set(retry) - set(stocks)
@@ -356,7 +331,8 @@ def extract():
 @exit_on_exception
 @trace
 def main() :
-    draft = extract()
+    stock_names, alias = get_tickers()
+    draft = action(stock_names,alias)
     LOAD.draft(draft)
     final, stock_list = TRANSFORM.merge()
     LOAD.final(final)
@@ -369,9 +345,10 @@ if __name__ == '__main__' :
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
 
    draft = '{}/local/stock_by_sector_draft.ini'.format(env.pwd_parent)
    final = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
+   omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
 
    main()

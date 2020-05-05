@@ -1,49 +1,43 @@
 #!/usr/bin/python
 
-import logging
+import sys,logging
 import unittest
 #import numpy.testing as np_test
 #import pandas.util.testing as pd_test
 import pandas as pd
 import context
-from context import test_stock_data_store, test_stock_ticker_list
+from context import test_stock_ticker_list, test_stock_data_store
 
-from libUtils import log_on_exception
-from libDebug import trace
-from cmd_Scrape_Stock import init as TEST_INIT, action as TEST
+from libDecorators import singleton
+from libDebug import debug_object
+import cmd_Scrape_Stock as TEST
 
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
+
+@singleton
 class T() :
-    _data_list = None
-    _name = 'Fund Symbol'
-    @classmethod
-    def _init(cls) :
-        if not (cls._data_list is None) :
-           return cls._data_list
-        target = 'test_stock_ticker_list'
-        ticker_list = globals().get(target,[])
-
-        names, stock_list, etf_list, alias, stock_names, etf_names = TEST_INIT()
-        the_list = sorted(names.keys())
-        key_list = filter(lambda stock : stock in ticker_list, the_list)
-        key_list = list(key_list)
-        value_list = map(lambda stock : names[stock], key_list)
-        value_list = list(value_list)
-        cls._data_list = dict(zip(key_list,value_list))
-        return cls._data_list
-    @classmethod
-    def extract(cls) :
-        return cls._init()
+    var_names = ['test_stock_ticker_list','test_stock_data_store']
+    def __init__(self) :
+        values = get_globals(*T.var_names)
+        self.__dict__.update(**values)
+        total, background = TEST.get_tickers()
+        ret = filter(lambda stock : stock in self.test_stock_ticker_list, total)
+        self.ticker_list = sorted(list(set(ret)))
+        values = map(lambda ticker : background[ticker], self.ticker_list)
+        self.data = dict(zip(self.ticker_list,values))
+        debug_object(self)
 
 class TemplateTest(unittest.TestCase):
 
     def test_01_(self) :
-        target = 'test_stock_data_store'
-        data_store = globals().get(target,[])
-        target = 'test_stock_ticker_list'
-        ticker_list = globals().get(target,[])
-        stock_list = T.extract()
-        logging.debug(stock_list)
-        ret,transpose = TEST(data_store,stock_list)
+        ret,transpose = TEST.action(T().test_stock_data_store,T().ticker_list, T().data)
         logging.info(ret)
         ret = pd.DataFrame(ret).T
         logging.info(ret)
@@ -55,9 +49,7 @@ if __name__ == '__main__' :
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
-   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    unittest.main()

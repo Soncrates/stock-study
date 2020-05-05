@@ -10,7 +10,7 @@ from context import test_stock_data_store, test_stock_ticker_list
 
 from libUtils import log_on_exception
 from libDebug import trace
-from cmd_Scrape_Tickers import init as TEST_INIT, LOAD as TEST
+from cmd_Scrape_Tickers import get_tickers as TEST_INIT, LOAD as TEST
 
 class T() :
     _data_list = None
@@ -23,10 +23,8 @@ class T() :
         ticker_list = globals().get(target,[])
 
         fund_list,stock_list, etf_list, alias = TEST_INIT()
-        fund_name_list = map(lambda fund : fund.get(cls._name,None), fund_list)
-        fund_name_list = list(fund_name_list)
 
-        the_list = sorted(stock_list + fund_name_list + etf_list)
+        the_list = sorted(stock_list + fund_list + etf_list)
         logging.info(len(the_list))
         key_list = filter(lambda stock : stock in ticker_list, the_list)
         cls._data_list = list(key_list)

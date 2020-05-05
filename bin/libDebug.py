@@ -114,6 +114,18 @@ class cpu(WRAPPER):
         logging.debug( _s.getvalue())
         return ret
 
+def debug_object(obj):
+    msg = vars(obj)
+    for i, key in enumerate(sorted(msg)) :
+        value = msg[key]
+        if isinstance(value,list) and len(value) > 10 :
+           value = value[:10]
+        logging.info((i,key, value))
+    msg = dir(obj)
+    for i,key in enumerate(sorted(msg)):
+        logging.info((i,key))
+
+
 '''
 TODO : optional parameters are not working in delay
 

@@ -10,6 +10,8 @@ from itertools import combinations as iter_combo
 import requests
 from bs4 import BeautifulSoup
 
+from libDecorators import exit_on_exception, log_on_exception
+from libDecorators import http_200
 '''
   Kitchen Sink
   CSV - Some web scraping returns csv files 
@@ -25,27 +27,14 @@ def combinations(stock_list,size=5) :
     for ret in list(ret_list):
         yield list(ret)
 
-def exit_on_exception(func):
-    def exit_program(*args, **kwargs):
-        try:
-           return func(*args, **kwargs)
-        except Exception as e :
-           logging.error(e, exc_info=True)
-           sys.exit(e)
-    exit_program.__name__ = func.__name__
-    return exit_program
-
-def log_on_exception(func):
-    def exception_guard(*args, **kwargs):
-        ret = None
-        try:
-           ret = func(*args, **kwargs)
-        except Exception as e :
-           logging.error(e, exc_info=True)
-        finally :
-           return ret
-    exception_guard.__name__ = func.__name__
-    return exception_guard
+def mkdir(path) :
+    if path is None :
+       return
+    if os.path.exists(path):
+       logging.info('Already exists : {}'.format(path))
+       return
+    logging.info('Creating directory {}'.format(path))
+    os.mkdir(path)
 
 class ENVIRONMENT(object) :
       _env_vars = ['HOME','LOGNAME','OLDPWD','PATH','PWD','USER','USERNAME']
@@ -94,12 +83,7 @@ class ENVIRONMENT(object) :
           _path = list(_path)
           if len(_path) > 0 :
              _path = _path[0]
-          if os.path.exists(_path):
-             logging.info('Already exists : {}'.format(_path))
-             return
-          else :
-             logging.info('Creating directory {}'.format(_path))
-          os.mkdir(path)
+          mkdir(_path)
       @classmethod
       def parse(cls, *largs, **kvargs) :
           if len(largs) > 0 :
@@ -120,35 +104,34 @@ class ENVIRONMENT(object) :
           path2 = '{}/{}'.format(self.pwd_parent,extension)
           ret = ENVIRONMENT.find(*[path1, path2])
           return ret
-def http_200(func):
-    def wrap(*args, **kwargs):
-        ret = func(*args, **kwargs)
-        if ret.status_code != 200 :
-           msg = ','.join(args)
-           msg = "{} {}".format(ret.status_code,msg)
-           logging.error(msg)
-        return ret
-    wrap.__name__ = func.__name__
-    return wrap
-'''
-'''
+
 class WEB(object) :
       @classmethod
       @log_on_exception
       def get_content(cls, url,headers=None) :
-          return cls.get(url,headers).content
+          ret = cls.get(url,headers)
+          return ret.content
       @classmethod
       @log_on_exception
       def get_text(cls, url,headers=None) :
-          return cls.get(url,headers).text
+          ret = cls.get(url,headers)
+          return ret.text
       @classmethod
       @log_on_exception
       def get_json(cls, url,headers=None) :
-          return cls.get(url,headers).json()
+          ret = cls.get(url,headers)
+          return ret.json()
       @classmethod
       @http_200
       def get(cls, url,headers=None) :
-          return requests.get(url, headers=headers)
+          session = requests.Session()
+          logging.debug((url,headers))
+          ret = session.get(url, headers=headers)
+          if ret is None :
+             logging.warning('Nothing returned from http get')
+             return ret
+          ret.raise_for_status()
+          return ret
       @classmethod
       def format_as_soup(cls, url_response, raw=False) :
           ret = BeautifulSoup(url_response,'lxml')

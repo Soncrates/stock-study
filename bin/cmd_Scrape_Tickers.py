@@ -2,40 +2,30 @@
 
 import logging
 import time
-from libUtils import ENVIRONMENT, exit_on_exception
-from libNASDAQ import NASDAQ, NASDAQ_TRANSFORM
+from libUtils import ENVIRONMENT, mkdir
+from libNASDAQ import NASDAQ
 from libFinance import STOCK_TIMESERIES
+from libDecorators import exit_on_exception, singleton
 from libDebug import trace
 
-class EXTRACT() :
-    _singleton = None
-    def __init__(self, _env, stock, fund, reader) :
-        self.env = _env
-        self.data_store_stock = stock
-        self.data_store_fund = fund
-        self.reader = reader
-    @classmethod
-    def instance(cls) :
-        if not (cls._singleton is None) :
-           return cls._singleton
-        target = 'env'
-        env = globals().get(target,None)
-        if env is None :
-            env = ENVIRONMENT.instance()
-        target = 'data_store_stock'
-        stock = globals().get(target,'')
-        if not isinstance(stock,str) :
-           stock = str(stock)
-        target = 'data_store_fund'
-        fund = globals().get(target,'')
-        if not isinstance(fund,str) :
-           fund = str(fund)
-        reader = STOCK_TIMESERIES.init()
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
 
-        env.mkdir(stock)
-        env.mkdir(fund)
-        cls._singleton = cls(env,stock,fund,reader)
-        return cls._singleton
+@singleton
+class VARIABLES() :
+    var_names = ['env','data_store_stock', 'data_store_fund']
+    def __init__(self) :
+        values = get_globals(*VARIABLES.var_names)
+        self.__dict__.update(**values)
+
+        mkdir(self.data_store_stock)
+        mkdir(self.data_store_fund)
 
 class LOAD() :
       @classmethod
@@ -44,7 +34,7 @@ class LOAD() :
           if dud is None :
              dud = []
           filename = '{}/{}.pkl'.format(local_dir,ticker)
-          reader =  EXTRACT.instance().reader
+          reader = STOCK_TIMESERIES.init()
           prices = reader.extract_from_yahoo(ticker)
           if prices is None :
              dud.append(ticker)
@@ -55,14 +45,13 @@ class LOAD() :
           return dud
 
       @classmethod
-      @trace
       def prices(cls,local_dir, ticker_list) :
           dud = None
           total = len(ticker_list)
           for i, ticker in enumerate(ticker_list) :
               logging.info("{} ({}/{})".format(ticker,i,total))
               dud = cls._prices(local_dir, ticker,dud)
-              time.sleep(.3)
+              time.sleep(.1)
           size = len(ticker_list) - len(dud)
           logging.info("Total {}".format(size))
           if len(dud) > 0 :
@@ -78,24 +67,28 @@ class LOAD() :
           if len(retry) > 0 :
              logging.error((len(retry), sorted(retry)))
 
-def init() :
+def get_tickers() :
     nasdaq = NASDAQ.init()
-    stock_list, etf_list, alias = nasdaq.stock_list()
+    stock_list, etf_list, _alias = nasdaq.stock_list()
     fund_list = nasdaq.fund_list()
+    stock_list = stock_list.index.values.tolist()
+    etf_list = etf_list.index.values.tolist()
+    fund_list = fund_list.index.values.tolist()
+    alias = []
+    for column in _alias.columns.values.tolist() :
+        alias.extend(_alias[column].tolist())
+    alias = sorted(list(set(alias)))
+    logging.info(alias)
     return fund_list,stock_list, etf_list, alias
 
 @exit_on_exception
 @trace
 def main() : 
-    data_store = EXTRACT.instance().data_store_stock
-    fund_list,stock_list, etf_list, alias = init()
-    LOAD.robust(data_store, stock_list)
-    LOAD.robust(data_store, etf_list)
+    fund_list,stock_list, etf_list, alias = get_tickers()
 
-    fund_list = map(lambda x : NASDAQ_TRANSFORM.fund_ticker(x),fund_list)
-    fund_list = list(fund_list)
-    data_store = EXTRACT.instance().data_store_fund
-    LOAD.robust(data_store, fund_list)
+    LOAD.robust(VARIABLES().data_store_stock, stock_list)
+    LOAD.robust(VARIABLES().data_store_stock, etf_list)
+    LOAD.robust(VARIABLES().data_store_fund, fund_list)
 
 if __name__ == '__main__' :
    import sys
@@ -108,10 +101,8 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   local_dir = '{}/local'.format(env.pwd_parent)
-   data_store = '{}/historical_prices'.format(local_dir)
-   data_store_stock = '../local/historical_prices'
-   data_store_fund = '../local/historical_prices_fund'
+   data_store_stock = '{}local/historical_prices'.format(env.pwd_parent)
+   data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)
 
    main()
 

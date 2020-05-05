@@ -8,42 +8,35 @@ import pandas as pd
 import context
 from context import test_fund_data_store, test_fund_ticker_list
 
-from libUtils import log_on_exception
+from libDecorators import log_on_exception,singleton
 from libDebug import trace
 from libNASDAQ import NASDAQ
-from cmd_Scrape_Fund import action as TEST
+import cmd_Scrape_Fund as TEST
 
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
+
+@singleton
 class T() :
-    _data_list = None
-    _name = 'Fund Symbol'
-    @classmethod
-    def _init(cls) :
-        if not (cls._data_list is None) :
-           return cls._data_list
-        target = 'test_fund_ticker_list'
-        ticker_list = globals().get(target,[])
-        fund_list = NASDAQ.init().fund_list()
-        ret = filter(lambda fund : fund[cls._name] in  ticker_list, fund_list)
-        cls._data_list = list(ret)
-        return cls._data_list
-    @classmethod
-    def extract(cls) :
-        for i, fund in enumerate(cls._init()) :
-            ticker = fund.get(cls._name, 'Unknown')
-            yield ticker, fund
+    var_names = ['test_fund_ticker_list', 'test_fund_data_store']
+    def __init__(self) :
+        values = get_globals(*T.var_names)
+        self.__dict__.update(**values)
+        fund_list = TEST.get_tickers()
+        key_list = filter(lambda fund :  fund in self.test_fund_ticker_list, fund_list)
+        values = map(lambda key : fund_list[key], key_list)
+        self.fund_list = dict(zip(key_list,values))
 
 class TemplateTest(unittest.TestCase):
 
     def test_01_(self) :
-        target = 'test_fund_data_store'
-        data_store = globals().get(target,[])
-        target = 'test_fund_ticker_list'
-        ticker_list = globals().get(target,[])
-        fund_list = []
-        for ticker, fund in T.extract() :
-            fund_list.append(fund)
-
-        ret,transpose = TEST(data_store,fund_list)
+        ret,transpose = TEST.action(T().test_fund_data_store,T().fund_list)
         logging.info(ret)
         ret = pd.DataFrame(ret).T
         logging.info(ret)

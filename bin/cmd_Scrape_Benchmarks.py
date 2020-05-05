@@ -3,74 +3,62 @@
 import logging
 import pandas as pd
 from libCommon import INI_READ, INI_WRITE
-from libUtils import ENVIRONMENT, DICT_HELPER, exit_on_exception, log_on_exception
-from libFinance import STOCK_TIMESERIES 
+from libUtils import ENVIRONMENT, DICT_HELPER, mkdir
 from libBackground import main as EXTRACT_BACKGROUND, load as TICKER, TRANSFORM_TICKER
-from libDebug import trace
+from libDecorators import singleton, exit_on_exception, log_on_exception
+from libDebug import trace, debug_object
 
-class EXTRACT() :
-    _singleton = None
-    def __init__(self, _env, data_store, config_file,output_file) :
-        self.env = _env
-        self.data_store = data_store
-        self.config_file = config_file
-        self.output_file = output_file
-        self.benchmarks = ['Index','MOTLEYFOOL','PERSONAL']
-        self.benchmarks = ['Index']
-        self.omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
-        msg = vars(self)
-        for i, key in enumerate(sorted(msg)) :
-            value = msg[key]
-            if isinstance(value,list) and len(value) > 10 :
-               value = value[:10]
-            logging.info((i,key, value))
-    @classmethod
-    def instance(cls, **kwargs) :
-        if not (cls._singleton is None) :
-           return cls._singleton
-        target = 'env'
-        _env = globals().get(target,None)
-        target = "data_store"
-        data_store = globals().get(target,[])
-        target = "output_file"
-        output_file = globals().get(target,[])
-        target = 'config_file'
-        config_file = globals().get(target,[])
-        if not isinstance(config_file,list) :
-           config_file = list(config_file)
-        if len(_env.argv) > 1 :
-           config_file = [_env.argv[1]]
-        if len(_env.argv) > 2 :
-           output_file = [_env.argv[2]]
-        env.mkdir(data_store)
-        cls._singleton = cls(_env,data_store,config_file,output_file)
-        return cls._singleton
-    @classmethod
-    def config(cls) :
-        config = cls.instance().config_file
-        logging.info("loading results {}".format(config))
-        for path, section, key, stock_list in INI_READ.read(*config) :
-            yield path, section, key, stock_list
-    @classmethod
-    def benchmarks(cls) :
-        ret = DICT_HELPER.init()
-        for path, section, key, stock in cls.config() :
-            if section not in cls.instance().benchmarks :
-                continue
-            logging.info((section,key,stock))
-            ret.append(key,*stock)
-        for omit in cls.instance().omit_list :
-            ret.data.pop(omit,None)
-        logging.info(ret)
-        stock_list = ret.values()
-        return ret.data, stock_list
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
+
+def _get_config(config) :
+    logging.info("loading results {}".format(config))
+    for path, section, key, stock_list in INI_READ.read(*config) :
+        yield path, section, key, stock_list
+
+def get_benchmarks(config,benchmarks,omit_list) :
+    ret = DICT_HELPER.init()
+    for path, section, key, stock in _get_config(config) :
+        if section not in benchmarks :
+           continue
+        logging.info((section,key,stock))
+        ret.append(key,*stock)
+    for omit in omit_list :
+        ret.data.pop(omit,None)
+    logging.info(ret)
+    return ret
+
+@singleton
+class VARIABLES() :
+    var_names = ['env','data_store','output_file','config_file','benchmarks','omit_list']
+    def __init__(self) :
+        values = get_globals(*VARIABLES.var_names)
+        self.__dict__.update(**values)
+        debug_object(self)
+
+        mkdir(self.data_store)
+        if len(self.env.argv) > 1 :
+           self.config_file = [self.env.argv[1]]
+        if len(self.env.argv) > 2 :
+           self.output_file = [self.env.argv[2]]
+
+        data = get_benchmarks(self.config_file, self.benchmarks, self.omit_list)
+        self.data = data.data
+        self.stock_names = data.values()
 
 @exit_on_exception
 @trace
 def main() : 
-    data_store = EXTRACT.instance().data_store
+    data_store = VARIABLES().data_store
 
-    data, stock_list = EXTRACT.benchmarks()
+    data = VARIABLES().data
+    stock_list = VARIABLES().stock_names
     TICKER(data_store=data_store, ticker_list=stock_list)
     ret = EXTRACT_BACKGROUND(data_store=data_store, ticker_list=stock_list)
     ret = ret.T
@@ -78,7 +66,7 @@ def main() :
     names = pd.DataFrame([names]).T
     ret['NAME'] = names
 
-    save_file = EXTRACT.instance().output_file
+    save_file = VARIABLES().output_file
     INI_WRITE.write(save_file,**ret)
     logging.info("results saved to {}".format(save_file))
 
@@ -93,12 +81,13 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
-   local_dir = '{}/local'.format(env.pwd_parent)
-   data_store = '{}/historical_prices'.format(local_dir)
-   data_store = '../local/historical_prices'
+   data_store = '{}/local/historical_prices'.format(env.pwd_parent)
+   output_file = "{}/local/benchmark_background.ini".format(env.pwd_parent)
 
    ini_list = env.list_filenames('local/*.ini')
    config_file = filter(lambda x : 'benchmark' in x, ini_list)
-   output_file = "{}/benchmark_background.ini".format(local_dir)
+   benchmarks = ['Index','MOTLEYFOOL','PERSONAL']
+   benchmarks = ['Index']
+   omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
 
    main()

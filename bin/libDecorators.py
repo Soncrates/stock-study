@@ -1,10 +1,9 @@
 import logging
-import os
 import sys
-import  functools
+import functools
 
 def exit_on_exception(func):
-    """decorator to log on exception and exit"""
+    """function decorator to log on exception and exit"""
     @functools.wraps(func)
     def exit_program(*args, **kwargs):
         try:
@@ -16,23 +15,25 @@ def exit_on_exception(func):
     return exit_program
 
 def log_on_exception(func):
-    """decorator to log on exception and return None"""
+    """function decorator to log on exception and return None"""
     @functools.wraps(func)
     def exception_guard(*args, **kwargs):
+        ret = None
         try:
-           return func(*args, **kwargs)
+           ret = func(*args, **kwargs)
         except Exception as e :
            logging.error(e, exc_info=True)
         finally :
-           return None
+           return ret
     exception_guard.__name__ = func.__name__
     return exception_guard
 
-def singleton_get(cls, target=None):
+def singleton_get(obj, target=None):
     """Find an object in global"""
+    """WARNING you can not log from here!!!!!!!!!!!!!"""
     if target is None :
        target = "__init__"
-    target = getattr(cls,target,None)
+    target = getattr(obj,target,None)
     ret = None
     if not target :
        return target, ret
@@ -40,22 +41,21 @@ def singleton_get(cls, target=None):
 
 def singleton(cls):
     """Class decorator to call __init__ only once"""
+    """WARNING you can not log from here!!!!!!!!!!!!!"""
 
     @functools.wraps(cls)
-    def wrapper(*args, **kwargs):
+    def wrap_single(*args, **kwargs):
         target, ret = singleton_get(cls)
         if not (ret is None) :
            return ret
         ret = cls(*args, **kwargs)
-        logging.debug((target,ret))
         globals()[target] = ret
         return ret
-    wrapper.__name__ = cls.__name__
-    logging.debug(wrapper)
-    return wrapper
+    wrap_single.__name__ = cls.__name__
+    return wrap_single
 
 def cache(func):
-    """decorator tp keep a cache of previous function call returns"""
+    """function decorator tp keep a cache of previous function call returns"""
     @functools.wraps(func)
     def wrapper_cache(*args, **kwargs):
         cache_key = args + tuple(kwargs.items())
@@ -67,16 +67,15 @@ def cache(func):
     return wrapper_cache
 
 def http_200(func):
-    '''Decorator to check status code from REST call '''
-    def wrap(*args, **kwargs):
+    '''function Decorator to check status code from REST call '''
+    @functools.wraps(func)
+    def wrap_200(*args, **kwargs):
         ret = func(*args, **kwargs)
-        if ret.status_code != 200 :
-           msg = ','.join(args)
-           msg = "{} {}".format(ret.status_code,msg)
-           logging.error(msg)
+        ret.raise_for_status()
         return ret
-    wrap.__name__ = func.__name__
-    return wrap
+    wrap_200.__name__ = func.__name__
+    return wrap_200
+
 '''
 import functools
 

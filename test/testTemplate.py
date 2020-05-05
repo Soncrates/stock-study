@@ -7,8 +7,24 @@ import unittest
 #import pandas.util.testing as pd_test
 import context
 
-from libUtils import log_on_exception
+from libDecorators import log_on_exception, singleton
 from libDebug import trace
+
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
+
+@singleton
+class T() :
+    var_names = ['ini_files','file_list']
+    def __init__(self) :
+        values = get_globals(*T.var_names)
+        self.__dict__.update(**values)
 
 class TemplateTest(unittest.TestCase):
 
@@ -28,15 +44,6 @@ class TemplateTest(unittest.TestCase):
     @unittest.expectedFailure
     def test_fail(self):
         self.assertEqual(1, 0, "broken")
-@log_on_exception
-@trace
-def main() : 
-    target = 'ini_list'
-    ini_list = globals().get(target,[])
-    logging.info(ini_list)
-    target = 'file_list'
-    file_list = globals().get(target,[])
-    logging.info(file_list)
 
 if __name__ == '__main__' :
 
@@ -52,5 +59,3 @@ if __name__ == '__main__' :
    file_list = env.list_filenames('local/historical_prices/*pkl')
 
    unittest.main()
-   main()
-
