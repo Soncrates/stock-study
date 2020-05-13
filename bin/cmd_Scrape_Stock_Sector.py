@@ -23,28 +23,15 @@ def get_globals(*largs) :
 
 @singleton
 class VARIABLES() :
-    var_names = ['env','draft','final','omit_list']
+    var_names = ['env','draft','final','omit_list','save_file','sector_enum','header']
     def __init__(self) :
         values = get_globals(*VARIABLES.var_names)
         self.__dict__.update(**values)
 
 class TRANSFORM_SECTOR() :
-    normalized = ['Basic Materials'
-              ,'Utilities'
-              ,'Real Estate'
-              ,'Communication Services'
-              ,'Consumer Defensive'
-              ,'Consumer Cyclical'
-              ,'Energy'
-              ,'Technology'
-              ,'Healthcare'
-              ,'Industrials'
-              ,'Financial Services']
 
     @classmethod
     def normalize(cls,name) :
-        if name in cls.normalized :
-            return name
         if 'estate' in name :
             return 'Real Estate'
         if 'basic' in name :
@@ -75,15 +62,11 @@ class TRANSFORM_SECTOR() :
 class YAHOO() :
       url = "https://finance.yahoo.com/quote/{0}/profile?p={0}"
       @classmethod
-      def get(cls, stock) :
-          url = cls.url.format(stock)
-          response = WEB_UTIL.get_content(url)
-          if response is None :
-             response = WEB_UTIL.get_content(url)
-          soup = WEB_UTIL.format_as_soup(response)
-          ret = cls.parse(soup)
-          ret['Stock'] = stock
-          logging.debug(ret)
+      def get(cls, ticker) :
+          url = cls.url.format(ticker)
+          ret = WEB_UTIL.get_content(url)
+          if ret is None :
+             ret = WEB_UTIL.get_content(url)
           return ret
       @classmethod
       def parse(cls, soup) :
@@ -114,19 +97,27 @@ class YAHOO() :
           logging.debug(ret)
           return ret
       @classmethod
+      def findSector(cls,ticker,recognized) :
+          _sector = 'Sector'
+          response = cls.get(ticker)
+          soup = WEB_UTIL.format_as_soup(response)
+          background = cls.parse(soup)
+          sector = background.get(_sector,None) 
+          if not sector or len(sector) == 0:
+             return None
+          if sector not in recognized :
+             sector = TRANSFORM_SECTOR.normalize(sector)
+          return sector
+      @classmethod
       @trace
-      def extract(cls, stock_list) :
+      def extract(cls, stock_list,recognized) :
           logging.info((cls, len(stock_list),sorted(stock_list)[:10]))
           ret = DICT_HELPER.init()
-          _sector = 'Sector'
-          for row in stock_list :
-              logging.info(row)
-              stock = cls.get(row)
-              sector = stock.get(_sector,None) 
-              if not sector :
-                 continue
-              sector = TRANSFORM_SECTOR.normalize(sector)
-              ret.append(sector,row)
+          for ticker in stock_list :
+              sector = cls.findSector(ticker,recognized)
+              if sector is None :
+                  continue
+              ret.append(sector,ticker)
           logging.info(ret)
           _stock_list = ret.values()
           return ret.data, _stock_list
@@ -192,13 +183,6 @@ class STOCKMONITOR() :
       , 'technology'
       , 'utilities'
       ]
-      header = { 'Host' : 'www.stockmonitor.com'
-               , 'User-Agent' : 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'
-               , 'Accept' : 'text/css,*/*;q=0.1'
-               , 'Accept-Language' : 'en-US,en;q=0.5'
-               , 'Accept-Encoding' : 'gzip, deflate, br'
-               , 'Connection' : 'keep-alive'
-               }
       def __init__(self, url_list) :
           self.url_list = url_list
       def __str__(self) :
@@ -217,7 +201,7 @@ class STOCKMONITOR() :
           return ret
       @classmethod
       def get(cls,url) :
-          response = WEB_UTIL.get_text(url, headers=cls.header)
+          response = WEB_UTIL.get_text(url, headers=VARIABLES().header)
           soup = WEB_UTIL.format_as_soup(response)
           ret = set([])
           for link in soup.findAll('a', attrs={'href': re.compile("^/quote")}):
@@ -274,8 +258,8 @@ class LOAD() :
               if SECTION == target :
                   alias = data.get(SECTION)
                   continue
-              logging.info((i,SECTION))
               value = data.get(SECTION)
+              logging.info((i,SECTION,sorted(value)))
               INI_WRITE.write_section(config, SECTION, **value)
           for name in sorted(alias) :
               INI_WRITE.write_section(config,name,**alias[name])
@@ -292,7 +276,7 @@ def get_tickers() :
     stock_names = stock_list.index.values.tolist()
     return stock_names, alias
 
-def action(stock_names, alias):
+def action(stock_names, alias,recognized):
 
     sm, stocks = STOCKMONITOR.extract()
     stock_names = set(stock_names) - set(stocks)
@@ -302,7 +286,7 @@ def action(stock_names, alias):
     stock_names = set(stock_names) - set(stocks)
     stock_names = sorted(list(stock_names))
 
-    y, stocks = YAHOO.extract(stock_names)
+    y, stocks = YAHOO.extract(stock_names,recognized)
     stock_names = set(stock_names) - set(stocks)
     stock_names = sorted(list(stock_names))
 
@@ -315,7 +299,7 @@ def action(stock_names, alias):
     retry = set(retry) - set(stocks)
     retry = sorted(list(retry))
 
-    y2, stocks = YAHOO.extract(retry)
+    y2, stocks = YAHOO.extract(retry,recognized)
     retry = set(retry) - set(stocks)
     retry = sorted(list(retry))
 
@@ -332,7 +316,7 @@ def action(stock_names, alias):
 @trace
 def main() :
     stock_names, alias = get_tickers()
-    draft = action(stock_names,alias)
+    draft = action(stock_names,alias,VARIABLES().sector_enum)
     LOAD.draft(draft)
     final, stock_list = TRANSFORM.merge()
     LOAD.final(final)
@@ -349,6 +333,19 @@ if __name__ == '__main__' :
 
    draft = '{}/local/stock_by_sector_draft.ini'.format(env.pwd_parent)
    final = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
+   save_file = '{}/local/stock_background.ini'.format(env.pwd_parent)
    omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
+   sector_enum = ['Basic Materials', 'Consumer Defensive', 'Consumer Cyclical'
+                 ,'Communication Services', 'Energy', 'Financial Services'
+                 ,'Healthcare','Industrials','Real Estate'
+                 ,'Utilities','Technology'
+                 ]
+   header = { 'Host' : 'www.stockmonitor.com'
+            , 'User-Agent' : 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'
+            , 'Accept' : 'text/css,*/*;q=0.1'
+            , 'Accept-Language' : 'en-US,en;q=0.5'
+            , 'Accept-Encoding' : 'gzip, deflate, br'
+            , 'Connection' : 'keep-alive'
+            }
 
    main()

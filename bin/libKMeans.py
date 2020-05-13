@@ -61,7 +61,7 @@ if __name__ == '__main__' :
 
    local_dir = "{}/local".format(env.pwd_parent)
    ini_list = env.list_filenames('local/*.ini')
-   sector = filter(lambda x : 'stock_by_sector.ini' in x or 'fund_by_type' in x , ini_list)
+   sector = filter(lambda x : 'stock_by_sector.ini' in x , ini_list)
    background = filter(lambda x : 'background.ini' in x, ini_list)
    background = filter(lambda x : 'stock_' in x or 'fund_' in x, background)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)

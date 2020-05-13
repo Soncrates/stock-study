@@ -101,7 +101,7 @@ if __name__ == '__main__' :
    logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
-   data_store_stock = '{}local/historical_prices'.format(env.pwd_parent)
+   data_store_stock = '{}/local/historical_prices'.format(env.pwd_parent)
    data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)
 
    main()

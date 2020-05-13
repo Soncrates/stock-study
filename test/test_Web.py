@@ -21,10 +21,10 @@ def get_globals(*largs) :
     return ret
 
 @singleton
-class T() :
+class WEB_T() :
     var_names = ['test_stock_ticker_list','test_stock_data_store','stock_list', 'yahoo']
     def __init__(self) :
-        values = get_globals(*T.var_names)
+        values = get_globals(*WEB_T.var_names)
         self.__dict__.update(**values)
         url_list = map(lambda ticker : self.yahoo.format(ticker), self.stock_list)
         self.yahoo_backgrounds = list(url_list)
@@ -32,12 +32,12 @@ class T() :
 class TemplateTest(unittest.TestCase):
 
     def test_02_text(self) :
-        for url in T().yahoo_backgrounds :
+        for url in WEB_T().yahoo_backgrounds :
             logging.info(url)
             ret = WEB.get_text(url)
             logging.debug(ret[0:50])
     def test_04_content(self) :
-        for url in T().yahoo_backgrounds :
+        for url in WEB_T().yahoo_backgrounds :
             logging.info(url)
             ret = WEB.get_content(url)
             if ret is None :

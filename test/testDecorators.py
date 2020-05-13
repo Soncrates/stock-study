@@ -9,6 +9,14 @@ from libDebug import trace, cpu
 from libDecorators import log_on_exception, exit_on_exception
 from libDecorators import cache, http_200
 
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           continue
+        ret[name] = value
+    return ret
 
 @cpu
 @trace
