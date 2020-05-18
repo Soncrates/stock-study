@@ -117,12 +117,16 @@ class cpu(WRAPPER):
 def debug_object(obj):
     msg = vars(obj)
     for i, key in enumerate(sorted(msg)) :
+        if key.startswith('__') :
+            continue
         value = msg[key]
         if isinstance(value,list) and len(value) > 10 :
            value = value[:10]
         logging.info((i,key, value))
     msg = dir(obj)
     for i,key in enumerate(sorted(msg)):
+        if key.startswith('__') :
+            continue
         logging.info((i,key))
 
 

@@ -12,17 +12,20 @@ from libDebug import trace
 from libUtils import WEB
 
 def get_globals(*largs) :
+    logging.info("Valid globals : {}".format(sorted(globals().keys())))
     ret = {}
     for name in largs :
         value = globals().get(name,None)
         if value is None :
+           logging.warning("{} not a global!".format(name))
+           print("{} not a global!".format(name))
            continue
         ret[name] = value
     return ret
 
 @singleton
 class WEB_T() :
-    var_names = ['test_stock_ticker_list','test_stock_data_store','stock_list', 'yahoo']
+    var_names = ['stock_list', 'yahoo']
     def __init__(self) :
         values = get_globals(*WEB_T.var_names)
         self.__dict__.update(**values)

@@ -13,10 +13,12 @@ from libDebug import debug_object
 import cmd_Scrape_Stock_Sector as TEST
 
 def get_globals(*largs) :
+    logging.info("Valid globals : {}".format(sorted(globals().keys())))
     ret = {}
     for name in largs :
         value = globals().get(name,None)
         if value is None :
+           logging.warning("Not a global : {}".format(name))
            continue
         ret[name] = value
     return ret

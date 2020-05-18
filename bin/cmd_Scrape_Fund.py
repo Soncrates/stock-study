@@ -30,11 +30,11 @@ class VARIABLES() :
 
 def filter_by_type(fund) :
     target = 'Type'
-    section = fund.get(target, None)
+    _type = fund.get(target, None)
     target = 'Category'
     category = fund.get(target, None)
 
-    if section is None or len(section) == 0 :
+    if _type is None or len(_type) == 0 :
        return True, None, None, None
     if category is None or len(category) == 0 :
        return True, None, None, None
@@ -43,11 +43,10 @@ def filter_by_type(fund) :
     name = name.replace('%', ' percent')
     name = name.replace(' Fd', ' Fund')
     recognized = FUND.TYPE.values()
-    if section not in recognized :
-       category = "{}_{}".format(section,category)
-       section = 'UNKNOWN'
-    section = fund.get(target, None)
-    return False, section, category, name
+    if _type not in recognized :
+       category = "{}_{}".format(_type,category)
+       _type = 'UNKNOWN'
+    return False, _type, category, name
 
 @exit_on_exception
 @trace
@@ -55,7 +54,7 @@ def action(data_store,fund_list) :
     ret = {}
     transpose = {}
     for ticker in fund_list.keys() :
-        flag, section, category, name = filter_by_type(fund_list[ticker])
+        flag, _type, category, name = filter_by_type(fund_list[ticker])
         if flag :
            continue
 
@@ -66,7 +65,7 @@ def action(data_store,fund_list) :
            continue
         entry['NAME'] = name
         entry['CATEGORY'] = category
-        entry['TYPE'] = section
+        entry['TYPE'] = _type
         logging.debug(entry)
         ret[ticker] = entry
         for key in entry :

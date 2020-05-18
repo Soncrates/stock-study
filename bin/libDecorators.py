@@ -37,6 +37,7 @@ def singleton_get(obj, target=None):
     ret = None
     if not target :
        return target, ret
+    target = str(target)
     return target, globals().get(target,None)
 
 def singleton(cls):
