@@ -10,7 +10,7 @@ from libDebug import trace, cpu
 from libDecorators import exit_on_exception, log_on_exception, singleton
 
 @log_on_exception
-def prices(ticker) :
+def load_prices(ticker) :
     suffix = '/{}.pkl'.format(ticker)
     filename = filter(lambda x : x.endswith(suffix), VARIABLES().price_list)
     filename = list(filename)
@@ -24,12 +24,12 @@ def prices(ticker) :
     return ret
 @log_on_exception
 def portfolio(ticker_list) :
-    prices = map(lambda x : prices(x), ticker_list)
-    prices = dict(zip(ticker_list,prices))
-    prices = pd.DataFrame(prices)
-    logging.debug(prices)
-    prices.fillna(method='bfill', inplace=True)
-    return prices
+    ret = map(lambda x : load_prices(x), ticker_list)
+    ret = dict(zip(ticker_list,ret))
+    ret = pd.DataFrame(ret)
+    logging.debug(ret)
+    ret.fillna(method='bfill', inplace=True)
+    return ret
 
 def load_background(background_files,floats_in_summary) :
     logging.info('reading file {}'.format(background_files))
@@ -47,37 +47,37 @@ def load_background(background_files,floats_in_summary) :
 
     ret = pd.DataFrame(ret).T
     ret.dropna(subset=['LEN'],inplace=True)
+    funds = ret[ret['ENTITY'] != 'stock']
+    funds.dropna(subset=['CATEGORY','TYPE'],inplace=True)
+    for index, row in funds.iterrows():
+        row['SECTOR'] = '{} {}'.format(row['CATEGORY'],row['TYPE']).replace(' ','_')
+        row['ENTITY'] = 'fund'
     logging.info(ret[ret['CATEGORY'].notnull()])
     #logging.info(ret[ret['TYPE'].isnull()])
+    ret.update(funds)
+    ret.drop(['CATEGORY', 'TYPE'], axis=1,inplace=True)
     ret['SECTOR'] = ret['SECTOR'].fillna("Unknown") 
     ret['NAME'] = ret['NAME'].fillna("Unavailable") 
     ret.fillna(0.0, inplace = True) 
-    logging.info(ret['CATEGORY'].describe())
-    logging.info(ret['TYPE'].describe())
-    logging.info(ret['ENTITY'].describe())
     return ret
 
+@exit_on_exception
 def get_globals(*largs) :
     ret = {}
     for name in largs :
         value = globals().get(name,None)
         if value is None :
-           continue
+           raise ValueError(name)
         ret[name] = value
     return ret
 
 @singleton
 class VARIABLES() :
-    var_names = ["env", "local_dir", "sector_files","background_files", "benchmark", "input_file", "output_file","price_list","ini_list",'prices', 'floats_in_summary' ]
+    var_names = ["env", "local_dir", "background_files", "price_list","ini_list",'prices', 'floats_in_summary','sector_cap','portfolio_iterations' ]
 
     def __init__(self) :
         values = get_globals(*VARIABLES.var_names)
         self.__dict__.update(**values)
-        if len(self.env.argv) > 0 :
-           self.input_file = _env.argv[0]
-        output_file = None
-        if len(self.env.argv) > 1 :
-           self.output_file = _env.argv[1]
         self.background = load_background(self.background_files,self.floats_in_summary)
 
 class TRANSFORM():
@@ -133,20 +133,20 @@ class TRANSFORM_PORTFOLIO() :
                break
     @classmethod
     @trace
-    def portfolio(cls, prices, stocks, ret = None) :
+    def portfolio(cls, prices, stocks, portfolio_iterations, ret = None) :
         if ret is None :
            ret = pd.DataFrame()
-        max_sharpe, min_dev = PORTFOLIO.find(prices, stocks=stocks, portfolios=10000, period=FINANCE.YEAR)
+        max_sharpe, min_dev = PORTFOLIO.find(prices, stocks=stocks, portfolios=portfolio_iterations, period=FINANCE.YEAR)
         ret = ret.append(max_sharpe)
         ret = ret.append(min_dev)
         return ret
     @classmethod
     @trace
-    def getList(cls, data, prices) :
-        ret = pd.DataFrame()
+    def getList(cls, data, prices, portfolio_iterations) :
+        ret = None
         for stock_list in cls.stocks(data) :
-            logging.debug(stock_list)
-            ret = cls.portfolio(prices,stock_list,ret)
+            logging.info(stock_list)
+            ret = cls.portfolio(prices,stock_list,portfolio_iterations,ret)
             ret = cls.truncate(ret)
         if len(ret) > 5 :
            #min_risk = ret.sort_values(['risk']).head(5)
@@ -192,74 +192,40 @@ class LOAD() :
         INI_WRITE.write(save_file, **portfolio)
         logging.info("results saved to file {}".format(save_file))
 
-def reduceLessThan(target, _data) :
-    if len(_data) < 10 :
-       return _data
-    _len = len(_data)
-    t = _data[target].mean()
-    s = _data[target].std()
-    threshold1, threshold2, threshold3 = t+s,t,t-s
-    ret = _data[_data[target] <= threshold1]
-    if _len == len(ret) :
-       logging.info('reduce {}'.format(target))
-       ret = ret[ret[target] <= threshold2]
-       if _len == len(ret) :
-          logging.info('double reduce {}'.format(target))
-          ret = ret[ret[target] <= threshold3]
-    return ret
-def reduceGreaterThan(target, _data) :
-    if len(_data) < 10 :
-       return _data
-    _len = len(_data)
-    t = _data[target].mean()
-    s = _data[target].std()
-    threshold1, threshold2, threshold3 = t-s,t,t+s
-    ret = _data[_data[target] >= threshold1]
-    if _len == len(ret) :
-       logging.info('increase {}'.format(target))
-       ret = ret[ret[target] >= threshold2]
-       if _len == len(ret) :
-          logging.info('double increase{}'.format(target))
-          ret = ret[ret[target] >= threshold3]
-    return ret
-
-def reduceTickerList(ret) :
-    if len(ret) < 10 :
+def reduceTickerList(ret, cap_size) :
+    if len(ret) < cap_size :
        return ret
     TRANSFORM.stats('Original',ret)
-    while len(ret) > 10 :
+    while len(ret) > cap_size :
         target = 'RISK'
-        cap = len(ret)-10
-        if cap < 10 :
-            cap = 10
+        cap = len(ret)-cap_size
+        if cap < cap_size :
+            cap = cap_size
         ret = ret.sort_values(by=[target]).head(cap)
         TRANSFORM.stats(target,ret)
         target = 'SHARPE'
         target = 'CAGR'
-        cap = len(ret)-10
-        if cap < 10 :
-            cap = 10
+        cap = len(ret)-cap_size
+        if cap < cap_size :
+            cap = cap_size
         ret = ret.sort_values(by=[target],ascending=False).head(cap)
         TRANSFORM.stats(target,ret)
     TRANSFORM.stats('reduced',ret)
     return ret
-def process_Step01(output_file, data) :
+def process_Step01(output_file, data,portfolio_iterations) :
     stock_list = data.index.values
     stock_list = list(stock_list)
     prices = portfolio(stock_list)
-    portfolio_list = TRANSFORM_PORTFOLIO.getList(data,prices)
+    portfolio_list = TRANSFORM_PORTFOLIO.getList(data,prices,portfolio_iterations)
     logging.info(round(portfolio_list,4))
     LOAD.portfolio(output_file,**portfolio_list.to_dict())
 
 def process_stock(stock_data) :
     ret = {}
-    print(stock_data)
     for sector, group in TRANSFORM.by_sector(stock_data) :
         output_file = "{}/sector_{}.ini".format(VARIABLES().local_dir, sector)
-        print(output_file)
         output_file = output_file.replace(' ','_')
-        data = reduceTickerList(group)
-        print(data)
+        data = reduceTickerList(group,VARIABLES().sector_cap)
         #print(group.sort_values(['SHARPE']))
         #print(data.sort_values(['SHARPE']))
         t = data.to_dict()
@@ -272,7 +238,7 @@ def process_stock(stock_data) :
 
         output_file = "{}/portfolio_{}.ini".format(local_dir, sector)
         output_file = output_file.replace(" ", "_")
-        process_Step01(output_file,data)
+        process_Step01(output_file,data,VARIABLES().portfolio_iterations)
     output_file = "{}/sector_Total.ini".format(local_dir)
     LOAD.config(output_file,**ret)
 
@@ -281,12 +247,12 @@ def process_fund(data) :
     for sector, group in TRANSFORM.by_sector(data) :
         output_file = "{}/fund_{}.ini".format(VARIABLES().local_dir, sector)
         output_file = output_file.replace(' ','_')
-        data = reduceTickerList(group)
+        data = reduceTickerList(group,VARIABLES().sector_cap)
         LOAD.config(output_file,**data.to_dict())
 
         output_file = "{}/portfolio_{}.ini".format(VARIABLES().local_dir, sector)
         output_file = output_file.replace(" ", "_")
-        process_Step01(output_file,data)
+        process_Step01(output_file,data,VARIABLES().portfolio_iterations)
         
 @trace
 def prep() :
@@ -298,12 +264,11 @@ def prep() :
     ret = ret[ret['CAGR'] > 0]
     TRANSFORM.stats('profitable',ret)
     ret = ret[ret['RETURNS'] > 0]
-    TRANSFORM.stats('profiable 2',ret)
+    TRANSFORM.stats('profitable 2',ret)
     #ret = ret[ret['SHARPE'] > 0]
     #TRANSFORM.stats('sharpe',ret)
     #ret = ret[ret['RISK'] < 1]
     #TRANSFORM.stats('sane',ret)
-    print(ret)
     n = ret['NAME'].copy(deep=True)
     n = n.str.replace("'", "")
     n = n.str.replace(" - ", ", ")
@@ -352,10 +317,12 @@ if __name__ == '__main__' :
    background = filter(lambda x : 'background.ini' in x, ini_list)
    background_files = filter(lambda x : 'stock_' in x or 'fund_' in x, background)
    background_files = list(background_files)
-   benchmark = filter(lambda x : 'benchmark' in x, ini_list)
+   #benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    price_list = env.list_filenames('local/historical_*/*pkl')
    prices = 'Adj Close'
    floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE','RETURNS']
+   sector_cap = 8
+   portfolio_iterations = 10000
 
    main()
 
