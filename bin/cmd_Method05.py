@@ -27,24 +27,14 @@ class VARIABLES() :
         values = get_globals(*VARIABLES.var_names)
         self.__dict__.update(**values)
 
-        self.background = CURATE_BACKGROUND.act(self.background_files,self.floats_in_summary)
-
-class CURATE_BACKGROUND():
+class LOAD() :
     @classmethod
-    def act(cls,background_files,floats_in_summary) :
-        ret = cls.simple_load(background_files,floats_in_summary)
-        ret = pd.DataFrame(ret).T
-        ret.dropna(subset=['LEN'],inplace=True)
-        f = ret[ret['ENTITY'] != 'stock']
-        f = cls.curate_funds(f)
-        ret.update(f)
-        ret.drop(['CATEGORY', 'TYPE'], axis=1,inplace=True)
-        ret = cls.curate_names(ret)
-        ret['SECTOR'] = ret['SECTOR'].fillna("Unknown") 
-        ret = cls.refine(ret)
-        return ret
+    def config(cls, save_file, **config) :
+        logging.info("saving results to {}".format(save_file))
+        INI_WRITE.write(save_file, **config)
+        logging.info("results saved to {}".format(save_file))
     @classmethod
-    def simple_load(cls,background_files,floats_in_summary) :
+    def background(cls,background_files) :
         logging.info('reading file {}'.format(background_files))
         ret = {}
         for path, key, stock, value in INI_READ.read(*background_files) :
@@ -52,11 +42,27 @@ class CURATE_BACKGROUND():
                continue
             if stock not in ret :
                ret[stock] = {}
-            if key in floats_in_summary :
-               value = float(value[0])
-            else :
-               value = ', '.join(value)
+            value = ', '.join(value)
             ret[stock][key] = value
+        return ret
+
+class CURATE_BACKGROUND():
+    @classmethod
+    def act(cls,ret, floats_in_summary) :
+        ret = pd.DataFrame(ret).T
+        ret.dropna(subset=['LEN'],inplace=True)
+        f = ret[ret['ENTITY'] != 'stock']
+        f = cls.curate_funds(f)
+        ret.update(f)
+        ret.drop(['CATEGORY', 'TYPE','GROWTH'], axis=1,inplace=True)
+        for field in ['SECTOR','ENTITY','NAME'] :
+            ret[field].fillna("Unknown",inplace=True) 
+        for field in ['MAX DRAWDOWN','MAX INCREASE'] :
+            ret[field] = ret[field].apply(lambda x : round(float(x),2))
+        for field in floats_in_summary :
+            ret[field] = ret[field].apply(lambda x : round(float(x),4))
+        logging.info(ret.dtypes)
+        ret = cls.curate_names(ret)
         return ret
     @classmethod
     def curate_funds(cls,ret) :
@@ -70,7 +76,6 @@ class CURATE_BACKGROUND():
         return ret
     @classmethod
     def curate_names(cls,ret) :
-        ret['NAME'].fillna("Unavailable", inplace=True) 
         for index, row in ret.iterrows():
             n = row['NAME']
             n = n.replace("'", "")
@@ -85,20 +90,9 @@ class CURATE_BACKGROUND():
             n = n.replace("International", "Int.")
             row['NAME'] = n
         return ret
-    @classmethod
-    def refine(cls,ret) :
-        ret.fillna(0.0, inplace = True) 
-        MEAN.stats('raw',ret)
-        ret = ret[ret['LEN'] > 8*FINANCE.YEAR]
-        MEAN.stats('established',ret)
-        ret = ret[ret['CAGR'] > 0]
-        MEAN.stats('profitable',ret)
-        ret = ret[ret['RETURNS'] > 0]
-        MEAN.stats('profitable 2',ret)
-        return ret
 
 class MEAN():
-    keys = ['RISK','SHARPE','CAGR','GROWTH','RETURNS']
+    keys = ['RISK','SHARPE','CAGR','RETURNS']
     @classmethod
     def stats(cls,msg,data) :
         raw = map(lambda key : data[key].mean(), cls.keys)
@@ -109,31 +103,58 @@ class MEAN():
         return readable
 
 class BACKGROUND():
+    SECTOR = 'SECTOR'
+    ENTITY = 'ENTITY'
     @classmethod
-    @trace
-    def process(cls, ret) :
-        stock = ret[ret['ENTITY'] == 'stock']
-        fund = ret[ret['ENTITY'] == 'fund']
+    def by_entity(cls,d) :
+        ret = {}
+        for key, value in cls.by_field(d,cls.ENTITY) :
+            ret[key] = value
+        stock = ret.pop('stock',None)
+        funds = ret.pop('fund',None)
+        logging.info(ret)
         MEAN.stats('stock',stock)
-        for sector, group in cls.by_sector(stock):
+        for sector, group in cls.by_field(stock,cls.SECTOR):
             pass
-        MEAN.stats('fund',fund)
-        for sector, group in cls.by_sector(fund):
+        MEAN.stats('fund',funds)
+        for sector, group in cls.by_field(funds,cls.SECTOR):
             pass
-        return stock, fund
-
+        return stock, funds
     @classmethod
     def by_sector(cls,d) :
-        for sector in sorted(d['SECTOR'].unique()) :
-            ret = d[d['SECTOR'] == sector]
-            MEAN.stats(sector,ret)
+        for sector, ret in cls.by_field(d,cls.SECTOR) :
             yield sector, ret
+    @classmethod
+    def by_field(cls,d,t=None) :
+        if d is None :
+           return
+        if isinstance(d,dict) :
+           d = pd.DataFrame(d)
+        if t is None :
+           t = cls.SECTOR
+        distinct = d[t].unique()
+        logging.info((t,distinct))
+        for key in sorted(distinct) :
+            value = d[d[t] == key]
+            MEAN.stats(key,value)
+            yield key, value
     @classmethod
     def reduceRisk(cls, data,count) :
         data = data.sort_values(['RISK']).head(count)
         stock_list = data.index.values
         stock_list = list(stock_list)
         return stock_list
+    @classmethod
+    def refine(cls,ret) :
+        ret.fillna(0.0, inplace = True) 
+        MEAN.stats('raw',ret)
+        ret = ret[ret['LEN'] >= 8*FINANCE.YEAR]
+        MEAN.stats('established',ret)
+        ret = ret[ret['CAGR'] >= 0]
+        MEAN.stats('profitable',ret)
+        ret = ret[ret['RETURNS'] >= 0]
+        MEAN.stats('profitable 2',ret)
+        return ret
 
 class TRANSFORM():
     @classmethod
@@ -215,13 +236,6 @@ class PORTFOLIO():
         rename = dict(zip(portfolio_id_list,portfolio_name_list))
         ret.rename(columns = rename, inplace = True) 
         return ret
-
-class LOAD() :
-    @classmethod
-    def config(cls, save_file, **config) :
-        logging.info("saving results to {}".format(save_file))
-        INI_WRITE.write(save_file, **config)
-        logging.info("results saved to {}".format(save_file))
 
 class STEP_01() :
     '''
@@ -393,11 +407,16 @@ def process_fund(local_dir, data, step_01, step_02, step_03, step_04) :
 @exit_on_exception
 @trace
 def main() : 
+    bg = LOAD.background(VARIABLES().background_files)
+    background = CURATE_BACKGROUND.act(bg,VARIABLES().floats_in_summary)
+    background = BACKGROUND.refine(background)
+    stock, fund = BACKGROUND.by_entity(background)
+
     step_01 = STEP_01(VARIABLES().sector_cap)
     step_02 = STEP_02(VARIABLES().price_list,VARIABLES().prices)
     step_03 = STEP_03(VARIABLES().portfolio_iterations,VARIABLES().columns_drop)
     step_04 = STEP_04(VARIABLES().portfolio_iterations,VARIABLES().threshold,VARIABLES().columns_drop)
-    stock, fund = BACKGROUND.process(VARIABLES().background)
+
     process_stock(VARIABLES().local_dir, stock, step_01, step_02, step_03, step_04)
     process_fund(VARIABLES().local_dir, fund, step_01, step_02, step_03, step_04)
 
@@ -419,7 +438,7 @@ if __name__ == '__main__' :
    background_files = list(background_files)
    price_list = env.list_filenames('local/historical_*/*pkl')
    prices = 'Adj Close'
-   floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE','RETURNS']
+   floats_in_summary = ['CAGR','RETURNS','RISK','SHARPE','LEN'] 
    sector_cap = 7
    sector_cap = 9
    portfolio_iterations = 10000
