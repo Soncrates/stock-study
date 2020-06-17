@@ -45,3 +45,7 @@ validate Utilities
 generate
 validate Open-end_Mutual_Fund
 generate
+validate platinum
+generate
+#validate gold
+#generate

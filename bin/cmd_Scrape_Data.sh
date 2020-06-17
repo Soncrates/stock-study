@@ -7,7 +7,7 @@ function scrape_prices {
    #Execution speed for main : hours : 9.0, minutes : 8.0, seconds : 5.71
 }
 function scrape_background {
-   #$python cmd_Scrape_Fund.py
+   $python cmd_Scrape_Fund.py
    #Execution speed for main : minutes : 11.0, seconds : 24.71
    $python cmd_Scrape_Stock_Sector.py
    #Execution speed for main : minutes : 23.0, seconds : 56.14

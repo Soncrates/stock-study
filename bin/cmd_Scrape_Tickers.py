@@ -19,7 +19,7 @@ def get_globals(*largs) :
 
 @singleton
 class VARIABLES() :
-    var_names = ['env','data_store_stock', 'data_store_fund']
+    var_names = ['env','data_store_stock', 'data_store_fund','wait_on_success','wait_on_failure']
     def __init__(self) :
         values = get_globals(*VARIABLES.var_names)
         self.__dict__.update(**values)
@@ -30,7 +30,7 @@ class VARIABLES() :
 class LOAD() :
       @classmethod
       @trace
-      def _prices(cls, local_dir, ticker,dud) :
+      def _prices(cls, wait_on_failure, local_dir, ticker,dud) :
           if dud is None :
              dud = []
           filename = '{}/{}.pkl'.format(local_dir,ticker)
@@ -38,20 +38,20 @@ class LOAD() :
           prices = reader.extract_from_yahoo(ticker)
           if prices is None :
              dud.append(ticker)
-             time.sleep(4)
+             time.sleep(wait_on_failure)
              return dud
           STOCK_TIMESERIES.save(filename, ticker, prices)
           del prices
           return dud
 
       @classmethod
-      def prices(cls,local_dir, ticker_list) :
+      def prices(cls,local_dir, wait_on_success, wait_on_failure, ticker_list) :
           dud = None
           total = len(ticker_list)
           for i, ticker in enumerate(ticker_list) :
               logging.info("{} ({}/{})".format(ticker,i,total))
-              dud = cls._prices(local_dir, ticker,dud)
-              time.sleep(.1)
+              dud = cls._prices(wait_on_failure, local_dir, ticker,dud)
+              time.sleep(wait_on_success)
           size = len(ticker_list) - len(dud)
           logging.info("Total {}".format(size))
           if len(dud) > 0 :
@@ -60,10 +60,10 @@ class LOAD() :
           return dud
       @classmethod
       @trace
-      def robust(cls,data_store, ticker_list) :
-          retry = cls.prices(data_store, ticker_list)
+      def robust(cls,data_store, wait_on_success, wait_on_failure, ticker_list) :
+          retry = cls.prices(data_store, wait_on_success, wait_on_failure, ticker_list)
           if len(retry) > 0 :
-             retry = cls.prices(data_store, retry)
+             retry = cls.prices(data_store, wait_on_success, wait_on_failure, retry)
           if len(retry) > 0 :
              logging.error((len(retry), sorted(retry)))
 
@@ -86,9 +86,11 @@ def get_tickers() :
 def main() : 
     fund_list,stock_list, etf_list, alias = get_tickers()
 
-    LOAD.robust(VARIABLES().data_store_stock, stock_list)
-    LOAD.robust(VARIABLES().data_store_stock, etf_list)
-    LOAD.robust(VARIABLES().data_store_fund, fund_list)
+    wait_on_success = VARIABLES().wait_on_success
+    wait_on_failure = VARIABLES().wait_on_failure
+    LOAD.robust(VARIABLES().data_store_stock, wait_on_success, wait_on_failure, stock_list)
+    LOAD.robust(VARIABLES().data_store_stock, wait_on_success, wait_on_failure, etf_list)
+    LOAD.robust(VARIABLES().data_store_fund,  wait_on_success, wait_on_failure, fund_list)
 
 if __name__ == '__main__' :
    import sys
@@ -103,6 +105,7 @@ if __name__ == '__main__' :
 
    data_store_stock = '{}/local/historical_prices'.format(env.pwd_parent)
    data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)
-
+   wait_on_success=0.1
+   wait_on_failure=1
    main()
 

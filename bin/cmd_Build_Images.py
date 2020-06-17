@@ -635,7 +635,7 @@ if __name__ == '__main__' :
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
-   category = filter(lambda x : 'stock_by_sector.ini' in x or 'fund_by_type.ini' in x, ini_list)
+   category = filter(lambda x : 'stock_by_sector.ini' in x , ini_list)
    background = filter(lambda x : 'background.ini' in x, ini_list)
    benchmark = filter(lambda x : 'benchmark' in x, ini_list)
    repo_stock = env.list_filenames('local/historical_prices/*pkl')

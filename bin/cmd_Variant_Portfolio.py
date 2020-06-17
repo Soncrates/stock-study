@@ -417,7 +417,7 @@ if __name__ == '__main__' :
 
    ini_list = env.list_filenames('local/*.ini')
    file_list = env.list_filenames('local/historical_prices/*pkl')
-   category = filter(lambda x : 'stock_by_sector.ini' in x or 'fund_by_type.ini' in x, ini_list)
+   category = filter(lambda x : 'stock_by_sector.ini' in x , ini_list)
    background = filter(lambda x : 'background.ini' in x, ini_list)
    background = filter(lambda x : 'stock_' in x or 'fund_' in x, background)
 

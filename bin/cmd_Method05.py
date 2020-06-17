@@ -21,7 +21,7 @@ def get_globals(*largs) :
 
 @singleton
 class VARIABLES() :
-    var_names = ["local_dir", "background_files", "price_list","ini_list",'prices', 'floats_in_summary','sector_cap','portfolio_iterations', 'threshold','columns_drop' ]
+    var_names = ["local_dir", "background_files", "price_list","ini_list",'prices', 'floats_in_summary','sector_cap','portfolio_iterations', 'threshold','columns_drop','reduce_risk','reduce_return','disqualified']
 
     def __init__(self) :
         values = get_globals(*VARIABLES.var_names)
@@ -48,13 +48,14 @@ class LOAD() :
 
 class CURATE_BACKGROUND():
     @classmethod
-    def act(cls,ret, floats_in_summary) :
+    def act(cls,ret, floats_in_summary,disqualified) :
         ret = pd.DataFrame(ret).T
         ret.dropna(subset=['LEN'],inplace=True)
+        ret.drop(disqualified,errors='ignore',inplace=True)
         f = ret[ret['ENTITY'] != 'stock']
         f = cls.curate_funds(f)
         ret.update(f)
-        ret.drop(['CATEGORY', 'TYPE','GROWTH'], axis=1,inplace=True)
+        ret.drop(['CATEGORY', 'TYPE','GROWTH'], axis=1,errors='ignore',inplace=True)
         for field in ['SECTOR','ENTITY','NAME'] :
             ret[field].fillna("Unknown",inplace=True) 
         for field in ['MAX DRAWDOWN','MAX INCREASE'] :
@@ -178,17 +179,6 @@ class TRANSFORM():
         left = left.T.reset_index(drop=True)
         ret = left.append(right.T, sort=True)
         return ret
-    @classmethod
-    def get_total(cls, data, ret) :
-        if ret is None :
-           ret = {}
-
-        t = data.to_dict()
-        for k in sorted(t.keys()) :
-            if k not in ret :
-                ret[k] = {}
-            ret[k].update(t[k])
-        return ret
 class PORTFOLIO():
     @classmethod
     def truncate_5(cls, ret) :
@@ -241,27 +231,31 @@ class STEP_01() :
     '''
     STEP_01 based on background, filter list 
     '''
-    def __init__(self, cap_size) :
+    def __init__(self, cap_size, reduce_risk, reduce_return) :
         self.cap_size = cap_size
-
-    def act(self, ret) :
-        MEAN.stats('Original',ret)
-        while len(ret) > self.cap_size :
-              ret = self.reduce(ret)
-        return ret
-    def get_cap(self, ret) :
-        ret = len(ret)-self.cap_size
-        if ret < self.cap_size :
-           ret = self.cap_size
-        return ret
+        self.reduce_risk = reduce_risk
+        self.reduce_return = reduce_return
+    def __repr__(self):
+        return f"Background filter (max:{self.cap_size},risk reduction:{self.reduce_risk}, return improve : {self.reduce_return})"
+    def act(self, background, keys = None) :
+        if keys is None :
+           keys = []
+        while len(background) > self.cap_size :
+              background = self.reduce(background)
+        keys.extend(background.index.values.tolist())
+        return background, keys
     def reduce(self, ret) :
         target = 'RISK'
-        cap = self.get_cap(ret)
+        cap = len(ret) - self.reduce_risk
+        if cap < self.cap_size :
+            cap = self.cap_size
         ret = ret.sort_values(by=[target]).head(cap)
         MEAN.stats(target,ret)
         target = 'SHARPE'
         target = 'CAGR'
-        cap = self.get_cap(ret)
+        cap = len(ret) - self.reduce_return
+        if cap < self.cap_size :
+            cap = self.cap_size
         ret = ret.sort_values(by=[target],ascending=False).head(cap)
         MEAN.stats(target,ret)
         return ret
@@ -270,6 +264,8 @@ class STEP_02() :
     def __init__(self, price_list, price_column) :
         self.price_list = price_list
         self.price_column = price_column
+    def __repr__(self):
+        return f"Historical loader (column:{self.price_column})"
     def load(self, *ticker_list):
         filename_list = map(lambda ticker : '/{}.pkl'.format(ticker), ticker_list)
         filename_list = list(filename_list)
@@ -297,6 +293,8 @@ class STEP_03() :
     def __init__(self, portfolio_iterations,columns_drop) :
         self.portfolio_iterations = portfolio_iterations
         self.columns_drop = columns_drop
+    def __repr__(self):
+        return f"Portfolio Generator (iterations:{self.portfolio_iterations},remove columns {self.columns_drop})"
     def stocks(self, data) :
         ret = data.drop(labels=self.columns_drop,errors='ignore')
         stock_list, minimum_portfolio_size = TRANSFORM.validate(ret)
@@ -320,7 +318,6 @@ class STEP_03() :
             logging.info(stock_list)
             ret = PORTFOLIO.portfolio(prices,stock_list,self.portfolio_iterations,ret)
             ret = PORTFOLIO.truncate_1000(ret)
-        logging.info(ret)
         ret = ret.drop_duplicates()
         ret.reset_index(drop=True, inplace=True)
         ret.fillna(0, inplace=True)
@@ -332,6 +329,8 @@ class STEP_04() :
         self.portfolio_iterations = portfolio_iterations
         self.threshold = threshold
         self.columns_drop = columns_drop
+    def __repr__(self):
+        return f"Sweet Spot (iterations:{self.portfolio_iterations},remove columns {self.columns_drop}, threshold : {self.threshold})"
     def find_average(self, ret):
         ret = ret.drop(labels=self.columns_drop,errors='ignore')
         ret = ret.T.mean()
@@ -344,20 +343,23 @@ class STEP_04() :
         logging.debug(stock_list)
         return ret, stock_list
 
-    def act(self, data, prices) :
+    def act(self, data, prices, total) :
+        if total is None :
+           total = []
         avg, stock_list = self.find_average(data)
+        total.extend(stock_list)
         ret = None
         ret = PORTFOLIO.portfolio(prices,stock_list,self.portfolio_iterations*5,ret)
         ret = ret.drop_duplicates().T
         ret['summary'] = avg
         ret.fillna(0, inplace=True)
-        return ret
+        return ret, total
 
-def process_stock(local_dir, data, step_01, step_02, step_03, step_04) :
-    total = None
+def process_stock(local_dir, data, step_01, step_02, step_03, step_04,reduce_99) :
+    _90 = None
+    _99 = None
     for sector, group in BACKGROUND.by_sector(data) :
-        top_tier = step_01.act(group)
-        total = TRANSFORM.get_total(top_tier,total)
+        top_tier, _90 = step_01.act(group, _90)
 
         summary = TRANSFORM.addMean(top_tier)
         output_file = "{}/sector_{}.ini".format(local_dir, sector)
@@ -366,7 +368,7 @@ def process_stock(local_dir, data, step_01, step_02, step_03, step_04) :
 
         prices = step_02.act(top_tier)
         left = step_03.act(top_tier, prices)
-        right = step_04.act(left, prices)
+        right, _99 = step_04.act(left, prices,_99)
         left = PORTFOLIO.truncate_5(left)
         output_data = TRANSFORM.merge(left,right).T
         output_data = PORTFOLIO.massage(output_data)
@@ -376,16 +378,34 @@ def process_stock(local_dir, data, step_01, step_02, step_03, step_04) :
         output_file = output_file.replace(" ", "_")
         LOAD.config(output_file,**output_data.to_dict())
 
-    output_file = "{}/sector_Total.ini".format(local_dir)
-    total = pd.DataFrame.from_dict(total)
-    total = TRANSFORM.addMean(total)
-    LOAD.config(output_file,**total.to_dict())
+    output_file = "{}/sector_90.ini".format(local_dir)
+    _90 = data.loc[ _90 , : ]
+    _90s = TRANSFORM.addMean(_90)
+    logging.info(_90s)
+    LOAD.config(output_file,**_90s.to_dict())
+
+    _99 = data.loc[ _99 , : ]
+    MEAN.stats('99',_99)
+    _99,dummy = reduce_99.act(_99)
+    logging.info(_99)
+    output_file = "{}/sector_99.ini".format(local_dir)
+    _99s = TRANSFORM.addMean(_99)
+    LOAD.config(output_file,**_99s.to_dict())
+
+    prices = step_02.act(_99)
+    portfolios = step_03.act(_99, prices)
+    logging.info(portfolios)
+    portfolios = PORTFOLIO.truncate_5(portfolios)
+    logging.info(portfolios)
+    portfolios = PORTFOLIO.massage(portfolios)
+    output_file = "{}/portfolio_platinum.ini".format(local_dir)
+    LOAD.config(output_file,**portfolios.to_dict())
 
 def process_fund(local_dir, data, step_01, step_02, step_03, step_04) :
-    #total = None
+    _90_Alt = None
+    _99 = None
     for sector, group in BACKGROUND.by_sector(data) :
-        top_tier = step_01.act(group)
-        #total = TRANSFORM.get_total(top_tier,total)
+        top_tier, _90_Alt = step_01.act(group, _90_Alt)
 
         summary = TRANSFORM.addMean(top_tier)
         output_file = "{}/fund_{}.ini".format(local_dir, sector)
@@ -394,7 +414,7 @@ def process_fund(local_dir, data, step_01, step_02, step_03, step_04) :
 
         prices = step_02.act(top_tier)
         left = step_03.act(top_tier, prices)
-        right = step_04.act(left, prices)
+        right, _99 = step_04.act(left, prices,_99)
         left = PORTFOLIO.truncate_5(left)
         output_data = TRANSFORM.merge(left,right).T
         output_data = PORTFOLIO.massage(output_data)
@@ -407,17 +427,21 @@ def process_fund(local_dir, data, step_01, step_02, step_03, step_04) :
 @exit_on_exception
 @trace
 def main() : 
-    bg = LOAD.background(VARIABLES().background_files)
-    background = CURATE_BACKGROUND.act(bg,VARIABLES().floats_in_summary)
-    background = BACKGROUND.refine(background)
-    stock, fund = BACKGROUND.by_entity(background)
-
-    step_01 = STEP_01(VARIABLES().sector_cap)
+    step_01 = STEP_01(VARIABLES().sector_cap,VARIABLES().reduce_risk,VARIABLES().reduce_return)
     step_02 = STEP_02(VARIABLES().price_list,VARIABLES().prices)
     step_03 = STEP_03(VARIABLES().portfolio_iterations,VARIABLES().columns_drop)
     step_04 = STEP_04(VARIABLES().portfolio_iterations,VARIABLES().threshold,VARIABLES().columns_drop)
+    reduce_99 = STEP_01(25,1,2)
+    for msg in [step_01,step_02,step_03,step_04] :
+        logging.info(repr(msg))
 
-    process_stock(VARIABLES().local_dir, stock, step_01, step_02, step_03, step_04)
+    bg = LOAD.background(VARIABLES().background_files)
+    bg = CURATE_BACKGROUND.act(bg,VARIABLES().floats_in_summary,VARIABLES().disqualified)
+    bg = BACKGROUND.refine(bg)
+    bg.drop(['LEN', 'MAX DRAWDOWN','MAX INCREASE'], axis=1,errors='ignore',inplace=True)
+    stock, fund = BACKGROUND.by_entity(bg)
+
+    process_stock(VARIABLES().local_dir, stock, step_01, step_02, step_03, step_04,reduce_99)
     process_fund(VARIABLES().local_dir, fund, step_01, step_02, step_03, step_04)
 
 if __name__ == '__main__' :
@@ -439,12 +463,19 @@ if __name__ == '__main__' :
    price_list = env.list_filenames('local/historical_*/*pkl')
    prices = 'Adj Close'
    floats_in_summary = ['CAGR','RETURNS','RISK','SHARPE','LEN'] 
-   sector_cap = 7
-   sector_cap = 9
-   portfolio_iterations = 10000
-   threshold = 0.10
-   threshold = 0.12
    columns_drop = ['returns','risk','sharpe','mean']
+   sector_cap = 11
+   reduce_risk = 7
+   reduce_return = 1
+   portfolio_iterations = 10000
+   threshold = 0.12
+   # too risky AMZN 
+   # levelled off after initial increase
+   # Not significanly better than SNP
+   disqualified = ['TYL','CBPO','COG','NEU','CHTR','AMZN']
+   disqualified = ['TYL','CBPO','COG','CHTR','TPL','TTWO','MNST','VLO','WMB','REGN','GMAB','TCX'
+                  , 'NEU','AOS','IFF','PPG','BKNG','STZ','REX','HQL','RGR'
+                  ,'FB','WMT','CLX','BOOM','NYT','FNV']
 
     #keys = ['RISK','SHARPE','CAGR','GROWTH','RETURNS']
 
