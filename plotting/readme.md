@@ -1,3 +1,0 @@
-## Plotting
-- matplotlib
-- d3
