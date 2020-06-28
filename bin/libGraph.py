@@ -219,7 +219,6 @@ if __name__ == '__main__' :
    import logging
    from libUtils import ENVIRONMENT
    from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-   from libSharpe import HELPER as MONTECARLO
 
    env = ENVIRONMENT.instance()
 

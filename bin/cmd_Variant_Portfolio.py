@@ -4,67 +4,47 @@ import logging
 import types
 from functools import reduce
 import pandas as pd
-from libCommon import INI
-from libUtils import combinations, exit_on_exception
+from libCommon import INI_READ, INI_WRITE
+from libUtils import combinations
+from libDecorators import exit_on_exception, singleton
 from libKMeans import EXTRACT_K
 from libDebug import trace, cpu
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
-from libSharpe import PORTFOLIO, HELPER as SHARPE
+#from libSharpe import PORTFOLIO, HELPER as SHARPE
+from newSharpe import PORTFOLIO, HELPER as SHARPE
 
-class EXTRACT() :
-    _singleton = None
-    def __init__(self, _env, config_list, file_list, input_file, output_file,background,category) :
-        self._env = _env
-        self.config_list = config_list
-        self.file_list = file_list
-        self.input_file = input_file
-        self.output_file = output_file
-        self.background = background
-        self.category = category
+@exit_on_exception
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           raise ValueError(name)
+        ret[name] = value
+    return ret
+
+@singleton
+class VARIABLES() :
+    var_names = [ "background", "category",'env','input_file','output_file', 'portfolio_iterations', 'threshold','columns_drop','reduce_risk','reduce_return','stock_data']
+    var_names = [ "background", "category",'env','config_file','output_file',  'stock_data']
+
+    def __init__(self) :
+        values = get_globals(*VARIABLES.var_names)
+        self.__dict__.update(**values)
+        if len(self.env.argv) > 0 :
+           self.input_file = self.env.argv[0]
+        if len(self.env.argv) > 1 :
+           self.output_file = self.env.argv[1]
         msg = vars(self)
         for i, key in enumerate(sorted(msg)) :
             value = msg[key]
             if isinstance(value,list) and len(value) > 10 :
                value = value[:10]
             logging.info((i,key, value))
-    @classmethod
-    def instance(cls, **kwargs) :
-        if not (cls._singleton is None) :
-           return cls._singleton
-        #msg = sorted(globals().keys())
-        #msg = filter(lambda x : '__' not in x, msg)
-        #msg = filter(lambda x: not isinstance((globals().get(x)),types.ModuleType), msg)
-        #msg = filter(lambda x: not isinstance((globals().get(x)),types.FunctionType), msg)
-        #msg = list(msg)
-        #print(msg)
-        #msg = map(lambda x: type(globals().get(x)), msg)
-        #msg = list(msg)
-        #print(msg)
-        #for i, j in enumerate(vars(types)) :
-        #    print((i,j))
-        target = 'env'
-        _env = globals().get(target,None)
-        input_file = None
-        if len(_env.argv) > 0 :
-           input_file = _env.argv[0]
-        output_file = None
-        if len(_env.argv) > 1 :
-           output_file = _env.argv[1]
-        target = 'ini_list'
-        config_list = globals().get(target,[])
-        if not isinstance(config_list,list) :
-           config_list = list(config_list)
-        target = "file_list"
-        file_list = globals().get(target,[])
-        target = 'background'
-        background = globals().get(target,[])
-        background = list(background)
-        target = 'category'
-        category = globals().get(target,[])
-        category = list(category)
 
-        cls._singleton = cls(_env,config_list,file_list, input_file, output_file,background,category)
-        return cls._singleton
+class EXTRACT() :
+    input_file = None
+    stock_data = None
     @classmethod
     def flatten(cls, ret) :
         logging.debug(ret)
@@ -74,8 +54,8 @@ class EXTRACT() :
         return ret
     @classmethod
     def read(cls) :
-        data = cls.instance().input_file
-        logging.info('reading file {}'.format([data]))
+        data = cls.input_file
+        logging.info('reading file {}'.format(data))
         ret = {}
         for path, section, stock_sector, stock_list in INI_READ.read(*[data]) :
             if section not in ret :
@@ -87,16 +67,16 @@ class EXTRACT() :
         return ret, stock_list
     @classmethod
     def load(cls, value_list) :
-        file_list = cls.instance().file_list
         ret = {}
-        for name, data in STOCK_TIMESERIES.read(file_list, value_list) :
+        for name, data in STOCK_TIMESERIES.read(cls.stock_data, value_list) :
             ret[name] = data['Adj Close']
         return ret
 class EXTRACT_SECTOR() :
+    category = None
     _cache = None
     @classmethod
     def read(cls) :
-        load_file = EXTRACT.instance().category
+        load_file = cls.category
         if not (cls._cache is None) :
            return cls._cache
         logging.info('reading file {}'.format(load_file))
@@ -138,11 +118,12 @@ class EXTRACT_SECTOR() :
             yield entry, group
 
 class EXTRACT_SUMMARY() :
+    background = None
     _background_cache = None
     _floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE']
     @classmethod
     def read(cls) :
-        load_file = EXTRACT.instance().background
+        load_file = cls.background
         if not (cls._background_cache is None) :
            logging.info('reading cache {}'.format(load_file))
            return cls._background_cache
@@ -291,9 +272,10 @@ class TRANSFORM_PORTFOLIO() :
         ret = dict(zip(key_list,value_list))
         return ret
 class LOAD() :
+    output_file = None
     @classmethod
     def config(cls,data) :
-        save_file = EXTRACT.instance().output_file
+        save_file = cls.output_file
         INI_WRITE.write(save_file,**data)
         logging.info('writing to file {}'.format(save_file))
 
@@ -416,10 +398,13 @@ if __name__ == '__main__' :
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
+   stock_data = env.list_filenames('local/historical_prices/*pkl')
    category = filter(lambda x : 'stock_by_sector.ini' in x , ini_list)
    background = filter(lambda x : 'background.ini' in x, ini_list)
    background = filter(lambda x : 'stock_' in x or 'fund_' in x, background)
+
+   config_file = '../test/testConfig/refined_stock_list.ini'
+   output_file = '../test/testResults/refined_report.ini'
 
 
    main()

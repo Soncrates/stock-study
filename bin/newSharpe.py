@@ -31,12 +31,6 @@ Within the risk-reward framework of portfolio theory, higher risk investments sh
 As a result, a high Sharpe ratio indicates superior risk-adjusted performance.
 
 '''
-'''
-class SHARPE : unused, 
-class HELPER :
-class PORTFOLIO :
-
-'''
 
 class PORTFOLIO :
       columns = ['returns','risk','sharpe']
@@ -44,7 +38,7 @@ class PORTFOLIO :
       @classmethod
       def validate(cls, data, **kwargs) :
           target = "stocks"
-          stocks = kwargs.get(target,['AAPL','GOOG'])
+          stocks = kwargs.get(target,[])
           target = "portfolios"
           portfolios = kwargs.get(target,25000)
           target = "period"
@@ -63,7 +57,11 @@ class PORTFOLIO :
           if data is None :
              logging.warn('No data!')
              return data, stocks, portfolios, risk_free_rate, period
-          logging.debug(stocks)
+          flag = len(stocks) == 0 and isinstance(data, pd.Series)
+          if flag :
+             return data, stocks, portfolios, risk_free_rate, period
+          logging.info(stocks)
+          logging.info(data)
           #ticker_list = data.index.values
           ticker_list = data.columns.values
           ticker_list = list(ticker_list)
