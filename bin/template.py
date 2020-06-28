@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+import argparse
 import logging
 import sys
+import time
 from libCommon import INI_READ, INI_WRITE
 from libDecorators import exit_on_exception, singleton
 from libDebug import trace, cpu
@@ -15,24 +17,23 @@ def get_globals(*largs) :
            raise ValueError(name)
         ret[name] = value
     return ret
+def pprint(msg) :
+    for i, key in enumerate(sorted(msg)) :
+        value = msg[key]
+        if isinstance(value,list) and len(value) > 10 :
+           value = value[:10]
+        logging.info((i,key, value))
 
 @singleton
 class VARIABLES() :
-    var_names = [ 'env','config_list', 'stock_data', 'output_file']
+    var_names = [ 'env','config_list', 'stock_data','sys_args']
 
     def __init__(self) :
         values = get_globals(*VARIABLES.var_names)
         self.__dict__.update(**values)
-        if len(self.env.argv) > 0 :
-           self.input_file = self.env.argv[0]
-        if len(self.env.argv) > 1 :
-           self.output_file = self.env.argv[1]
-        msg = vars(self)
-        for i, key in enumerate(sorted(msg)) :
-            value = msg[key]
-            if isinstance(value,list) and len(value) > 10 :
-               value = value[:10]
-            logging.info((i,key, value))
+        self.__dict__.update(**vars(self.sys_args))
+        pprint(vars(self))
+        time.sleep(5)
 
 class EXTRACT() :
     config_list = {}
@@ -61,6 +62,7 @@ def main() :
     EXTRACT.config_list = VARIABLES().config_list
     path_list = ['/sandbox/repo/stock-study/local/stock_background.ini', '/sandbox/repo/stock-study/local/stock_by_sector.ini']
     LOAD.output_file = VARIABLES().output_file
+    return
     for path, section, key, value in EXTRACT.read(*path_list) : pass
     #LOAD.config(**{})
 
@@ -75,9 +77,16 @@ if __name__ == '__main__' :
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
    logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
+   parser = argparse.ArgumentParser(description='Example arguments')
+   parser.add_argument('--portfolio', action='store', dest='portfolio', type=int, default=100, help='Store a simple value')
+   parser.add_argument('--out', action='store', dest='output_file', default='./a.out',help='Store a simple value')
+   parser.add_argument('--risk', action='store', dest='risk', type=int, default=10, help='Store a simple value')
+   parser.add_argument('--returns', action='store', dest='returns', type=int, default=4, help='Store a simple value')
+   sys_args = parser.parse_args()
+   pprint(vars(sys_args))
+
    config_list = env.list_filenames('local/*.ini')
    stock_data = env.list_filenames('local/historical_prices/*pkl')
-   output_file = './a.out'
 
    main()
 
