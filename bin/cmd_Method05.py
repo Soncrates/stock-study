@@ -453,7 +453,7 @@ def main() :
     stock, fund = BACKGROUND.by_entity(bg)
     if VARIABLES().flag_stock :
        process_stock(VARIABLES().local_dir, suffix, stock, step_01, step_02, step_03, step_04,reduce_99)
-    if VARIABLES().flag_fund
+    if VARIABLES().flag_fund :
        process_fund(VARIABLES().local_dir,suffix, fund, step_01, step_02, step_03, step_04)
 
 if __name__ == '__main__' :
