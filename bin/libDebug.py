@@ -129,6 +129,12 @@ def debug_object(obj):
             continue
         logging.info((i,key))
 
+def pprint(msg) :
+    for i, key in enumerate(sorted(msg)) :
+        value = msg[key]
+        if isinstance(value,list) and len(value) > 10 :
+           value = value[:10]
+        logging.info((i,key, value))
 
 '''
 TODO : optional parameters are not working in delay
