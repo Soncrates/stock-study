@@ -30,12 +30,20 @@ class VARIABLES() :
         if len(self.suffix) > 0 :
            self.suffix = "_" + self.suffix
         self.entity = self.entity.lower()
-        self.flag_stock = 'stock' in entity
-        self.flag_fund = 'fund' in entity
-        self.flag_etl = 'etl' in entity
+        self.flag_stock = 'stock' in self.entity
+        self.flag_fund = 'fund' in self.entity
+        self.flag_etl = 'etl' in self.entity
         self.flag_etl = False
         if not (self.flag_stock or self.flag_fund or self.flag_etl) :
-           raise ValueError('entity must be stock or fund')
+           raise ValueError('entity must be stocks or funds')
+        bg = []
+        if self.flag_stock :
+           v = filter(lambda x : 'stock' in x, self.background_files)
+           bg.extend(list(v))
+        if self.flag_fund :
+           v = filter(lambda x : 'fund' in x, self.background_files)
+           bg.extend(list(v))
+        self.background_files = bg
         pprint(vars(self))
 
 class LOAD() :
@@ -452,9 +460,9 @@ def main() :
     bg.drop(['LEN', 'MAX DRAWDOWN','MAX INCREASE'], axis=1,errors='ignore',inplace=True)
     stock, fund = BACKGROUND.by_entity(bg)
     if VARIABLES().flag_stock :
-       process_stock(VARIABLES().local_dir, suffix, stock, step_01, step_02, step_03, step_04,reduce_99)
+       process_stock(VARIABLES().local_dir, VARIABLES().suffix, stock, step_01, step_02, step_03, step_04,reduce_99)
     if VARIABLES().flag_fund :
-       process_fund(VARIABLES().local_dir,suffix, fund, step_01, step_02, step_03, step_04)
+       process_fund(VARIABLES().local_dir,VARIABLES().suffix, fund, step_01, step_02, step_03, step_04)
 
 if __name__ == '__main__' :
    import argparse
