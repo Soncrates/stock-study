@@ -1,6 +1,7 @@
 #!/bin/bash
 python=python3
 function scrape_prices {
+   find ../local/historical* -type f -delete
    $python cmd_Scrape_Benchmarks.py
    #Execution speed for main : , seconds : 58.5
    $python cmd_Scrape_Tickers.py

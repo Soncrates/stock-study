@@ -12,25 +12,31 @@ fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
 from libCommon import INI_BASE, INI_READ, INI_WRITE
-from libUtils import exit_on_exception
+from libDecorators import exit_on_exception, singleton
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save, HELPER as GRAPH
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
-class EXTRACT() :
-    _singleton = None
-    def __init__(self, _env, local_dir, data_store, category,input_file,output_file,background,benchmark,repo) :
-        self._env = _env
-        self.local_dir = local_dir
-        self._data_store = data_store
-        self.category = category
-        self.input_file = input_file
-        self.output_file = output_file
-        self.background = background
-        self._benchmark = benchmark
-        self.repo = repo
+@exit_on_exception
+def get_globals(*largs) :
+    ret = {}
+    for name in largs :
+        value = globals().get(name,None)
+        if value is None :
+           raise ValueError(name)
+        ret[name] = value
+    return ret
+
+@singleton
+class VARIABLES() :
+    var_names = [ 'cli', "env", "local_dir", "data_store", "category","input_file",'output_file', 'background','benchmark','repo_stock']
+
+    def __init__(self) :
+        values = get_globals(*VARIABLES.var_names)
+        self.__dict__.update(**values)
+        self.__dict__.update(**self.cli)
         msg = vars(self)
         for i, key in enumerate(sorted(msg)) :
             value = msg[key]
@@ -38,49 +44,10 @@ class EXTRACT() :
                value = value[:10]
             logging.info((i,key, value))
 
-    @classmethod
-    def instance(cls, **kwargs) :
-        if not (cls._singleton is None) :
-           return cls._singleton
-        target = 'env'
-        _env = globals().get(target,None)
-        target = "local_dir"
-        local_dir = globals().get(target,None)
-        target = 'data_store'
-        data_store = globals().get(target,'')
-        if not isinstance(data_store,str) :
-           data_store = str(data_store)
-        target = 'input_file'
-        input_file = globals().get(target,'')
-        if not isinstance(input_file,list) :
-           input_file = [input_file]
-        if len(_env.argv) > 0 :
-           input_file = _env.argv[0]
-        target = 'output_file'
-        output_file = globals().get(target,'')
-        if len(_env.argv) > 1 :
-           output_file = _env.argv[1]
-        target = 'background'
-        background = globals().get(target,[])
-        background = list(background)
-        target = 'category'
-        category = globals().get(target,[])
-        category = list(category)
-        target = 'benchmark'
-        benchmark = globals().get(target,[])
-        benchmark = list(benchmark)
-        target = "repo_stock"
-        repo_stock = globals().get(target,[])
-        target = "repo_fund"
-        repo_fund = globals().get(target,[])
-        repo = repo_stock + repo_fund
-        
-        _env.mkdir(data_store)
-        cls._singleton = cls(_env,local_dir,data_store,category,input_file,output_file,background,benchmark,repo)
-        return cls._singleton
+class EXTRACT() :
     @classmethod
     def readPortfolio(cls) :
-        portfolio = EXTRACT.instance().input_file
+        portfolio = VARIABLES().input_file
         logging.info('reading file {}'.format(portfolio))
         ret = {}
         for path, section, key, weight in INI_READ.read(*[portfolio]) :
@@ -99,7 +66,7 @@ class EXTRACT_PRICES() :
         return flag_1 or flag_2 or flag_3
     @classmethod
     def read(cls, value_list) :
-        repo = EXTRACT.instance().repo
+        repo = VARIABLES().repo_stock
         ret = {}
         for name, data in STOCK_TIMESERIES.read(repo, value_list) :
             logging.info((name,type(data),data.shape))
@@ -137,7 +104,7 @@ class EXTRACT_SUMMARY() :
     _floats_in_summary = ['CAGR', 'GROWTH', 'LEN', 'RISK', 'SHARPE']
     @classmethod
     def read(cls) :
-        load_file = EXTRACT.instance().background
+        load_file = VARIABLES().background
         if not (cls._background_cache is None) :
            logging.info('reading cache {}'.format(load_file))
            return cls._background_cache
@@ -212,7 +179,7 @@ class EXTRACT_SECTOR() :
     _cache = None
     @classmethod
     def _readSector(cls) :
-        load_file = EXTRACT.instance().category
+        load_file = VARIABLES().category
         if not (cls._cache is None) :
            logging.info('reading cache {}'.format(load_file))
            return cls._cache
@@ -253,7 +220,7 @@ class EXTRACT_BENCHMARK() :
     SNP = 'SNP500'
     @classmethod
     def read(cls) :
-        benchmark = EXTRACT.instance()._benchmark
+        benchmark = VARIABLES().benchmark
         logging.info('reading file {}'.format(benchmark))
         ret = {}
         for path, section, key, stock_list in INI_READ.read(*benchmark) :
@@ -456,7 +423,7 @@ class LOAD() :
 
     @classmethod
     def config(cls,summary,portfolio) :
-        save_file = EXTRACT.instance().output_file
+        save_file = VARIABLES().output_file
         ret = INI_BASE.init()
         INI_WRITE.write_section(ret,"summary",**summary)
         for key in portfolio.keys() :
@@ -566,7 +533,7 @@ def main() :
    SHARPE = LINE.plot_sharpe(ratio=2)
    SHARPE.plot.line(style='r:',label='sharpe ratio 2',alpha=0.3)
 
-   local_dir = EXTRACT.instance().local_dir
+   local_dir = VARIABLES().local_dir
    path = "{}/images/portfolio_sharpe.png".format(local_dir)
    save(path,loc="lower right")
    summary_path_list.append(path)
@@ -623,6 +590,7 @@ def main() :
 
 if __name__ == '__main__' :
 
+   import argparse
    import sys
    import logging
    from libUtils import ENVIRONMENT
@@ -635,9 +603,9 @@ if __name__ == '__main__' :
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    ini_list = env.list_filenames('local/*.ini')
-   category = filter(lambda x : 'stock_by_sector.ini' in x , ini_list)
-   background = filter(lambda x : 'background.ini' in x, ini_list)
-   benchmark = filter(lambda x : 'benchmark' in x, ini_list)
+   category = [ x for x in ini_list if 'stock_by_sector.ini' in x]
+   background = [ x for x in ini_list if 'background.ini' in x ]
+   benchmark = [ x for x in ini_list if 'benchmark' in x ]
    repo_stock = env.list_filenames('local/historical_prices/*pkl')
    repo_fund = env.list_filenames('local/historical_prices_fund/*pkl')
    input_file = env.list_filenames('local/method*portfolios.ini')
@@ -646,6 +614,11 @@ if __name__ == '__main__' :
    data_store = '{}/images'.format(local_dir)
    data_store = '../local/images'
    output_file = "{pwd_parent}/local/report_generator.ini".format(**vars(env))
+
+   parser = argparse.ArgumentParser(description='Image Generator')
+   parser.add_argument('--input', action='store', dest='input_file', type=str, default=input_file, help='portfolios to read in')
+   parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
+   cli = vars(parser.parse_args())
 
    main()
    #ret = EXTRACT.readSummary()
