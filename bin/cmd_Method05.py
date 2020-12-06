@@ -337,6 +337,8 @@ class STEP_03() :
             logging.info(stock_list)
             ret = PORTFOLIO.portfolio(prices,stock_list,self.portfolio_iterations,ret)
             ret = PORTFOLIO.truncate_1000(ret)
+        if ret is None :
+            return ret
         ret = ret.drop_duplicates()
         ret.reset_index(drop=True, inplace=True)
         ret.fillna(0, inplace=True)

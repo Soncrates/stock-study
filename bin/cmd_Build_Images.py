@@ -92,9 +92,9 @@ class TRANSFORM_PRICES() :
     @classmethod
     def adjClose(cls,data) :
         stock_list = sorted(data)
-        price_list = map(lambda stock : pd.DataFrame(data[stock])[cls._prices], stock_list)
-        price_list = list(price_list)
+        price_list = [ pd.DataFrame(data[stock])[cls._prices] for stock in stock_list ]
         ret = dict(zip(stock_list, price_list))
+        logging.info(stock_list)
         ret = pd.DataFrame(ret, columns=stock_list)
         logging.info(ret.head(3))
         logging.info(ret.tail(3))
@@ -181,7 +181,7 @@ class EXTRACT_SECTOR() :
     def _readSector(cls) :
         load_file = VARIABLES().category
         if not (cls._cache is None) :
-           logging.info('reading cache {}'.format(load_file))
+           logging.debug('reading cache {}'.format(load_file))
            return cls._cache
         logging.info('reading file {}'.format(load_file))
         ret = {}
@@ -391,6 +391,8 @@ class TRANSFORM_PORTFOLIO() :
     def find(cls) :
         for name, weights, meta_name_list in cls._find() :
             weights = cls.parseWeights(weights)
+            if len(weights.columns.values) == 0 :
+                continue
             raw_prices = EXTRACT_PRICES.read(weights.columns.values)
             prices = TRANSFORM_PRICES.adjClose(raw_prices)
             prices[meta_name_list['legend']] = cls.getPortfolioPrice(weights,prices)

@@ -223,6 +223,7 @@ class HELPER :
           returns = data.ewm(span=span).mean().iloc[-1]
           risk = data.ewm(span=span).std().iloc[-1]
           return risk, returns
+# TODO add  5 3 1 year cagr calcilations
 class TRANSFORM_CAGR() :
       key_list = ['CAGR', 'GROWTH']
       @classmethod
@@ -241,12 +242,37 @@ class TRANSFORM_CAGR() :
           ret = dict(zip(cls.key_list,values))
           return ret
       @classmethod
-      def validate(cls, data):
-          _ret = data.dropna(how='all')
-          _ret = _ret.divide(_ret.iloc[0])
-          growth = _ret.iloc[-1]
-          periods = len(_ret) / float(HELPER.YEAR)
+      def validate(cls, data, start=0):
+          _data = data.dropna(how='all')
+          _data = _data.divide(_data.iloc[start])
+          growth = _data.iloc[-1]
+          periods = len(_data) / float(HELPER.YEAR)
           return growth, periods
+class TRANSFORM_CAGR_SEGMENTS() :
+      _interval = [8,5,3,1]
+      _columns = [ 'CAGR {}'.format(i) for i in _interval ]
+      @classmethod
+      def enrich(cls, data, stock=None, summary = None):
+          values = [ cls.transform(data,i) for i in cls._interval]
+          ret = dict(zip(cls._columns,values))
+          ret = pd.DataFrame(ret, index=[stock])
+          if summary is None :
+             return ret
+          ret = ret.append(summary)
+          return ret
+      @classmethod
+      def transform(cls, data, duration_in_years=1):
+          years = HELPER.YEAR * duration_in_years
+          _data = data.dropna(how='all')
+          start = len(_data) - years
+          if start < 0 :
+             return 0
+          _data = _data.divide(_data.iloc[start])
+          growth = _data.iloc[-1]
+          periods = years / float(HELPER.YEAR)
+          cagr = growth**(1/periods)-1
+          cagr = round(cagr,4)
+          return cagr
 
 class TRANSFORM_DRAWDOWN() :
       key_list = ['MAX DRAWDOWN','MAX INCREASE']
