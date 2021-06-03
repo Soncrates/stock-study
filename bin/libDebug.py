@@ -37,7 +37,7 @@ class REFLECTION(object) :
            key_list = obj.__dict__.keys()
         logging.debug(key_list)
         #ret = { key : str(getattr(obj,key)) for key in key_list if '__' not in key and key not in str(getattr(obj,key)) }
-        ret = { key : str(getattr(obj,key)) for key in key_list if '__' not in key  }
+        ret = { key : str(getattr(obj,key)) for key in key_list if not key.startswith('__')  }
         return ret
 
 class WRAPPER(object) :
