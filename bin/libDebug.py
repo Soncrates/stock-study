@@ -11,44 +11,55 @@ except ImportError:
 
 from libUtils import TIMER
 
+class REFLECTION(object) :
+    @staticmethod
+    def reflection1(obj):
+        ret = {"__isfunction__" : inspect.isfunction(obj)
+             , "__ismethod__" : inspect.ismethod(obj)
+             , "__isstaticmethod__" : isinstance(obj,staticmethod)
+             , "__isclassmethod__" : isinstance(obj,classmethod)
+        }
+        ret.update( { key : str(getattr(obj,key,None)) for key in dir(obj) if key.startswith('__is')} )
+        name = None
+        if hasattr(obj, '__name__'):
+           name = obj.__name__
+        elif obj.__isstaticmethod__ or obj.__isclassmethod__  :
+           name = [obj.__class__, obj.__func__] 
+           name = [ x.__name__ for x in name if hasattr(x,"__name__") ]
+           name = '.'.join(name)
+        ret['__name__'] = name
+        logging.debug(ret)
+        return ret
+    @staticmethod
+    def reflection2(obj):
+        key_list = dir(obj)
+        if hasattr(obj,'__dict__') :
+           key_list = obj.__dict__.keys()
+        logging.debug(key_list)
+        #ret = { key : str(getattr(obj,key)) for key in key_list if '__' not in key and key not in str(getattr(obj,key)) }
+        ret = { key : str(getattr(obj,key)) for key in key_list if '__' not in key  }
+        return ret
+
 class WRAPPER(object) :
     def __init__(self, f):
         functools.update_wrapper(self, f)
         _name = "WRAPPER"
         if hasattr(self, '__name__') :
             _name = self.__name__
-        #for i, key in enumerate(dir(f)) :
-        #    if '__' in key and key in str(getattr(f,key)) : continue
-        #    print ("{} {}".format(_name, i), key, getattr(f,key))
-
-        self.__isfunction__ = getattr(f,'__isfunction__',None)
-        self.__ismethod__ = getattr(f,'__ismethod__',None)
-        self.__isstaticmethod__ = getattr(f,'__isstaticmethod__',None)
-        self.__isclassmethod__ = getattr(f,'__isclassmethod__',None)
-        if self.__isfunction__ is None : inspect.isfunction(f)
-        if self.__ismethod__ is None : inspect.ismethod(f)
-        if self.__isstaticmethod__ is None : isinstance(f,staticmethod)
-        if self.__isclassmethod__ is None : isinstance(f,classmethod)
-
-        if hasattr(f, '__name__'):
-           self.__name__ = f.__name__
-        elif self.__isstaticmethod__ or self.__isclassmethod__  :
-           self.__name__ = [f.__class__, f.__func__]
-           self.__name__ = filter(lambda x : hasattr(x,'__name__'), self.__name__)
-           self.__name__ = map(lambda x : x.__name__, self.__name__)
-           self.__name__ = '.'.join(self.__name__)
-
+        test = REFLECTION.reflection1(f)
+        self.__isfunction__ = test.get('__isfunction__')
+        self.__ismethod__ = test.get('__ismethod__')
+        self.__isstaticmethod__ = test.get('__isstaticmethod__')
+        self.__isclassmethod__ = test.get('__isclassmethod__')
+        self.__name__ = test.get("__name__")
         self.f = f
         if self.__isstaticmethod__ and hasattr(f,'__func__') :
            self.f = f.__func__
 
     def __str__(self):
-        key_list = dir(self)
-        if hasattr(self,'__dict__') :
-           key_list = self.__dict__.keys()
-        key_list = filter(lambda key : '__' not in key or key not in str(getattr(self,key)),key_list)
-        value_list = map(lambda key : '{} : {}'.format(key, getattr(self,key)), key_list)
-        return '\n'.join(value_list)
+        ret = REFLECTION.reflection2(self)
+        ret = [ "{} : {}".format(key,ret[key]) for key in ret]
+        return '\n'.join(ret)
 
 class trace(WRAPPER):
     msg_enter = "Entering {}"
@@ -114,19 +125,19 @@ class cpu(WRAPPER):
         logging.debug( _s.getvalue())
         return ret
 
+def _debug_helper(value) :
+    if isinstance(value,list) and len(value) > 10 :
+       value = value[:10]
+    return value
+     
 def debug_object(obj):
     msg = vars(obj)
+    msg = { key : _debug_helper(msg[key]) for key in sorted(msg) if not key.startswith('__') }
     for i, key in enumerate(sorted(msg)) :
-        if key.startswith('__') :
-            continue
-        value = msg[key]
-        if isinstance(value,list) and len(value) > 10 :
-           value = value[:10]
-        logging.info((i,key, value))
+        logging.info((i,key,msg[key]))
     msg = dir(obj)
+    msg = { key : _debug_helper(msg[key]) for key in sorted(msg) if not key.startswith('__') }
     for i,key in enumerate(sorted(msg)):
-        if key.startswith('__') :
-            continue
         logging.info((i,key))
 
 def pprint(msg) :
