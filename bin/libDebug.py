@@ -9,36 +9,7 @@ try:
 except ImportError:
     from io import StringIO
 
-from libUtils import TIMER
-
-class REFLECTION(object) :
-    @staticmethod
-    def reflection1(obj):
-        ret = {"__isfunction__" : inspect.isfunction(obj)
-             , "__ismethod__" : inspect.ismethod(obj)
-             , "__isstaticmethod__" : isinstance(obj,staticmethod)
-             , "__isclassmethod__" : isinstance(obj,classmethod)
-        }
-        ret.update( { key : str(getattr(obj,key,None)) for key in dir(obj) if key.startswith('__is')} )
-        name = None
-        if hasattr(obj, '__name__'):
-           name = obj.__name__
-        elif obj.__isstaticmethod__ or obj.__isclassmethod__  :
-           name = [obj.__class__, obj.__func__] 
-           name = [ x.__name__ for x in name if hasattr(x,"__name__") ]
-           name = '.'.join(name)
-        ret['__name__'] = name
-        logging.debug(ret)
-        return ret
-    @staticmethod
-    def reflection2(obj):
-        key_list = dir(obj)
-        if hasattr(obj,'__dict__') :
-           key_list = obj.__dict__.keys()
-        logging.debug(key_list)
-        #ret = { key : str(getattr(obj,key)) for key in key_list if '__' not in key and key not in str(getattr(obj,key)) }
-        ret = { key : str(getattr(obj,key)) for key in key_list if not key.startswith('__')  }
-        return ret
+from libUtils import TIMER, REFLECTION
 
 class WRAPPER(object) :
     def __init__(self, f):
