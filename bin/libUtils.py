@@ -14,13 +14,11 @@ from libDecorators import exit_on_exception, log_on_exception
 from libDecorators import http_200
 '''
   Kitchen Sink
-  CSV - Some web scraping returns csv files 
   ENVIRONMENT - scraping platform for data (USER,pwd, VERSION etc)
-  FTP - web scraping 
-  INI - Each program reads the ini file(s) produced by the previous program and produces its own.
-        This chaining allows for more rapid development both in execution and debugging.
+  REFLECTION
+  RSS
+  WEB
   TIMER - performance metric tracking
-          TODO - create a decorator that can log performance of a function.
 '''
 def combinations(stock_list,size=5) :
     ret_list = iter_combo(stock_list,size)
@@ -43,7 +41,6 @@ class ENVIRONMENT(object) :
       def instance(cls, *largs, **kvargs) :
           if not (cls._singleton is None) :
              return cls._singleton
-
           ret = cls(*largs, **kvargs)
           ret.__dict__.update(**cls._env())
           ret.__dict__.update(**kvargs)
@@ -52,8 +49,7 @@ class ENVIRONMENT(object) :
       @classmethod
       def _env(cls, *largs, **kvargs) :
           env = os.environ
-          value_list = map(lambda x : env.get(x,None), cls._env_vars)
-          ret = dict(zip(cls._env_vars,value_list))
+          ret = {key : env.get(key) for key in cls._env_vars if env.get(key,None) is not None }
           target = 'PATH'
           ret[target] = ret[target].split(':')
           return ret
@@ -68,12 +64,9 @@ class ENVIRONMENT(object) :
           self.version = sys.version
           self.version_info = sys.version_info
       def __str__(self) :
-          values = self.__dict__
-          key_list = sorted(values.keys())
-          ret = map(lambda key : "{} : {}".format(key,values.get(key)), key_list)
-          ret = list(ret)
-          ret = "\n".join(ret)
-          return ret
+          ret = REFLECTION.reflection2(self.__dict__)
+          ret = [ "{} : {}".format(key,ret[key]) for key in ret]
+          return '\n'.join(ret)
       def mkdir(self, path) :
           if path is None :
               return
@@ -105,6 +98,35 @@ class ENVIRONMENT(object) :
           ret = ENVIRONMENT.find(*[path1, path2])
           return ret
 
+class REFLECTION(object) :
+    @staticmethod
+    def reflection1(obj):
+        ret = {"__isfunction__" : inspect.isfunction(obj)
+             , "__ismethod__" : inspect.ismethod(obj)
+             , "__isstaticmethod__" : isinstance(obj,staticmethod)
+             , "__isclassmethod__" : isinstance(obj,classmethod)
+        }
+        ret.update( { key : str(getattr(obj,key,None)) for key in dir(obj) if key.startswith('__is')} )
+        name = None
+        if hasattr(obj, '__name__'):
+           name = obj.__name__
+        elif obj.__isstaticmethod__ or obj.__isclassmethod__  :
+           name = [obj.__class__, obj.__func__] 
+           name = [ x.__name__ for x in name if hasattr(x,"__name__") ]
+           name = '.'.join(name)
+        ret['__name__'] = name
+        logging.debug(ret)
+        return ret
+    @staticmethod
+    def reflection2(obj):
+        key_list = dir(obj)
+        if hasattr(obj,'__dict__') :
+           key_list = obj.__dict__.keys()
+        logging.debug(key_list)
+        #ret = { key : str(getattr(obj,key)) for key in key_list if '__' not in key and key not in str(getattr(obj,key)) }
+        ret = { key : str(getattr(obj,key)) for key in key_list if not key.startswith('__')  }
+        return ret
+      
 class WEB(object) :
       @classmethod
       @log_on_exception
@@ -156,10 +178,8 @@ class RSS() :
               ret[field] = entry.get(field,'NA')
           return ret
 
-
 '''
 '''
-
 class DICT_HELPER() :
     def __init__(self, *largs, **kwargs):
         self.data = kwargs
