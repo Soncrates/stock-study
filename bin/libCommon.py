@@ -1,15 +1,106 @@
-import csv
-import logging
-#import os
-import sys
-from ftplib import FTP as _ftp
-from json import dumps, loads
+# ./libCommon.py
+from glob import glob
+from json import dumps, load, loads
+from os import path, environ, remove, stat
+import pandas as PD
+from sys import version_info, arg
+from time import time, sleep
+from traceback import print_exc
 
+try :
+   if version_info.major ==3 :
+       from configparser import RawConfigParser as CF
+   else:
+      from ConfigParser import RawConfigParser as CF
+except :
+    print_exc()
 if sys.version_info < (3, 0):
    import ConfigParser
 else:
     import configparser as ConfigParser
-   
+      
+LOG_FORMAT_TEST = '%(levelname)s [%(module)s.%(funcName):%(lineno)d] %(message)s'
+LOG_FORMAT_APP = '[%(asctime)] %(levelname)s [%(module)s.%(funcName):%(lineno)d] %(message)s'
+LOG_FORMAT_DATE = "%Y%m%dT%"
+
+def find_files(path_name) :
+    return glob('{}*'.format(str(path_name).strip('*')))
+def load_environ()
+     return { key : environ[key] for key in environ if  'SUDO' in key or 'NAME' in key or 'USER' in key or 'PATH' in key}
+def pretty_print(obj) :
+    _xx = transform_obj(obj)
+    _yy = { key : _xx[key] for key in _xx if not is_json_enabled(_xx[key]) }
+
+    ret = { key : _xx[key] for key in _xx if is_json_enabled(_xx[key]) }
+    ret.update( { key : str(_yy[key]) for key in _yy if hasattr(_yy[key],'__str__') } )
+    ret.update( { key : str(type(_yy[key])) for key in _yy if not hasattr(_yy[key],'__str__') } )
+    return dumps( transform_obj(obj)  , indent=3, sort_keys=True)
+def is_json_enabled(obj) :
+    try :
+        dumps(obj)
+        return True
+    except : pass
+    return False
+def transform_obj(obj) :
+    if obj is None :
+        raise ValueError('Obj is None')
+     if isinstance(obj,dict)  or isinstance(obj,str) or isinstance(obj,int): 
+        return obj
+    if isinstance(obj,list) :
+        return [ transform_object(arg) for arg in obj ]
+    prop_list = [ key for key in dir(obj) if not key.startswith("__") and not callable(getattr(obj,key)) and not getattr(obj,key) is not None]
+    return { key : transform_object(getattr(obj,key))  for key in prop_list }
+def build_args(*largs) :
+    return "".join( [ str(arg).strip(' ') for arg in largs if arg is not None and hasattr(arg,'__str__') ] )
+def build_command(*largs) :
+    return "/".join( [ str(arg).strip('/') for arg in largs if arg is not None and hasattr(arg,'__str__')  ] )
+def build_path(*largs) :
+    return " ".join( [ str(arg).strip(' ') for arg in largs if arg is not None and hasattr(arg,'__str__')  ] )
+def find_subset(obj,*largs) :
+    if obj is None :
+       raise ValueError("obj is NoneType")
+    if isinstance(obj, dict) :
+       return { key: obj[key] for key in largs if key in obj }
+    if isinstance(obj,PD.DataFrame) :
+        columns = obj.columns.values.tolist()
+        omit = { key for key in columns if key not in largs }
+        ret = obj.drop(omit,axis=1)
+        return ret
+    return { key : getattr(obj,key) for key in largs if key in hasattr(obj.key) }
+def load_config(fileName) :
+    config = CF()
+    config.read(fileName)
+    return { section : { key : value for (key,value) in config.items(section) } for section in config.sections() }
+def load_json(fileName) :
+    with open(glob(fileName)[0]) as fp :
+        return load(fp)
+def iterate_config(config) :
+    for i,j, section, key, value in _iterate_config(config) :
+        if len(value) == 0 : continue
+        yield i,j, section, key, value
+def _iterate_config(config) :
+    if isinstance(config,dict) :
+       for i, section in enumerate(sorted(config)) :
+           for j, key in enumerate(sorted(config[section])) :
+               yield i,j, section, key, config[section][key]
+    elif hasattrib(config,"optionxform") :
+       for i, section in sorted(config.sections()) :
+           for j, key, value in enumerate(config.items(section)) :
+               yield i,j, section, key, value
+    raise ValueError("Bad type {}".format(type(config)))
+def dump_ticker_name(ret) :
+    if not isinstance(ret,str) :
+       return ret
+    return ret.replace('%', '_pct_').replace('=', '_eq_')
+def load_ticker_name(ret) :
+    if not isinstance(ret,str) :
+       return ret
+    return ret.replace('_pct_','%').replace('_eq_','=')
+
+import csv
+import logging
+from ftplib import FTP as _ftp
+
 #import warnings
 #warnings.warn("period must be positive", RuntimeWarning)
 
@@ -23,50 +114,29 @@ else:
 
 '''
 '''
+
 class INI_BASE(object) :
       @classmethod
       def init(cls) :
           ret = ConfigParser.ConfigParser()
           ret.optionxform=str
           return ret
-      @classmethod
-      def dump_name(cls, ret) :
-          if not isinstance(ret,str) :
-             return ret
-          ret = ret.replace('%', '_pct_')
-          ret = ret.replace('=', '_eq_')
-          return ret
-      @classmethod
-      def load_name(cls, ret) :
-          if not isinstance(ret,str) :
-             return ret
-          ret = ret.replace('_pct_','%')
-          ret = ret.replace('_eq_','=')
-          return ret
 
       @classmethod
       def load(cls, ret) :
           ret = ret.strip()
           if ret.startswith('{') and ret.endswith('}') :
-             ret = ret.replace("'",'"')
-             ret = ret.replace("`","'")
-             ret = loads(ret)
-             return ret
+             return loads(ret.replace("'",'"').replace("`","'"))
           if ',' not in ret :
              return [ret]
-          ret = ret.split(',')
-          ret = map(lambda key : key.strip(), ret)
-          return list(ret)
+          return [ arg.strip() for arg in ret.split(',')
       @classmethod
       def _dump(cls, ret) :
-          if not isinstance(ret,str) :
-            if isinstance(ret,dict) :
-               ret = dumps(ret)
-            else :
-               ret = str(ret)
-          ret = ret.replace("'","`")
-          ret = ret.replace('"',"'")
-          return ret
+          if isinstance(ret,str) :
+            return ret.replace("'","`").replace('"',"'")
+          if isinstance(ret,dict) :
+             return dumps(ret)
+          return str(ret)
       @classmethod
       def dump(cls, ret) :
           if isinstance(ret,list) :
@@ -76,48 +146,27 @@ class INI_BASE(object) :
 class INI_READ(object) :
       @classmethod
       def read(cls, *file_list) :
-          for i, ini_file in enumerate(sorted(file_list)) :
-              for name, key, value in cls.read_ini(ini_file) :
-                  yield ini_file, name, key, value
-      @classmethod
-      def read_ini(cls, path) :
-          fp = open(path)
-          config = INI_BASE.init()
-          config.read_file(fp)
-          for name, key, value in cls.read_section(config) :
-              key = INI_BASE.load_name(key)
-              value = INI_BASE.load(value)
-              value = INI_BASE.load_name(value)
-              yield name, key, value
-          fp.close()
-      @classmethod
-      def read_section(cls, config) :
-          for i, name in enumerate(sorted(config._sections)) :
-              for key, value in config.items(name) :
-                  if len(value) == 0 : continue
-                  yield name, key, value
-
+          file_list = [ load_config(arg) for arg in file_list]
+          for ini_file in enumerate(file_list) :
+              for i,j, section, key, value in interate_config(file_list[i]) :
+                  key = load_ticker_name(key)
+                  value = INI_BASE.load(value)
+                  value = load_ticker_name(value)
+                  yield section, key, value
+                  
 class INI_WRITE(object) :
       @classmethod
       def write(cls, filename,**data) :
           config = INI_BASE.init()
           cls.write_ini(config,**data)
+          for i,j, section, key, value in iterate_config(data) :
+              value = INI_BASE.dump(value)
+              value = dump_ticker_name(value)
+              key = dump_ticker_name(key)
+              config.set(section,key,value)
           fp = open(filename, 'w')
           config.write(fp)
           fp.close()
-      @classmethod
-      def write_ini(cls, config,**data) :
-          for i, section in enumerate(sorted(data.keys())) :
-              values = data.get(section,{})
-              cls.write_section(config,section,**values)
-      @classmethod
-      def write_section(cls, config,section,**data) :
-          config.add_section(section)
-          for i, key in enumerate(sorted(data.keys())) :
-              value = INI_BASE.dump(data[key])
-              value = INI_BASE.dump_name(value)
-              key = INI_BASE.dump_name(key)
-              config.set(section,key,value)
 
 class FTP:
       get = 'RETR {pwd}'
