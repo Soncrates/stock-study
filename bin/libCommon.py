@@ -96,7 +96,21 @@ def load_ticker_name(ret) :
     if not isinstance(ret,str) :
        return ret
     return ret.replace('_pct_','%').replace('_eq_','=')
+def pre_load_ticker_name(ret) :
+    ret = ret.strip()
+    if ret.startswith('{') and ret.endswith('}') :
+       return load(ret.replace("'",'"').replace("`","'"))
+    return [ arg.strip() for arg in ret.split(',')
+def pre_dump_ticker_name(ret) :
+    if isinstance(ret,list) :
+       return ",".join(ret)
+    if isinstance(ret,dict) :
+       return dumps(ret)
+    if isinstance(ret,str) :
+       return ret.replace("'","`").replace('"',"'")
+    return str(ret)
 
+            
 import csv
 import logging
 from ftplib import FTP as _ftp
@@ -122,35 +136,14 @@ class INI_BASE(object) :
           ret.optionxform=str
           return ret
 
-      @classmethod
-      def load(cls, ret) :
-          ret = ret.strip()
-          if ret.startswith('{') and ret.endswith('}') :
-             return loads(ret.replace("'",'"').replace("`","'"))
-          if ',' not in ret :
-             return [ret]
-          return [ arg.strip() for arg in ret.split(',')
-      @classmethod
-      def _dump(cls, ret) :
-          if isinstance(ret,str) :
-            return ret.replace("'","`").replace('"',"'")
-          if isinstance(ret,dict) :
-             return dumps(ret)
-          return str(ret)
-      @classmethod
-      def dump(cls, ret) :
-          if isinstance(ret,list) :
-             return ",".join(ret)
-          return cls._dump(ret)
-
 class INI_READ(object) :
       @classmethod
       def read(cls, *file_list) :
           file_list = [ load_config(arg) for arg in file_list]
-          for ini_file in enumerate(file_list) :
-              for i,j, section, key, value in interate_config(file_list[i]) :
+          for i, ini_file in enumerate(file_list) :
+              for i,j, section, key, value in iterate_config(file_list[i]) :
                   key = load_ticker_name(key)
-                  value = INI_BASE.load(value)
+                  value = pre_load_ticker_name(value)
                   value = load_ticker_name(value)
                   yield section, key, value
                   
@@ -160,7 +153,7 @@ class INI_WRITE(object) :
           config = INI_BASE.init()
           cls.write_ini(config,**data)
           for i,j, section, key, value in iterate_config(data) :
-              value = INI_BASE.dump(value)
+              value = pre_dump_ticker_value(value)
               value = dump_ticker_name(value)
               key = dump_ticker_name(key)
               config.set(section,key,value)
