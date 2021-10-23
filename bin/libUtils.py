@@ -10,6 +10,7 @@ from itertools import combinations as iter_combo
 import requests
 from bs4 import BeautifulSoup
 
+from libCommon import load_environ
 from libDecorators import exit_on_exception, log_on_exception
 from libDecorators import http_200
 '''
@@ -37,7 +38,6 @@ def mkdir(path) :
     os.mkdir(path)
 
 class ENVIRONMENT(object) :
-      _env_vars = ['HOME','LOGNAME','OLDPWD','PATH','PWD','USER','USERNAME']
       _singleton = None
       @classmethod
       def instance(cls, *largs, **kvargs) :
@@ -45,18 +45,12 @@ class ENVIRONMENT(object) :
              return cls._singleton
 
           ret = cls(*largs, **kvargs)
-          ret.__dict__.update(**cls._env())
+          ret.__dict__.update(**load_environ())
           ret.__dict__.update(**kvargs)
+          target = 'PATH'
+          ret.__dict__[target] = ret.__dict__[target].split(':')
           cls._singleton = ret
           return cls._singleton
-      @classmethod
-      def _env(cls, *largs, **kvargs) :
-          env = os.environ
-          value_list = map(lambda x : env.get(x,None), cls._env_vars)
-          ret = dict(zip(cls._env_vars,value_list))
-          target = 'PATH'
-          ret[target] = ret[target].split(':')
-          return ret
       def __init__(self, *largs, **kvargs) :
           self.pwd = os.getcwd()
           self.pwd_parent = os.path.dirname(self.pwd)
