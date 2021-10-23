@@ -43,19 +43,26 @@ def is_json_enabled(obj) :
     return False
 def transform_obj(obj) :
     if obj is None :
-        raise ValueError('Obj is None')
-     if isinstance(obj,dict)  or isinstance(obj,str) or isinstance(obj,int): 
+        raise ValueError('Object is None')
+    if isinstance(obj,(float, int, str, dict, tuple)) : 
         return obj
     if isinstance(obj,list) :
         return [ transform_object(arg) for arg in obj ]
-    prop_list = [ key for key in dir(obj) if not key.startswith("__") and not callable(getattr(obj,key)) and not getattr(obj,key) is not None]
+    if hasattr(obj,'sections') and hasattr(obj,'items') :
+       return { section : { key : value for (key,value) in obj.items(section) } for section in obj.sections() }
+    prop_list = [ key for key in dir(obj) if not key.startswith("__") and _build_arg(getattr(obj,key)) ]
     return { key : transform_object(getattr(obj,key))  for key in prop_list }
 def build_args(*largs) :
-    return "".join( [ str(arg).strip(' ') for arg in largs if arg is not None and hasattr(arg,'__str__') ] )
+    return "".join( [ str(arg).strip(' ') for arg in largs if _build_str(arg) ] )
 def build_command(*largs) :
-    return "/".join( [ str(arg).strip('/') for arg in largs if arg is not None and hasattr(arg,'__str__')  ] )
+    return "/".join( [ str(arg).strip('/') for arg in largs if _build_str(arg) ] )
 def build_path(*largs) :
-    return " ".join( [ str(arg).strip(' ') for arg in largs if arg is not None and hasattr(arg,'__str__')  ] )
+    return " ".join( [ str(arg).strip(' ') for arg in largs if _build_str(arg) ] )
+def _build_str(arg) :
+    if arg is None : return False
+    if callable(arg) : return False
+    if hasattr(arg,'__str__') : return True
+    return True
 def find_subset(obj,*largs) :
     if obj is None :
        raise ValueError("obj is NoneType")
@@ -70,24 +77,15 @@ def find_subset(obj,*largs) :
 def load_config(fileName) :
     config = CF()
     config.read(fileName)
-    return { section : { key : value for (key,value) in config.items(section) } for section in config.sections() }
+    return transform_obj(config)
 def load_json(fileName) :
     with open(glob(fileName)[0]) as fp :
         return load(fp)
 def iterate_config(config) :
-    for i,j, section, key, value in _iterate_config(config) :
-        if len(value) == 0 : continue
-        yield i,j, section, key, value
-def _iterate_config(config) :
-    if isinstance(config,dict) :
-       for i, section in enumerate(sorted(config)) :
-           for j, key in enumerate(sorted(config[section])) :
-               yield i,j, section, key, config[section][key]
-    elif hasattrib(config,"optionxform") :
-       for i, section in sorted(config.sections()) :
-           for j, key, value in enumerate(config.items(section)) :
-               yield i,j, section, key, value
-    raise ValueError("Bad type {}".format(type(config)))
+    ret = transform_obj(config)
+    for i, section in enumerate(sorted(ret)) :
+        for j, key in enumerate(sorted(ret[section])) :
+            yield i,j, section, key, ret[section][key]
 def dump_ticker_name(ret) :
     if not isinstance(ret,str) :
        return ret
