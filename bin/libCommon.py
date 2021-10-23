@@ -66,7 +66,7 @@ def transform_obj(obj) :
     if isinstance(obj,(float, int, long, str, dict, tuple)) : 
         return obj
     if isinstance(obj,list) :
-        return [ transform_object(arg) for arg in obj ]
+        return [ transform_object(arg) for arg in obj if is_str(arg) ]
     if hasattr(obj,'sections') and hasattr(obj,'items') :
        return { section : { key : value for (key,value) in obj.items(section) } for section in obj.sections() }
     prop_list = [ key for key in dir(obj) if not key.startswith("__") and _build_arg(getattr(obj,key)) ]
