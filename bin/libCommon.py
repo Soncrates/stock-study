@@ -2,8 +2,9 @@
 from glob import glob
 from json import dumps, load, loads
 from os import path, environ, remove, stat, mkdir as MKDIR
+import logging
 import pandas as PD
-from sys import version_info, arg
+from sys import version_info
 from time import time, sleep
 from traceback import print_exc
 
@@ -14,14 +15,15 @@ try :
       from ConfigParser import RawConfigParser as CF
 except :
     print_exc()
-if sys.version_info < (3, 0):
+if version_info < (3, 0):
    import ConfigParser
 else:
     import configparser as ConfigParser
       
-LOG_FORMAT_TEST = '%(levelname)s [%(module)s.%(funcName):%(lineno)d] %(message)s'
-LOG_FORMAT_APP = '[%(asctime)] %(levelname)s [%(module)s.%(funcName):%(lineno)d] %(message)s'
+LOG_FORMAT_TEST = '%(levelname)s [%(module)s.%(funcName)s:%(lineno)d] %(message)s'
+LOG_FORMAT_APP = '[%(asctime)] %(levelname)s [%(module)s.%(funcName)s:%(lineno)d] %(message)s'
 LOG_FORMAT_DATE = "%Y%m%dT%"
+LOG = logging.getLogger(__name__) 
 
 def find_files(path_name) :
     return glob('{}*'.format(str(path_name).strip('*')))
@@ -32,11 +34,11 @@ def mkdir(pathname) :
     if pathname is None : 
          raise ValueError("Object is null")
     if path.exists(pathname):
-       logging.info('Already exists : {}'.format(pathname))
+       LOG.info('Already exists {}'.format(pathname))
        return
-    logging.info('Creating directory {}'.format(pathname))
+    LOG.info('Creating directory {}'.format(pathname))
     MKDIR(pathname)
-def load_environ()
+def load_environ() :
      return { key : environ[key] for key in environ if is_environ(key) }
 def is_environ(arg) :
     if 'SUDO' in arg : return True
@@ -74,7 +76,7 @@ def transform_obj(obj) :
 def build_args(*largs) :
     return "".join( [ str(arg).strip(' ') for arg in largs if is_str(arg) ] )
 def build_command(*largs) :
-    return "/".join( [ str(arg).strip('/') for arg in largs is_str(arg) ] )
+    return "/".join( [ str(arg).strip('/') for arg in largs if is_str(arg) ] )
 def build_path(*largs) :
     return " ".join( [ str(arg).strip(' ') for arg in largs if is_str(arg) ] )
 def is_str(arg) :
