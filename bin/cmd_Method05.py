@@ -504,9 +504,7 @@ if __name__ == '__main__' :
 
    local_dir = "{}/local".format(env.pwd_parent)
    ini_list = env.list_filenames('local/*.ini')
-   background = filter(lambda x : 'background.ini' in x, ini_list)
-   background_files = filter(lambda x : 'stock_' in x or 'fund_' in x, background)
-   background_files = list(background_files)
+   background_files = [ fn for fn in ini_list if 'background.ini' in fn and ('stock_' in fn or 'fund_' in fn) ]
    price_list = env.list_filenames('local/historical_*/*pkl')
    floats_in_summary = ['CAGR','RETURNS','RISK','SHARPE','LEN'] 
    columns_drop = ['returns','risk','sharpe','mean']
