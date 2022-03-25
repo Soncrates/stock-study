@@ -33,7 +33,7 @@ class T() :
         values = map(lambda key : fund_list[key], key_list)
         self.fund_list = dict(zip(key_list,values))
 
-class TemplateTest(unittest.TestCase):
+class TestScrapeStock(unittest.TestCase):
 
     def test_01_(self) :
         ret,transpose = TEST.action(T().test_fund_data_store,T().fund_list)
@@ -50,8 +50,8 @@ if __name__ == '__main__' :
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    unittest.main()
 

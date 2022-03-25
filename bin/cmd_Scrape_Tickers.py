@@ -1,28 +1,28 @@
 #!/usr/bin/env python
 
-import logging
+import logging as log
 import time
+import os
+from libCommon import find_subset
 from libUtils import ENVIRONMENT, mkdir
 from libNASDAQ import NASDAQ
 from libFinance import STOCK_TIMESERIES
 from libDecorators import exit_on_exception, singleton
 from libDebug import trace
 
-def get_globals(*largs) :
-    ret = {}
-    for name in largs :
-        value = globals().get(name,None)
-        if value is None :
-           continue
-        ret[name] = value
-    return ret
+
+"""
+1) pull all stocks and funds (tickers) from NASDAQ
+2) use pandas interface to scrape historical price data
+3) save to local directories
+"""
+
 
 @singleton
 class VARIABLES() :
     var_names = ['env','data_store_stock', 'data_store_fund','wait_on_success','wait_on_failure']
     def __init__(self) :
-        values = get_globals(*VARIABLES.var_names)
-        self.__dict__.update(**values)
+        self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
 
         mkdir(self.data_store_stock)
         mkdir(self.data_store_fund)
@@ -33,13 +33,14 @@ class LOAD() :
       def _prices(cls, wait_on_failure, local_dir, ticker,dud) :
           if dud is None :
              dud = []
-          filename = '{}/{}.pkl'.format(local_dir,ticker)
           reader = STOCK_TIMESERIES.init()
           prices = reader.extract_from_yahoo(ticker)
           if prices is None :
              dud.append(ticker)
              time.sleep(wait_on_failure)
              return dud
+          filename = '{}/{}.pkl'.format(local_dir,ticker)
+          filename = os.path.abspath(filename)
           STOCK_TIMESERIES.save(filename, ticker, prices)
           del prices
           return dud
@@ -49,14 +50,14 @@ class LOAD() :
           dud = None
           total = len(ticker_list)
           for i, ticker in enumerate(ticker_list) :
-              logging.info("{} ({}/{})".format(ticker,i,total))
+              log.info("{} ({}/{})".format(ticker,i,total))
               dud = cls._prices(wait_on_failure, local_dir, ticker,dud)
               time.sleep(wait_on_success)
           size = len(ticker_list) - len(dud)
-          logging.info("Total {}".format(size))
+          log.info("Total {}".format(size))
           if len(dud) > 0 :
              dud = sorted(dud)
-             logging.warn((len(dud),dud))
+             log.warning((len(dud),dud))
           return dud
       @classmethod
       @trace
@@ -65,7 +66,7 @@ class LOAD() :
           if len(retry) > 0 :
              retry = cls.prices(data_store, wait_on_success, wait_on_failure, retry)
           if len(retry) > 0 :
-             logging.error((len(retry), sorted(retry)))
+             log.error((len(retry), sorted(retry)))
 
 def get_tickers() :
     nasdaq = NASDAQ.init()
@@ -78,7 +79,7 @@ def get_tickers() :
     for column in _alias.columns.values.tolist() :
         alias.extend(_alias[column].tolist())
     alias = sorted(list(set(alias)))
-    logging.info(alias)
+    log.info(alias)
     return fund_list,stock_list, etf_list, alias
 
 @exit_on_exception
@@ -94,14 +95,14 @@ def main() :
 
 if __name__ == '__main__' :
    import sys
-   import logging
+   import log
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   log.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=log.INFO)
+   #log.basicConfig(stream=sys.stdout, format=log_msg, level=log.DEBUG)
 
    data_store_stock = '{}/local/historical_prices'.format(env.pwd_parent)
    data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)

@@ -12,9 +12,10 @@ _cf = os.path.dirname(_cf)
 '''
 def add_context(arg=None) :
     if arg is None :
-       arg = os.path.dirname(__file__)
-       arg = os.path.join(arg, '../bin')
-       arg = os.path.abspath(arg)
+       arg = __file__   
+    arg = os.path.dirname(arg)
+    arg = os.path.join(arg, '../bin')
+    arg = os.path.abspath(arg)
     sys.path.insert(0, arg)
 
 add_context()

@@ -55,7 +55,7 @@ class ENVIRONMENT(object) :
           self.pwd = os.getcwd()
           self.pwd_parent = os.path.dirname(self.pwd)
           self.path = sys.path
-          self.name = sys.argv[0].split('.')[0]
+          self.name = os.path.basename(sys.argv[0]).split('.')[0]
           if len(self.name) == 0 :
              self.name = sys.argv[0].split('.')[1]
           self.argv = sys.argv[1:]
@@ -128,6 +128,9 @@ class WEB(object) :
           return ret
       @classmethod
       def format_as_soup(cls, url_response, raw=False) :
+          if not url_response :
+              logging.warning("Can't format None")
+              return None
           ret = BeautifulSoup(url_response,'lxml')
           if not raw :
              for script in ret(["script", "style"]):

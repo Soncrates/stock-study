@@ -1,6 +1,6 @@
 import logging
 import csv as _csv
-import pandas as pd
+import pandas as PD
 from libCommon import FTP
 
 '''
@@ -151,7 +151,7 @@ class NASDAQ() :
           ret = NASDAQ.to_pandas(**ret)
 
           keys = ret.filter(regex="Test", axis=1).values.ravel()
-          keys = pd.unique(keys)
+          keys = PD.unique(keys)
           logging.info(keys)
 
           test = ret[ret['Test Issue']=='Y']
@@ -169,7 +169,7 @@ class NASDAQ() :
           ret = NASDAQ.to_pandas(**ret)
 
           keys = ret.filter(regex="Test", axis=1).values.ravel()
-          keys = pd.unique(keys)
+          keys = PD.unique(keys)
           logging.info(keys)
 
           test = ret[ret['Test Issue']=='Y']
@@ -216,22 +216,23 @@ class NASDAQ() :
           other, csv = self.other()
           total = listed.rename(columns={'Market Category' : 'Exchange'})
           total = total.filter(items=['Exchange', 'ETF','Security Name'])
-          total = total.append(other.filter(items=['Exchange', 'ETF', 'Security Name']))
+          x = other.filter(items=['Exchange', 'ETF', 'Security Name'])
+          total = PD.concat([total,x])
 
           etf = total[total['ETF']=='Y']
           stock = total[total['ETF']!='Y']
           keys = etf.filter(regex="Exchange", axis=1).values.ravel()
-          keys = pd.unique(keys)
+          keys = PD.unique(keys)
           logging.info(keys)
           keys = stock.filter(regex="Exchange", axis=1).values.ravel()
-          keys = pd.unique(keys)
+          keys = PD.unique(keys)
           logging.info(keys)
 
           alias = other.filter(regex="Symbol", axis=1)
           for column in alias.columns.values.tolist() :
               for key in alias.index.values.tolist() :
                   alias = alias[alias[column]!=key]
-              logging.info(len(alias))
+          logging.info(len(alias))
 
           logging.info(('Stocks',len(stock)))
           logging.info(('ETF',len(etf)))
@@ -245,7 +246,7 @@ class NASDAQ() :
           ret = {}
           fund_list, csv = self.funds()
           for i, fund in enumerate(fund_list) :
-              name = fund.pop(cls.FAMILY_FIELD,cls.FAMILY_FIELD)
+              name = fund.pop(self.FAMILY_FIELD,self.FAMILY_FIELD)
               if name not in ret :
                  ret[name] = []
               ret[name].append(fund)
@@ -286,7 +287,7 @@ class NASDAQ() :
       def to_pandas(cls, **kwargs) :
           _columns = list(kwargs[list(kwargs.keys())[0]].keys())
           logging.debug(_columns)
-          ret = pd.DataFrame.from_dict(kwargs, orient='index',columns=_columns)
+          ret = PD.DataFrame.from_dict(kwargs, orient='index',columns=_columns)
           return ret
 
 if __name__ == '__main__' :

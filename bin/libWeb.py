@@ -34,6 +34,17 @@ https://financialmodelingprep.com/developer/docs/
 class CONSTANTS() :
       YAHOO_BASE_URL = "https://finance.yahoo.com"
       YAHOO_PROFILE = YAHOO_BASE_URL + "/quote/{0}/profile?p={0}"
+      YAHOO_HEADERS = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
+        'Connection': 'close',
+        'DNT': '1', # Do Not Track Request Header 
+        'Pragma': 'no-cache',
+        'Referrer': 'https://google.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
+      }
 
       FINANCE_BASE_URL = "https://financialmodelingprep.com"
       FINANCE_STOCK_LIST = FINANCE_BASE_URL + "/api/v3/company/stock/list"
@@ -48,11 +59,11 @@ class YAHOO_PROFILE() :
       @classmethod
       def get(cls, stock) :
           url = CONSTANTS.YAHOO_PROFILE.format(stock)
-          response = WEB_UTIL.get_content(url)
+          response = WEB_UTIL.get_content(url,CONSTANTS.YAHOO_HEADERS)
           soup = WEB_UTIL.format_as_soup(response)
           ret = YAHOO_PROFILE_PARSE.parse(soup)
           ret['Stock'] = stock
-          logging.info(ret)
+          logging.debug(ret)
           return ret
 '''
 Stocks and Funds on the nasdaq have the same api but very different content

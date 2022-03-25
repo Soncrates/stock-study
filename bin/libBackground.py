@@ -40,10 +40,11 @@ class EXTRACT_TICKER() :
       @log_on_exception
       def load(cls, data_store, ticker) :
           filename = '{}/{}.pkl'.format(data_store,ticker)
-          #if not os.path.exists(filename) :
-          #   data = cls.read(ticker)
-          #   STOCK_TIMESERIES.save(filename, ticker, data)
-          #   return data
+          logging.debug(filename)
+          if not os.path.exists(filename) :
+             data = cls.read(ticker)
+             STOCK_TIMESERIES.save(filename, ticker, data)
+             return data
           name, data = STOCK_TIMESERIES.load(filename)
           if ticker == name :
              return data
@@ -96,8 +97,6 @@ def main(**kwargs) :
 
 if __name__ == '__main__' :
    import sys
-   import logging
-   from libUtils import ENVIRONMENT
 
    _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN','MAX INCREASE']
    _XXX = ['RETURNS','RISK','SHARPE','CAGR','MAX DRAWDOWN',]

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 python=python3
+python=python="C:\Users\emers\miniconda3\envs\spyder-env\python.exe"
 INPUT_1=../test/testResults/refined_stocklist.ini
 OUTPUT_1=../test/testResults/refined_portfolio.ini
 OUTPUT_2=../test/testResults/refined_report_portfolio.ini

@@ -90,9 +90,11 @@ class STOCK_TIMESERIES :
           return ret
       def extract_from_yahoo(self, stock) :
           ret = self._extract_from(stock, 'yahoo') 
+          #ret = self._extract_from(stock, 'google') 
           return ret
       @log_on_exception
       def _extract_from(self, stock, service) :
+          logging.debug([stock,service])
           return web.DataReader(stock, service, self.start, self.end) 
 
       @classmethod

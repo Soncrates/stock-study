@@ -29,9 +29,11 @@ class T() :
         values = get_globals(*T.var_names)
         self.__dict__.update(**values)
         total, background = TEST.get_tickers()
-        ret = filter(lambda stock : stock in self.test_stock_ticker_list, total)
+        #ret = filter(lambda stock : stock in self.test_stock_ticker_list, total)
+        ret = [ stock for stock in total if stock in self.test_stock_ticker_list]
         self.ticker_list = sorted(list(set(ret)))
-        values = map(lambda ticker : background[ticker], self.ticker_list)
+        #values = map(lambda ticker : background[ticker], self.ticker_list)
+        values = [ background[ticker] for ticker in self.ticker_list ]
         self.data = dict(zip(self.ticker_list,values))
         debug_object(self)
 
@@ -46,12 +48,14 @@ class TemplateTest(unittest.TestCase):
 
 if __name__ == '__main__' :
 
-   import sys
+   #import sys
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
+   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
 
    unittest.main()
 

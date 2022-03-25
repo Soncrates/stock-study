@@ -1,43 +1,32 @@
 #!/usr/bin/env python
 
-import logging
+import logging as log
 
-import pandas as pd
-from libCommon import INI_BASE, INI_WRITE, INI_READ
+import pandas as PD
+from libCommon import INI_WRITE, INI_READ, find_subset
 from libNASDAQ import NASDAQ
 from libBackground import EXTRACT_TICKER
 from libFinance import TRANSFORM_BACKGROUND
 from libDecorators import singleton, exit_on_exception, log_on_exception
 from libDebug import trace, debug_object
 
-def get_globals(*largs) :
-    ret = {}
-    for name in largs :
-        value = globals().get(name,None)
-        if value is None :
-           continue
-        ret[name] = value
-    return ret
-
 @singleton
 class VARIABLES() :
     var_names = ['env','save_file',"data_store", 'sector_file']
     def __init__(self) :
-        values = get_globals(*VARIABLES.var_names)
-        self.__dict__.update(**values)
+        self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
         debug_object(self)
 
 def get_tickers() :
     nasdaq = NASDAQ.init()
     stock_list, etf_list, alias = nasdaq.stock_list()
-    ret = stock_list.append(etf_list)
+    ret = PD.concat([stock_list, etf_list])
     names = stock_list.index.values.tolist()
     return names, ret.T.to_dict()
 
 def enrich_background(sector_file,background, entity = 'stock') :
-    logging.info('reading file {}'.format(sector_file))
     ret = {}
-    for path, section, key, ticker_list in INI_READ.read(*[sector_file]) :
+    for section, key, ticker_list in INI_READ.read(*[sector_file]) :
         for ticker in ticker_list :
             name = background.get(ticker,{})
             name = name.get('Security Name','')
@@ -49,7 +38,7 @@ def add_background(ticker,data_store, background) :
     ret = TRANSFORM_BACKGROUND.find(prices)
     if ticker in background :
        ret.update(background[ticker])
-    logging.debug(ret)
+    log.debug(ret)
     return ret
 
 @exit_on_exception
@@ -75,7 +64,6 @@ def main() :
     ret, transpose = action(data_store, ticker_list, background)
 
     INI_WRITE.write(VARIABLES().save_file,**transpose)
-    logging.info("results saved to {}".format(VARIABLES().save_file))
 
 if __name__ == '__main__' :
    import sys
@@ -83,8 +71,8 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   log_msg = '%(levelname)s %(module)s.%(funcName)s(%(lineno)s) - %(message)s'
+   log.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=log.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    save_file = '{}/local/stock_background.ini'.format(env.pwd_parent)

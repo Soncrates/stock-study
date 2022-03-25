@@ -1,7 +1,9 @@
 #!/bin/bash
 python=python3
+python=`which python`
+python="C:\Users\emers\miniconda3\envs\spyder-env\python.exe"
 function scrape_prices {
-   find ../local/historical* -type f -delete
+   #find ../local/historical* -type f -delete
    $python cmd_Scrape_Benchmarks.py
    #Execution speed for main : , seconds : 58.5
    $python cmd_Scrape_Tickers.py

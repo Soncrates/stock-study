@@ -1,31 +1,20 @@
 #!/usr/bin/env python
 
-import logging
-import pandas as pd
-from libCommon import INI_READ,INI_WRITE
+import logging as log
+import pandas as PD
+from libCommon import INI_READ,INI_WRITE, find_subset
 from libUtils import combinations
 from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
 from newSharpe import PORTFOLIO as MONTERCARLO
 from libDebug import pprint, trace, cpu
 from libDecorators import exit_on_exception, log_on_exception, singleton
 
-@exit_on_exception
-def get_globals(*largs) :
-    ret = {}
-    for name in largs :
-        value = globals().get(name,None)
-        if value is None :
-           raise ValueError(name)
-        ret[name] = value
-    return ret
-
 @singleton
 class VARIABLES() :
     var_names = ["cli", "local_dir", "background_files", "price_list","ini_list",'floats_in_summary', 'columns_drop','disqualified']
 
     def __init__(self) :
-        values = get_globals(*VARIABLES.var_names)
-        self.__dict__.update(**values)
+        self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
         self.__dict__.update(**self.cli)
         if len(self.suffix) > 0 :
            self.suffix = "_" + self.suffix
@@ -44,19 +33,16 @@ class VARIABLES() :
            v = filter(lambda x : 'fund' in x, self.background_files)
            bg.extend(list(v))
         self.background_files = bg
-        pprint(vars(self))
+        pprint(vars(self)) 
 
 class LOAD() :
     @classmethod
     def config(cls, save_file, **config) :
-        logging.info("saving results to {}".format(save_file))
         INI_WRITE.write(save_file, **config)
-        logging.info("results saved to {}".format(save_file))
     @classmethod
     def background(cls,background_files) :
-        logging.info('reading file {}'.format(background_files))
         ret = {}
-        for path, key, stock, value in INI_READ.read(*background_files) :
+        for key, stock, value in INI_READ.read(*background_files) :
             if "File Creation Time" in stock :
                continue
             if stock not in ret :
@@ -67,32 +53,40 @@ class LOAD() :
 
 class CURATE_BACKGROUND():
     @classmethod
-    def act(cls,ret, floats_in_summary,disqualified) :
-        ret = pd.DataFrame(ret).T
+    def simple(cls,ret, floats_in_summary,disqualified) :
+        log.info(ret)
         ret.dropna(subset=['LEN'],inplace=True)
         ret.drop(disqualified,errors='ignore',inplace=True)
-        f = ret[ret['ENTITY'] != 'stock']
-        f = cls.curate_funds(f)
-        ret.update(f)
-        ret.drop(['CATEGORY', 'TYPE','GROWTH'], axis=1,errors='ignore',inplace=True)
         for field in ['SECTOR','ENTITY','NAME'] :
             ret[field].fillna("Unknown",inplace=True) 
         for field in ['MAX DRAWDOWN','MAX INCREASE'] :
             ret[field] = ret[field].apply(lambda x : round(float(x),2))
         for field in floats_in_summary :
             ret[field] = ret[field].apply(lambda x : round(float(x),4))
-        logging.info(ret.dtypes)
         ret = cls.curate_names(ret)
+        log.info(ret)
+        return ret
+    @classmethod
+    def act(cls,ret) :
+        f = ret[ret['ENTITY'] != 'stock']
+        f = f[f['ENTITY'] != 'Unknown']
+        if f.empty :
+            return ret
+        f = cls.curate_funds(f)
+        ret.update(f)
+        ret.drop(['CATEGORY', 'TYPE','GROWTH'], axis=1,errors='ignore',inplace=True)
+        log.info(ret.dtypes)
         return ret
     @classmethod
     def curate_funds(cls,ret) :
+        log.info(ret)
         ret.dropna(subset=['CATEGORY','TYPE'],inplace=True)
         for index, row in ret.iterrows():
             s = '{} {}'.format(row['CATEGORY'],row['TYPE'])
             s = s.replace("(", "").replace(")", "").replace(' ','_')
             row['SECTOR'] = s
             row['ENTITY'] = 'fund'
-        logging.info(ret[ret['CATEGORY'].notnull()])
+        log.info(ret[ret['CATEGORY'].notnull()])
         return ret
     @classmethod
     def curate_names(cls,ret) :
@@ -112,15 +106,17 @@ class CURATE_BACKGROUND():
         return ret
 
 class MEAN():
-    keys = ['RISK','SHARPE','CAGR','RETURNS']
+    key_list = ['RISK','SHARPE','CAGR','RETURNS']
     @classmethod
     def stats(cls,msg,data) :
-        raw = map(lambda key : data[key].mean(), cls.keys)
-        readable = map(lambda value : round(value,3), raw)
-        readable = dict(zip(cls.keys,readable))
-        logging.info((msg,data.shape,readable))
-        logging.info(round(data.corr(),1))
-        return readable
+        log.info(data)
+        if data is None or data.empty :
+           return data
+        ret = [ round(data[key].astype(float).mean(),3) for key in cls.key_list if key in data ]
+        ret = dict(zip(cls.key_list,ret))
+        log.info((msg,data.shape,ret))
+        log.info(round(data.corr(),1))
+        return ret
 
 class BACKGROUND():
     SECTOR = 'SECTOR'
@@ -132,7 +128,7 @@ class BACKGROUND():
             ret[key] = value
         stock = ret.pop('stock',None)
         funds = ret.pop('fund',None)
-        logging.info(ret)
+        log.info(ret)
         MEAN.stats('stock',stock)
         for sector, group in cls.by_field(stock,cls.SECTOR):
             pass
@@ -149,11 +145,11 @@ class BACKGROUND():
         if d is None :
            return
         if isinstance(d,dict) :
-           d = pd.DataFrame(d)
+           d = PD.DataFrame(d)
         if t is None :
            t = cls.SECTOR
         distinct = d[t].unique()
-        logging.info((t,distinct))
+        log.info((t,distinct))
         for key in sorted(distinct) :
             value = d[d[t] == key]
             MEAN.stats(key,value)
@@ -174,14 +170,17 @@ class BACKGROUND():
         MEAN.stats('profitable',ret)
         ret = ret[ret['RETURNS'] >= 0]
         MEAN.stats('profitable 2',ret)
+        log.info(ret)
         return ret
 
 class TRANSFORM():
     @classmethod
     def addMean(self, ret) :
+        if ret.empty :
+            return ret
         mean = MEAN.stats('mean',ret)
-        mean = pd.Series(mean)
-        logging.info(mean)
+        mean = PD.Series(mean)
+        log.info(mean)
         ret = ret.T
         ret['mean'] = mean
         ret = ret.T
@@ -196,11 +195,15 @@ class TRANSFORM():
     @classmethod
     def merge(cls, left, right) :
         left = left.T.reset_index(drop=True)
-        ret = left.append(right.T, sort=True)
+        ret = PD.concat([left,right.T],sort=True)
+        log.info(ret)
         return ret
 class PORTFOLIO():
     @classmethod
     def truncate_5(cls, ret) :
+        if ret is None or ret.empty :
+            log.warning("no data")
+            return ret
         if len(ret) <= 5 :
            return ret
         ret = ret.T
@@ -208,23 +211,25 @@ class PORTFOLIO():
         #max_sharpe = ret.sort_values(['sharpe']).tail(5)
         min_risk = ret.sort_values(['risk']).head(2)
         max_sharpe = ret.sort_values(['sharpe']).tail(2)
-        ret = pd.DataFrame()
+        ret = PD.DataFrame()
         ret = ret.append(min_risk)
         ret = ret.append(max_sharpe)
-        logging.debug(min_risk)
-        logging.debug(max_sharpe)
-        return ret.T
+        log.debug(min_risk)
+        log.debug(max_sharpe)
+        ret = ret.T
+        log.info(ret)
+        return ret
     @classmethod
     def truncate_1000(cls, ret) :
         if ret is None :
-           ret = pd.DataFrame()
+           ret = PD.DataFrame()
         size = len(ret)
         if size < 1000 :
            return ret
 
         min_risk = ret.sort_values(['risk']).head(50)
         max_sharpe = ret.sort_values(['sharpe']).tail(50)
-        ret = pd.DataFrame()
+        ret = PD.DataFrame()
         ret = ret.append(min_risk)
         ret = ret.append(max_sharpe)
         return ret
@@ -232,13 +237,15 @@ class PORTFOLIO():
     @trace
     def portfolio(cls, prices, stocks, portfolio_iterations, ret = None) :
         if ret is None :
-           ret = pd.DataFrame()
+           ret = PD.DataFrame()
         max_sharpe, min_dev = MONTERCARLO.find(prices, stocks=stocks, portfolios=portfolio_iterations, period=FINANCE.YEAR)
-        ret = ret.append(max_sharpe)
-        ret = ret.append(min_dev)
+        ret = PD.concat([ret,max_sharpe])
+        ret = PD.concat([ret,min_dev])
         return ret
     @classmethod
     def massage(cls, ret) :
+        if ret is None or ret.empty :
+            return ret 
         ret.fillna(0,inplace=True)
         portfolio_id_list = ret.columns.values.tolist()
         portfolio_name_list = map(lambda p : "portfolio_{}".format(p), portfolio_id_list)
@@ -286,9 +293,8 @@ class STEP_02() :
     def __repr__(self):
         return f"Historical loader (column:{self.price_column})"
     def load(self, *ticker_list):
-        filename_list = map(lambda ticker : '/{}.pkl'.format(ticker), ticker_list)
-        filename_list = list(filename_list)
-        logging.info((ticker_list,filename_list))
+        filename_list = [ '/{}.pkl'.format(ticker) for ticker in ticker_list ]
+        log.info((ticker_list,filename_list))
         ret = {}
         for i, suffix in enumerate(filename_list) :
             filename = filter(lambda x : x.endswith(suffix), self.price_list)
@@ -302,10 +308,11 @@ class STEP_02() :
         return ret
     def act(self, data):
         ticker_list = data.index.values.tolist()
+        log.info(ticker_list)
         ret = self.load(*ticker_list)
-        ret = pd.DataFrame(ret)
+        ret = PD.DataFrame(ret)
         ret.fillna(method='bfill', inplace=True)
-        logging.debug(ret)
+        log.info(ret)
         return ret
 
 class STEP_03() :
@@ -334,16 +341,17 @@ class STEP_03() :
     def act(self, data, prices) :
         ret = None
         for stock_list in self.stocks(data) :
-            logging.info(stock_list)
+            log.info(stock_list)
             ret = PORTFOLIO.portfolio(prices,stock_list,self.portfolio_iterations,ret)
             ret = PORTFOLIO.truncate_1000(ret)
         if ret is None :
+            log.info(ret)
             return ret
         ret = ret.drop_duplicates()
         ret.reset_index(drop=True, inplace=True)
         ret.fillna(0, inplace=True)
         ret = ret.T
-        logging.info(ret)
+        log.info(ret)
         return ret
 class STEP_04() :
     def __init__(self, portfolio_iterations,threshold, columns_drop) :
@@ -358,10 +366,10 @@ class STEP_04() :
         ret = ret[ret > self.threshold]
         ret = ret/ret.sum()
         ret = round(ret,2)
-        logging.debug(ret)
+        log.debug(ret)
         stock_list = ret[ ret > 0 ]
         stock_list = stock_list.T.keys().tolist()
-        logging.debug(stock_list)
+        log.debug(stock_list)
         return ret, stock_list
 
     def act(self, data, prices, total) :
@@ -374,6 +382,7 @@ class STEP_04() :
         ret = ret.drop_duplicates().T
         ret['summary'] = avg
         ret.fillna(0, inplace=True)
+        log.info(ret)
         return ret, total
 
 def process_stock(local_dir, suffix, data, step_01, step_02, step_03, step_04,reduce_99) :
@@ -402,23 +411,25 @@ def process_stock(local_dir, suffix, data, step_01, step_02, step_03, step_04,re
     output_file = "{}/sector_90{}.ini".format(local_dir,suffix)
     _90 = data.loc[ _90 , : ]
     _90s = TRANSFORM.addMean(_90)
-    logging.info(_90s)
+    log.info(_90s)
     LOAD.config(output_file,**_90s.to_dict())
 
     _99 = data.loc[ _99 , : ]
+    log.info(_99)
     MEAN.stats('99',_99)
     _99,dummy = reduce_99.act(_99)
-    logging.info(_99)
+    log.info(_99)
     output_file = "{}/sector_99{}.ini".format(local_dir,suffix)
     _99s = TRANSFORM.addMean(_99)
     LOAD.config(output_file,**_99s.to_dict())
 
     prices = step_02.act(_99)
     portfolios = step_03.act(_99, prices)
-    logging.info(portfolios)
     portfolios = PORTFOLIO.truncate_5(portfolios)
-    logging.info(portfolios)
     portfolios = PORTFOLIO.massage(portfolios)
+    if portfolios is None or portfolios.empty :
+        log.warning("portfolio is empty")
+        return
     output_file = "{}/portfolio_99{}.ini".format(local_dir,suffix)
     LOAD.config(output_file,**portfolios.to_dict())
 
@@ -454,10 +465,12 @@ def main() :
     step_04 = STEP_04(VARIABLES().portfolio_iterations,VARIABLES().threshold,VARIABLES().columns_drop)
     reduce_99 = STEP_01(25,1,2)
     for msg in [step_01,step_02,step_03,step_04] :
-        logging.info(repr(msg))
+        log.info(repr(msg))
 
     bg = LOAD.background(VARIABLES().background_files)
-    bg = CURATE_BACKGROUND.act(bg,VARIABLES().floats_in_summary,VARIABLES().disqualified)
+    bg = PD.DataFrame(bg).T
+    bg = CURATE_BACKGROUND.simple(bg, VARIABLES().floats_in_summary, VARIABLES().disqualified)
+    bg = CURATE_BACKGROUND.act(bg)
     bg = BACKGROUND.refine(bg)
     bg.drop(['LEN', 'MAX DRAWDOWN','MAX INCREASE'], axis=1,errors='ignore',inplace=True)
     stock, fund = BACKGROUND.by_entity(bg)
@@ -474,9 +487,9 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   log_msg = '%(levelname)s %(module)s.%(funcName)s(%(lineno)s) - %(message)s'
+   log.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=log.INFO)
+   #log.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    parser = argparse.ArgumentParser(description='Portfoio Generator')
    parser.add_argument('--threshold', action='store', dest='threshold', type=float, default=0.12, help='magic number in refinement')
@@ -486,7 +499,7 @@ if __name__ == '__main__' :
    parser.add_argument('--sector', action='store', dest='sector_cap', type=int, default=11, help='Max number of stocks per sector')
    parser.add_argument('--prices', action='store', dest='prices', default='Adj Close', help='Open|Close|Adj Close|Volume')
    parser.add_argument('--suffix', action='store', dest='suffix',default="",help='Store a simple value')
-   parser.add_argument('--entity', action='store', dest='entity',default="",help='stock|fund')
+   parser.add_argument('--entity', action='store', dest='entity',default="stock",help='stock|fund')
    cli = vars(parser.parse_args())
 
    local_dir = "{}/local".format(env.pwd_parent)

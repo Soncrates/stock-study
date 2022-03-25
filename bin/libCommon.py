@@ -1,6 +1,7 @@
 # ./libCommon.py
 from glob import glob
 from json import dumps, load, loads
+import logging as log
 from os import path, environ, remove, stat, mkdir as MKDIR
 import logging
 import pandas as PD
@@ -65,14 +66,14 @@ def is_json_enabled(obj) :
 def transform_obj(obj) :
     if obj is None :
         raise ValueError('Object is None')
-    if isinstance(obj,(float, int, long, str, dict, tuple)) : 
+    if isinstance(obj,(float, int, str, dict, tuple)) : 
         return obj
     if isinstance(obj,list) :
-        return [ transform_object(arg) for arg in obj if is_str(arg) ]
+        return [ transform_obj(arg) for arg in obj if is_str(arg) ]
     if hasattr(obj,'sections') and hasattr(obj,'items') :
        return { section : { key : value for (key,value) in obj.items(section) } for section in obj.sections() }
     prop_list = [ key for key in dir(obj) if not key.startswith("__") and _build_arg(getattr(obj,key)) ]
-    return { key : transform_object(getattr(obj,key))  for key in prop_list }
+    return { key : transform_obj(getattr(obj,key))  for key in prop_list }
 def build_args(*largs) :
     return "".join( [ str(arg).strip(' ') for arg in largs if is_str(arg) ] )
 def build_command(*largs) :
@@ -98,14 +99,20 @@ def find_subset(obj,*largs) :
 def load_config(fileName) :
     config = CF()
     config.read(fileName)
+    log.debug(config)
     return transform_obj(config)
 def load_json(fileName) :
     with open(glob(fileName)[0]) as fp :
         return load(fp)
 def iterate_config(config) :
+    log.debug(config)
     ret = transform_obj(config)
+    log.info(ret)
     for i, section in enumerate(sorted(ret)) :
+        log.info((section,type(ret[section])))
         for j, key in enumerate(sorted(ret[section])) :
+            log.debug(type(key))
+            log.debug(key)
             yield i,j, section, key, ret[section][key]
 def dump_ticker_name(ret) :
     if not isinstance(ret,str) :
@@ -119,7 +126,7 @@ def pre_load_ticker_name(ret) :
     ret = ret.strip()
     if ret.startswith('{') and ret.endswith('}') :
        return load(ret.replace("'",'"').replace("`","'"))
-    return [ arg.strip() for arg in ret.split(',')
+    return [ arg.strip() for arg in ret.split(',') ]
 def pre_dump_ticker_name(ret) :
     if isinstance(ret,list) :
        return ",".join(ret)
@@ -160,26 +167,33 @@ class INI_READ(object) :
       def read(cls, *file_list) :
           file_list = [ load_config(arg) for arg in file_list]
           for i, ini_file in enumerate(file_list) :
+              log.info('Reading results : {}'.format(ini_file))
               for i,j, section, key, value in iterate_config(file_list[i]) :
                   key = load_ticker_name(key)
                   value = pre_load_ticker_name(value)
                   value = load_ticker_name(value)
                   yield section, key, value
+              log.info('Read results : {}'.format(ini_file))
                   
 class INI_WRITE(object) :
       @classmethod
       def write(cls, filename,**data) :
+          filename = filename.replace(' ','SPACE')
+          log.info('Writing results : {}'.format(filename))
+          logging.debug(data)
           config = INI_BASE.init()
-          cls.write_ini(config,**data)
+          #cls.write_ini(config,**data)
           for i,j, section, key, value in iterate_config(data) :
-              value = pre_dump_ticker_value(value)
+              value = pre_dump_ticker_name(value)
               value = dump_ticker_name(value)
               key = dump_ticker_name(key)
+              if not config.has_section(section) :
+                  config.add_section(section)
               config.set(section,key,value)
           fp = open(filename, 'w')
           config.write(fp)
           fp.close()
-
+          log.info('Saved results : {}'.format(filename))
 class FTP:
       get = 'RETR {pwd}'
       def __init__(self, connection):
