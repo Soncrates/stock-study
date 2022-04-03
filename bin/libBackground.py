@@ -3,8 +3,10 @@
 import os
 import logging
 import pandas as pd
+from libBusinessLogic import YAHOO_SCRAPER
+from libCommon import LOG_FORMAT_TEST
 from libUtils import ENVIRONMENT, exit_on_exception, log_on_exception
-from libFinance import STOCK_TIMESERIES, TRANSFORM_BACKGROUND
+from libFinance import PANDAS_FINANCE, TRANSFORM_BACKGROUND
 from libDebug import trace
 
 class EXTRACT_TICKER() :
@@ -12,7 +14,7 @@ class EXTRACT_TICKER() :
       @classmethod
       def read(cls, ticker) :
           if cls.reader is None :
-             cls.reader = STOCK_TIMESERIES.init()
+             cls.reader = PANDAS_FINANCE.init()
           return cls.reader.extract_from_yahoo(ticker)
       @classmethod
       def save(cls, local_dir, ticker,dud = None) :
@@ -23,7 +25,7 @@ class EXTRACT_TICKER() :
              dud.append(ticker)
              return dud
           filename = '{}/{}.pkl'.format(local_dir,ticker)
-          STOCK_TIMESERIES.save(filename, ticker, data)
+          PANDAS_FINANCE.SAVE(filename, ticker, data)
           return dud
       @classmethod
       def save_list(cls,local_dir, ticker_list) :
@@ -38,14 +40,14 @@ class EXTRACT_TICKER() :
           return dud
       @classmethod
       @log_on_exception
-      def load(cls, data_store, ticker) :
+      def dep_load(cls, data_store, ticker) :
           filename = '{}/{}.pkl'.format(data_store,ticker)
           logging.debug(filename)
           if not os.path.exists(filename) :
              data = cls.read(ticker)
-             STOCK_TIMESERIES.save(filename, ticker, data)
+             PANDAS_FINANCE.SAVE(filename, ticker, data)
              return data
-          name, data = STOCK_TIMESERIES.load(filename)
+          name, data = PANDAS_FINANCE.LOAD(filename)
           if ticker == name :
              return data
           msg = '{} {}'.format(ticker,name)
@@ -70,7 +72,7 @@ class TRANSFORM_TICKER() :
         return ret
 
 @trace
-def load(**kwargs) :
+def dep_load(**kwargs) :
     target = 'data_store'
     data_store = kwargs.get(target,"")
     target = 'ticker_list'
@@ -83,13 +85,14 @@ def load(**kwargs) :
 
 @trace
 def main(**kwargs) :
-    target = 'data_store'
-    data_store = kwargs.get(target,"")
-    target = 'ticker_list'
-    ticker_list = kwargs.get(target,[])
+    data_store = kwargs.get('data_store',"")
+    ticker_list = kwargs.get('ticker_list',[])
+    scraper = kwargs.get('scraper',None)
     ret = {}
     for i, ticker in enumerate(ticker_list) :
-        prices = EXTRACT_TICKER.load(data_store, ticker)
+        filename = '{}/{}.pkl'.format(data_store,ticker)
+        scraper['ticker'] = ticker
+        prices = PANDAS_FINANCE.ROBUST(filename,scraper)
         ret[ticker] = TRANSFORM_BACKGROUND.find(prices)
     ret = pd.DataFrame(ret)
     logging.debug(ret)
@@ -104,10 +107,10 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(stream=sys.stdout, format=LOG_FORMAT_TEST, level=logging.INFO)
 
+   scraper = YAHOO_SCRAPER.pandas()
    local_dir = '{}/local'.format(env.pwd_parent)
    data_store = '{}/historical_prices'.format(local_dir)
    data_store = '../local/historical_prices'
@@ -117,7 +120,7 @@ if __name__ == '__main__' :
    ticker_list = ['^GSPC','AAPL','RAFGX','SPY']
    ticker_list = ['AAPL','RAFGX','SPY']
    ticker_list = ['SPY','RAFGX','AAPL','^GSPC']
-   ret = main(data_store=data_store, ticker_list=ticker_list)
+   ret = main(data_store=data_store, ticker_list=ticker_list,scraper=scraper)
    logging.info(ret.loc[_XXX])
    logging.info(ret.T[_XXX])
 

@@ -2,21 +2,15 @@
 
 import logging as log
 import pandas as pd
-from libCommon import INI_WRITE
+import os
+from libBusinessLogic import YAHOO_SCRAPER
+from libCommon import INI_WRITE, LOG_FORMAT_TEST
 from libCommon import load_config, iterate_config, find_subset
 from libUtils import mkdir
-from libBackground import main as EXTRACT_BACKGROUND, load as TICKER, TRANSFORM_TICKER
+from libBackground import TRANSFORM_TICKER
 from libDecorators import singleton, exit_on_exception, log_on_exception
 from libDebug import trace, debug_object
-
-def get_globals(*largs) :
-    ret = {}
-    for name in largs :
-        value = globals().get(name,None)
-        if value is None :
-           continue
-        ret[name] = value
-    return ret
+from libFinance import PANDAS_FINANCE,TRANSFORM_BACKGROUND
 
 def _get_config(*config_list) :
     for i, path in enumerate(sorted(config_list)) :
@@ -52,9 +46,30 @@ class VARIABLES() :
         self.data = data
         self.stock_names = data.values()
 
-def prep(data_store,stock_list) : 
-    TICKER(data_store=data_store, ticker_list=stock_list)
-    ret = EXTRACT_BACKGROUND(data_store=data_store, ticker_list=stock_list)
+def prep1(file_list) : 
+    args = YAHOO_SCRAPER.pandas()
+    for ticker, filename in file_list.items() :   
+        if not os.path.exists(filename) :
+           args['ticker'] = ticker
+           data = PANDAS_FINANCE.EXTRACT(**args)
+           PANDAS_FINANCE.SAVE(filename, ticker, data)
+           return data
+        name, data = PANDAS_FINANCE.LOAD(filename)
+        if ticker == name :
+           return data
+        msg = '{} {}'.format(ticker,name)
+        msg = 'ticker does not match between filename and file content {}'.format(msg)
+        raise ValueError(msg)
+
+def prep2(file_list) :
+    ret = {}
+    for ticker, filename in file_list.items() :   
+        if not os.path.exists(filename) :
+            log.warning("no such file {}".format(filename))
+            continue
+        name, data = PANDAS_FINANCE.LOAD(filename)
+        ret[ticker] = TRANSFORM_BACKGROUND.find(data)
+    ret = pd.DataFrame(ret)
     log.debug(ret)
     return ret
 
@@ -73,8 +88,10 @@ def business_logic(ret) :
 @exit_on_exception
 @trace
 def main() : 
+    file_list = { ticker : '{}/{}.pkl'.format(VARIABLES().data_store,ticker) for ticker in VARIABLES().stock_names }
 
-    ret = prep(VARIABLES().data_store,VARIABLES().stock_names)
+    prep1(file_list)    
+    ret = prep2(file_list)
     ret = business_logic(ret)
 
     save_file = VARIABLES().output_file
@@ -87,8 +104,7 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   log.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=log.DEBUG)
+   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.DEBUG)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    data_store = '{}/local/historical_prices'.format(env.pwd_parent)

@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import pandas as pd
 import pandas_datareader as web
+import os
 
 from libUtils import log_on_exception
 from libDebug import trace, cpu
@@ -69,9 +70,68 @@ Gain/Loss Ratio	1.08	1.28
 
 '''
 
+class PANDAS_FINANCE :
+      @staticmethod
+      @log_on_exception
+      def EXTRACT(**kwargs) :
+          ticker = kwargs.get('ticker',None)
+          start  = kwargs.get('start',None)
+          end    = kwargs.get('end',None)
+          source = kwargs.get('source',None)
+          logging.debug([ticker,source])
+          return web.DataReader(ticker, source, start, end) 
+      @staticmethod
+      def SAVE(filename, stock, data) :
+          if not PANDAS_FINANCE.VALIDATE(stock, data) : 
+              return
+          filename = os.path.abspath(filename)
+          logging.info(filename)
+          data['Stock'] = stock
+          data.to_pickle(filename)
+      @staticmethod
+      def LOAD(filename) :
+          filename = os.path.abspath(filename)
+          logging.info(filename)
+          data = pd.read_pickle(filename)
+          target = 'Stock'
+          if target in data :
+             name = data.pop(target)
+             name = name[0]
+             return name, data
+          name = os.path.basename(filename)
+          name = name.split(".")[0]
+          return name, data
+      @staticmethod
+      @log_on_exception
+      def ROBUST(filename,**kwargs) :
+          ticker = kwargs.get('ticker',None)
+          if not os.path.exists(filename) :
+             data = PANDAS_FINANCE.EXTRACT(**kwargs)
+             PANDAS_FINANCE.SAVE(filename, ticker, data)
+             return data
+          name, data = PANDAS_FINANCE.LOAD(filename)
+          if ticker == name :
+             return data
+          msg = '{} {}'.format(ticker,name)
+          msg = 'ticker does not match between filename and file content {}'.format(msg)
+          raise ValueError(msg)
+      @staticmethod
+      def VALIDATE(ticker, data) :
+          if data is None or data.empty :
+             logging.warning("Empty values for {}".format(ticker))
+             return False
+          logging.debug(sorted(list(data.columns)))
+          if 'Adj Close' not in list(data.columns) :
+              logging.warning("Corrupted read for {}".format(ticker))
+              logging.warning(data)
+              del data
+              return False
+          return True
+
+          
 class STOCK_TIMESERIES :
       @classmethod
-      def init(cls, **kwargs) :
+      def dep_init(cls, **kwargs) :
           target = 'end'
           end = kwargs.get(target, datetime.datetime.utcnow())
           if isinstance(end, str) :

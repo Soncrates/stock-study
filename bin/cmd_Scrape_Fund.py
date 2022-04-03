@@ -1,29 +1,19 @@
 #!/usr/bin/env python
 
 import logging
-import pandas as pd
-from libCommon import INI_READ, INI_WRITE
+
+from libBusinessLogic import YAHOO_SCRAPER
+from libCommon import INI_READ, INI_WRITE,find_subset,LOG_FORMAT_TEST
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
-from libBackground import EXTRACT_TICKER
-from libFinance import TRANSFORM_BACKGROUND
+from libFinance import PANDAS_FINANCE, TRANSFORM_BACKGROUND
 from libDecorators import singleton, exit_on_exception, log_on_exception
 from libDebug import trace, debug_object
 
-def get_globals(*largs) :
-    ret = {}
-    for name in largs :
-        value = globals().get(name,None)
-        if value is None :
-           continue
-        ret[name] = value
-    return ret
-
 @singleton
 class VARIABLES() :
-    var_names = ['env','save_file',"data_store"]
+    var_names = ['env','save_file',"data_store",'scraper']
     def __init__(self) :
-        values = get_globals(*VARIABLES.var_names)
-        self.__dict__.update(**values)
+        self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
         if len(self.env.argv) > 1 :
            self.output_file_by_type = self.env.argv[1]
         debug_object(self)
@@ -50,15 +40,17 @@ def filter_by_type(fund) :
 
 @exit_on_exception
 @trace
-def action(data_store,fund_list) : 
+def action(data_store,fund_list,scraper) : 
     ret = {}
     transpose = {}
-    for ticker in fund_list.keys() :
+    for i, args in YAHOO_SCRAPER.make_args(*fund_list.keys(), **scraper) :
+        ticker = args['ticker']
         flag, _type, category, name = filter_by_type(fund_list[ticker])
         if flag :
            continue
-
-        prices = EXTRACT_TICKER.load(data_store, ticker)
+        filename ="{}/{}.pkl".format(data_store,ticker)
+        scraper['ticker'] = ticker
+        prices = PANDAS_FINANCE.ROBUST(filename,scraper)
         entry = TRANSFORM_BACKGROUND.find(prices)
         del prices
         if 'LEN' not in entry :
@@ -84,7 +76,7 @@ def get_tickers() :
 @trace
 def main() : 
     fund_list = get_tickers()
-    ret, transpose = action(VARIABLES().data_store,fund_list)
+    ret, transpose = action(VARIABLES().data_store,fund_list,VARIABLES().scraper)
 
     INI_WRITE.write(VARIABLES().save_file,**transpose)
     logging.info("results saved to {}".format(VARIABLES().save_file))
@@ -96,10 +88,10 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=logging.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
+   scraper = YAHOO_SCRAPER.pandas()
    save_file = '{}/local/fund_background.ini'.format(env.pwd_parent)
    data_store = '{}/local/historical_prices_fund'.format(env.pwd_parent)
 
