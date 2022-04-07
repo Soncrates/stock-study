@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 
 import logging as log
-import time
-import os
-from libBusinessLogic import YAHOO_SCRAPER
+from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE
 from libCommon import find_subset, LOG_FORMAT_TEST
 from libUtils import ENVIRONMENT, mkdir
 from libNASDAQ import NASDAQ
-from libFinance import PANDAS_FINANCE
 from libDecorators import exit_on_exception, singleton
 from libDebug import trace
 
@@ -20,57 +17,21 @@ from libDebug import trace
 
 @singleton
 class VARIABLES() :
-    var_names = ['env','data_store_stock', 'data_store_fund','wait_on_success','wait_on_failure','fund_list','stock_list', 'etf_list', 'alias','scraper']
+    var_names = ['env','data_store_stock', 'data_store_fund','fund_list','stock_list', 'etf_list', 'alias','scraper']
     def __init__(self) :
         self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
 
-class REFRESH() :
-      @classmethod
-      @trace
-      def _prices(cls, dud,**kwargs) :
-          log.info(kwargs)
-          ticker = kwargs.get('ticker',None)
-          if dud is None :
-             dud = []
-          data = PANDAS_FINANCE.EXTRACT(**kwargs)
-          if not PANDAS_FINANCE.VALIDATE(ticker, data) :
-             target = 'wait_on_failure'
-             wait_on_failure = kwargs.get(target,None)
-             time.sleep(wait_on_failure)
-             dud.append(ticker)
-             return dud
-          data_store = kwargs.get('data_store',None)
-          filename = '{}/{}.pkl'.format(data_store,ticker)
-          PANDAS_FINANCE.SAVE(filename, ticker, data)
-          del data
-          return dud
-      @classmethod
-      def prices(cls,**kwargs) :
-          wait_on_success = kwargs.pop('wait_on_success',None)
-          ticker_list = kwargs.pop('ticker_list',None)
-          scraper = kwargs.pop('scraper',{})
-          scraper.update({key:value for (key,value) in kwargs.items() if key in ['wait_on_failure','data_store'] })
-
-          dud = None
-          for i, args in YAHOO_SCRAPER.make_args(*ticker_list, **scraper) :
-              dud = cls._prices(dud,**args)
-              del args
-              time.sleep(wait_on_success)
-          size = len(ticker_list) - len(dud)
-          log.info("Total {}".format(size))
-          if len(dud) > 0 :
-             dud = sorted(dud)
-             log.warning((len(dud),dud))
-          return dud
-      @classmethod
-      @trace
-      def robust(cls,**kwargs) :
-          retry = cls.prices(**kwargs)
-          if len(retry) > 0 :
-             kwargs['ticker_list'] = retry
-             retry = cls.prices(**kwargs)
-          if len(retry) > 0 :
-             log.error((len(retry), sorted(retry)))
+@trace
+def refresh(**kwargs) :
+    ticker_list = kwargs.pop('ticker_list',[])
+    data_store = kwargs.pop('data_store',[])
+    scraper = kwargs.pop('scraper',{})
+    retry = BASE_PANDAS_FINANCE.SAVE(data_store, *ticker_list, **scraper)
+    if len(retry) > 0 :
+       log.warning((len(retry),sorted(retry)))
+       retry = BASE_PANDAS_FINANCE.SAVE(data_store, *retry, **scraper)
+    if len(retry) > 0 :
+       log.error((len(retry), sorted(retry)))
 
 @exit_on_exception
 @trace
@@ -97,12 +58,12 @@ def main() :
     args = find_subset(vars(VARIABLES()),*VARIABLES.var_names)
     args['ticker_list'] = VARIABLES().stock_list
     args['data_store'] = VARIABLES().data_store_stock
-    REFRESH.robust(**args)
+    refresh(**args)
     args['ticker_list'] = VARIABLES().etf_list
-    REFRESH.robust(**args)
+    #refresh(**args)
     args['ticker_list'] = VARIABLES().fund_list
     args['data_store'] = VARIABLES().data_store_fund
-    REFRESH.robust(**args)
+    #refresh(**args)
 
 if __name__ == '__main__' :
    import sys
@@ -119,7 +80,5 @@ if __name__ == '__main__' :
 
    data_store_stock = '{}/local/historical_prices'.format(env.pwd_parent)
    data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)
-   wait_on_success=0.1
-   wait_on_failure=1
    main()
 

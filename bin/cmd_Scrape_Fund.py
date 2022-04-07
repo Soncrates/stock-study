@@ -2,10 +2,10 @@
 
 import logging
 
-from libBusinessLogic import YAHOO_SCRAPER
-from libCommon import INI_READ, INI_WRITE,find_subset,LOG_FORMAT_TEST
+from libBusinessLogic import YAHOO_SCRAPER, ROBUST_PANDAS_FINANCE as PANDAS_FINANCE, BASE_PANDAS_FINANCE as BPF
+from libCommon import INI_WRITE,find_subset,LOG_FORMAT_TEST
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
-from libFinance import PANDAS_FINANCE, TRANSFORM_BACKGROUND
+from libFinance import TRANSFORM_BACKGROUND
 from libDecorators import singleton, exit_on_exception, log_on_exception
 from libDebug import trace, debug_object
 
@@ -40,17 +40,43 @@ def filter_by_type(fund) :
 
 @exit_on_exception
 @trace
-def action(data_store,fund_list,scraper) : 
+def dep_action(data_store,fund_list,scraper) : 
     ret = {}
     transpose = {}
-    for i, args in YAHOO_SCRAPER.make_args(*fund_list.keys(), **scraper) :
+    for i, args in BPF.make_args(*fund_list.keys(), **scraper) :
         ticker = args['ticker']
         flag, _type, category, name = filter_by_type(fund_list[ticker])
         if flag :
+           del args
            continue
         filename ="{}/{}.pkl".format(data_store,ticker)
         scraper['ticker'] = ticker
-        prices = PANDAS_FINANCE.ROBUST(filename,scraper)
+        prices = PANDAS_FINANCE.SAFE(filename,args)
+        entry = TRANSFORM_BACKGROUND.find(prices)
+        del prices
+        del args
+        if 'LEN' not in entry :
+           continue
+        entry['NAME'] = name
+        entry['CATEGORY'] = category
+        entry['TYPE'] = _type
+        logging.debug(entry)
+        ret[ticker] = entry
+        for key in entry :
+            if key not in transpose :
+               transpose[key] = {}
+            transpose[key][ticker] = entry[key]
+    return ret, transpose
+
+@exit_on_exception
+@trace
+def action(data_store,fund_list,scraper) : 
+    ret = {}
+    transpose = {}
+    for ticker, prices in BPF.LOAD(data_store, *fund_list) :
+        flag, _type, category, name = filter_by_type(fund_list[ticker])
+        if flag :
+           continue
         entry = TRANSFORM_BACKGROUND.find(prices)
         del prices
         if 'LEN' not in entry :

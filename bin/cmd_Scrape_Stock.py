@@ -4,8 +4,8 @@ import logging as log
 import pandas as PD
 from libCommon import INI_WRITE, INI_READ, find_subset,LOG_FORMAT_TEST
 from libNASDAQ import NASDAQ
-from libBusinessLogic import YAHOO_SCRAPER
-from libFinance import TRANSFORM_BACKGROUND,PANDAS_FINANCE
+from libBusinessLogic import YAHOO_SCRAPER, ROBUST_PANDAS_FINANCE as RPF, BASE_PANDAS_FINANCE as BPF
+from libFinance import TRANSFORM_BACKGROUND
 from libDecorators import singleton, exit_on_exception, log_on_exception
 from libDebug import trace, debug_object
 
@@ -32,8 +32,14 @@ def enrich_background(sector_file,background, entity = 'stock') :
             ret[ticker] = { 'SECTOR' : key, 'NAME' : name, 'ENTITY' : entity }
     return ret
 
-def add_background(ticker, filename, background,scraper) :
-    prices = PANDAS_FINANCE.ROBUST(filename,scraper)
+def dep_add_background(ticker, filename, background,scraper) :
+    prices = RPF.SAFE(filename,scraper)
+    ret = TRANSFORM_BACKGROUND.find(prices)
+    if ticker in background :
+       ret.update(background[ticker])
+    log.debug(ret)
+    return ret
+def add_background(ticker, prices, background) :
     ret = TRANSFORM_BACKGROUND.find(prices)
     if ticker in background :
        ret.update(background[ticker])
@@ -42,10 +48,10 @@ def add_background(ticker, filename, background,scraper) :
 
 @exit_on_exception
 @trace
-def action(data_store,ticker_list, background,scraper) :
+def dep_action(data_store,ticker_list, background,scraper) :
     ret = {}
     transpose = {}
-    for i, args in YAHOO_SCRAPER.make_args(*ticker_list, **scraper) :
+    for i, args in BPF.make_args(*ticker_list, **scraper) :
         filename ="{}/{}.pkl".format(data_store,args['ticker'])
         entry = add_background(args['ticker'],filename,background,args)
         ret[args['ticker']] = entry
@@ -55,6 +61,21 @@ def action(data_store,ticker_list, background,scraper) :
             transpose[key][args['ticker']] = entry[key]
         del args
     return ret, transpose
+
+@exit_on_exception
+@trace
+def action(data_store,ticker_list, background,scraper) :
+    ret = {}
+    transpose = {}
+    for ticker, data in BPF.LOAD(data_store, *ticker_list) :
+        entry = add_background(ticker,data,background)
+        ret[ticker] = entry
+        for key in entry :
+            if key not in transpose :
+               transpose[key] = {}
+            transpose[key][ticker] = entry[key]
+    return ret, transpose
+
 
 @exit_on_exception
 @trace
