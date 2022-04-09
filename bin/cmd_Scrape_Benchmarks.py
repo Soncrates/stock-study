@@ -30,9 +30,9 @@ def get_benchmarks(config,benchmarks,omit_list) :
 
 @singleton
 class VARIABLES() :
-    var_names = ['env','data_store','output_file','config_file','benchmarks','omit_list','scraper']
+    names = ['env','data_store','output_file','config_file','benchmarks','omit_list','scraper']
     def __init__(self) :
-        self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
+        self.__dict__.update(**find_subset(globals(),*VARIABLES.names))
         debug_object(self)
         
 @exit_on_exception
@@ -62,7 +62,7 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.DEBUG)
+   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
    #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    data_store = '{}/local/historical_prices'.format(env.pwd_parent)

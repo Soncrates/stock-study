@@ -154,42 +154,6 @@ class RSS() :
           return ret
 
 
-'''
-'''
-
-class DICT_HELPER() :
-    def __init__(self, *largs, **kwargs):
-        self.data = kwargs
-    def __delitem__(self, key):
-        value = self.data.pop(key)
-        self.data.pop(value, None)
-    def __setitem__(self, key, value):
-        if key in self.data:
-            del self.data[key]
-        self.data[key] = value
-    def __getitem__(self, key):
-        return self.data[key]
-    def __str__(self):
-        msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
-        msg = list(msg)
-        msg.append("Total : {}".format(len(self.values())))
-        return "\n".join(msg)
-    def append(self, key, *value_list):
-        if key not in self.data:
-           self.data[key] = []
-        for i, value in enumerate(value_list) :
-            self.data[key].append(value)
-    def values(self):
-        if len(self.data) == 0 :
-           return []
-        ret = reduce(lambda a, b : a+b, self.data.values())
-        ret = sorted(list(set(ret)))
-        return ret
-    @classmethod
-    def init(cls, *largs, **kwargs) :
-        ret = cls(*largs, **kwargs)
-        return ret
-
 class TIMER :
       minute = 60
       hour = minute*60
@@ -223,7 +187,46 @@ class TIMER :
           ret = ', '.join(ret)
           ret += ", seconds : {seconds}"
           return ret.format(**units)
+'''
+THis was a good idea until it was not anymore
+'''
 
+class DEP_DICT_HELPER() :
+    def __init__(self, *largs, **kwargs):
+        self.data = kwargs
+    def __delitem__(self, key):
+        value = self.data.pop(key)
+        self.data.pop(value, None)
+    def __setitem__(self, key, value):
+        if key in self.data:
+            del self.data[key]
+        self.data[key] = value
+    def __getitem__(self, key):
+        return self.data[key]
+    def __str__(self):
+        msg = map(lambda x : "{} : {}".format(x,len(self.data[x])), sorted(self.data))
+        msg = list(msg)
+        msg.append("Total : {}".format(len(self.values())))
+        return "\n".join(msg)
+    def append(self, key, *value_list):
+        if key not in self.data:
+           self.data[key] = []
+        for i, value in enumerate(value_list) :
+            self.data[key].append(value)
+    def values(self):
+        if len(self.data) == 0 :
+           return []
+        ret = reduce(lambda a, b : a+b, self.data.values())
+        ret = sorted(list(set(ret)))
+        return ret
+    @classmethod
+    def init(cls, *largs, **kwargs) :
+        ret = cls(*largs, **kwargs)
+        return ret
+
+'''
+TODO move into unittest
+'''
 if __name__ == "__main__" :
 
    import sys

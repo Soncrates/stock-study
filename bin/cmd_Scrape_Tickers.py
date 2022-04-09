@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import logging as log
-from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE
+from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE, NASDAQ_EXTRACT
 from libCommon import find_subset, LOG_FORMAT_TEST
 from libUtils import ENVIRONMENT, mkdir
-from libNASDAQ import NASDAQ
 from libDecorators import exit_on_exception, singleton
 from libDebug import trace
 
@@ -33,21 +32,6 @@ def refresh(**kwargs) :
     if len(retry) > 0 :
        log.error((len(retry), sorted(retry)))
 
-@exit_on_exception
-@trace
-def get_tickers() :
-    nasdaq = NASDAQ.init()
-    stock_list, etf_list, alias_list = nasdaq.stock_list()
-    fund_list = nasdaq.fund_list()
-    stock_list = stock_list.index.values.tolist()
-    etf_list = etf_list.index.values.tolist()
-    fund_list = fund_list.index.values.tolist()
-    alias = []
-    for column in alias_list.columns.values.tolist() :
-        alias.extend(alias_list[column].tolist())
-    alias = sorted(list(set(alias)))
-    log.info(alias)
-    return fund_list,stock_list, etf_list, alias
 
 @exit_on_exception
 @trace
@@ -75,9 +59,13 @@ if __name__ == '__main__' :
    log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
    #log.basicConfig(stream=sys.stdout, format=log_msg, level=log.DEBUG)
 
-   scraper = YAHOO_SCRAPER().pandas()
-   fund_list,stock_list, etf_list, alias = get_tickers()
+   ticker_list = NASDAQ_EXTRACT()
+   fund_list   = ticker_list['fund_list']
+   stock_list  = ticker_list['stock_list']
+   etf_list    = ticker_list['etf_list']
+   alias       = ticker_list['alias_list']
 
+   scraper = YAHOO_SCRAPER().pandas()
    data_store_stock = '{}/local/historical_prices'.format(env.pwd_parent)
    data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)
    main()

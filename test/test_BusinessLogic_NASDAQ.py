@@ -1,18 +1,13 @@
 #!/usr/bin/python
 
 import logging
-import sys
-import pandas as pd
 import unittest
-#import numpy.testing as np_test
-#import pandas.util.testing as pd_test
 import context
 
+from libCommon import LOG_FORMAT_TEST, find_subset
 from libCommon import FTP
-from libUtils import log_on_exception
-from libDebug import trace
-
 from libNASDAQ import NASDAQ as TEST
+from libBusinessLogic import NASDAQ_EXTRACT as FINAL
 
 test_columns_list = ['Security Name', 'Market Category', 'Financial Status', 'Round Lot Size', 'ETF', 'NextShares']
 test_columns_list = ['Market Category', 'Round Lot Size', 'ETF', 'NextShares']
@@ -26,13 +21,18 @@ test_columns_bonds =  ['Financial Status']
 test_columns_participants =  ['MP Type', 'Name', 'Location', 'Telephone', 'NASDAQ Member', 'FINRA Member', 'NASDAQ BX Member', 'PSX Participant']
 test_columns_participants =  ['MP Type', 'NASDAQ Member', 'FINRA Member', 'NASDAQ BX Member', 'PSX Participant']
 
-class TemplateTest(unittest.TestCase):
+class TEST_NASDAQ(unittest.TestCase):
 
+    def test_Total(self) :
+        fund_list,stock_list, etf_list, alias = FINAL()
+        
     #@unittest.skip("demonstrating skipping")
     def test_01_(self) :
         test = TEST.init()
-        logging.info(vars(test))
-        logging.info(dir(test))
+        msg = { key for key in vars(test) if key.startswith("__")==False}
+        logging.info(msg)
+        msg = { key for key in dir(test) if key.startswith("__")==False}
+        logging.info(msg)
         logging.info(type(test))
         logging.info(type(test.ftp))
         logging.info(vars(test.ftp))
@@ -97,15 +97,19 @@ class TemplateTest(unittest.TestCase):
         logging.info(list(stock.columns))
         logging.info(list(etf.columns))
         logging.info(list(alias.columns))
-    #@unittest.expectedFailure
+    #@unittest.expectedFailure        
 
 if __name__ == '__main__' :
 
+   import sys
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.DEBUG)
+   logging.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=logging.INFO)
+   #logging.basicConfig(stream=sys.stdout, format=LOG_FORMAT_TEST, level=logging.DEBUG)
+
    unittest.main()
+
+# -*- coding: utf-8 -*-
+

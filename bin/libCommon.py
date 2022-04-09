@@ -114,6 +114,17 @@ def iterate_config(config) :
             log.debug(type(key))
             log.debug(key)
             yield i,j, section, key, ret[section][key]
+def dict_append_list(ret, key, *value_list):
+    if not isinstance(ret,dict) :
+       return ret
+    if not key or len(key) == 0 :
+       return ret
+    if not value_list or len(value_list) == 0 :
+       return ret
+    if key not in ret:
+       ret[key] = []
+    ret[key].extend(value_list)
+    return ret
 def dump_ticker_name(ret) :
     if not isinstance(ret,str) :
        return ret

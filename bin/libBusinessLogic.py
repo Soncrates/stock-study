@@ -7,8 +7,8 @@ import time
 import pandas as PD
 import pandas_datareader as WEB
 
-from libUtils import log_on_exception
-
+from libUtils import log_on_exception, exit_on_exception
+from libNASDAQ import NASDAQ
 """
 Created on Fri Apr  1 13:59:31 2022
 
@@ -103,7 +103,7 @@ class ROBUST_PANDAS_FINANCE :
           return None   
       @staticmethod
       def LOAD(ticker,filename) :
-        log.debug(ticker,filename)
+        log.debug((ticker,filename))
         name, data = PANDAS_FINANCE.LOAD(filename)
         if ticker == name :
            return data
@@ -199,3 +199,21 @@ class TRANSFORM_TICKER() :
         ret = ret.to_dict()
         log.debug(type(ret))
         return ret
+    
+@exit_on_exception
+def NASDAQ_EXTRACT() :
+    nasdaq = NASDAQ.init()
+    stock_list, etf_list, alias_list = nasdaq.stock_list()
+    fund_list = nasdaq.fund_list()
+    stock_list = stock_list.index.values.tolist()
+    etf_list = etf_list.index.values.tolist()
+    fund_list = fund_list.index.values.tolist()
+    alias = []
+    for column in alias_list.columns.values.tolist() :
+        alias.extend(alias_list[column].tolist())
+    alias_list = sorted(list(set(alias)))
+    log.info("aliases ({}) {}".format(len(alias_list),alias_list[:10]))
+    log.info("Stock ({}) {}".format(len(stock_list),stock_list[:10]))
+    log.info("ETF ({}) {}".format(len(etf_list),etf_list[:10]))
+    log.info("Funds ({}) {}".format(len(fund_list),fund_list[:10]))
+    return {"fund_list" : fund_list,"stock_list"  : stock_list, "etf_list" : etf_list, "alias_list" : alias_list}
