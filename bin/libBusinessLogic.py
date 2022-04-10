@@ -165,7 +165,7 @@ class PANDAS_FINANCE :
           if data is None or data.empty :
              log.warning("Empty values for {}".format(ticker))
              return False
-          log.debug(sorted(list(data.columns)))
+          log.debug((ticker,sorted(list(data.columns))))
           if 'Adj Close' not in list(data.columns) :
               log.warning("Corrupted read for {}".format(ticker))
               log.warning(data)

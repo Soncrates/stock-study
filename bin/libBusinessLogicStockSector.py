@@ -253,7 +253,7 @@ class STOCKMONITOR() :
               found_list.extend(v)
           log.info('Found {}'.format(len(found_list)))
           return ret, found_list
-      
+              
 def handle_alias(stock_list,alias_list) :
     ret = set(set(alias_list).intersection(set(stock_list)))
     left_overs = set(stock_list) - ret

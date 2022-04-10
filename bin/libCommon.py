@@ -6,7 +6,6 @@ from os import path, environ, remove, stat, mkdir as MKDIR
 import logging
 import pandas as PD
 from sys import version_info
-from time import time, sleep
 from traceback import print_exc
 
 try :
@@ -37,8 +36,8 @@ def mkdir(pathname) :
     if path.exists(pathname):
        LOG.info('Already exists {}'.format(pathname))
        return
-    LOG.info('Creating directory {}'.format(pathname))
     MKDIR(pathname)
+    LOG.info('Created directory {}'.format(pathname))
 def load_environ() :
      return { key : environ[key] for key in environ if is_environ(key) }
 def is_environ(arg) :

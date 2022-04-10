@@ -7,24 +7,15 @@ import unittest
 #import pandas.util.testing as pd_test
 import context
 
-from libDecorators import log_on_exception, singleton
-from libDebug import trace
-
-def get_globals(*largs) :
-    ret = {}
-    for name in largs :
-        value = globals().get(name,None)
-        if value is None :
-           continue
-        ret[name] = value
-    return ret
+from libCommon import find_subset, LOG_FORMAT_TEST, find_files
+from libDecorators import singleton
+#from libDebug import trace,cpu
 
 @singleton
 class T() :
     var_names = ['ini_files','file_list']
     def __init__(self) :
-        values = get_globals(*T.var_names)
-        self.__dict__.update(**values)
+        self.__dict__.update(**find_subset(globals(),*T.var_names))
 
 class TemplateTest(unittest.TestCase):
 
@@ -51,11 +42,11 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=logging.INFO)
 
-   ini_list = env.list_filenames('local/*ini')
-   file_list = env.list_filenames('local/historical_prices/*pkl')
+   ini_list = '{pwd_parent}/local/*ini'.format(**vars(env))
+   ini_list = find_files(ini_list)
+   file_list = '{pwd_parent}/local/historical_prices/*pkl'.format(**vars(env))
+   file_list = find_files(file_list)
 
    unittest.main()
