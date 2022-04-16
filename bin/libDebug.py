@@ -115,18 +115,14 @@ class cpu(WRAPPER):
         return ret
 
 def debug_object(obj):
-    msg = vars(obj)
+    msg = { key : value for (key,value) in vars(obj) if not key.startswith('__') }
     for i, key in enumerate(sorted(msg)) :
-        if key.startswith('__') :
-            continue
         value = msg[key]
         if isinstance(value,list) and len(value) > 10 :
            value = value[:10]
         logging.info((i,key, value))
-    msg = dir(obj)
+    msg = { key : value for (key,value) in dir(obj) if not key.startswith('__') }
     for i,key in enumerate(sorted(msg)):
-        if key.startswith('__') :
-            continue
         logging.info((i,key))
 
 def pprint(msg) :

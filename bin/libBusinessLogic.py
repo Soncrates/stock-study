@@ -203,17 +203,19 @@ class TRANSFORM_TICKER() :
 @exit_on_exception
 def NASDAQ_EXTRACT() :
     nasdaq = NASDAQ.init()
-    stock_list, etf_list, alias_list = nasdaq.stock_list()
-    fund_list = nasdaq.fund_list()
+    stock_list, etf_list, alias_list = nasdaq.extract_stock_list()
+    fund_list, raw = nasdaq.extract_fund_list()
     stock_list = stock_list.index.values.tolist()
     etf_list = etf_list.index.values.tolist()
     fund_list = fund_list.index.values.tolist()
-    alias = []
-    for column in alias_list.columns.values.tolist() :
-        alias.extend(alias_list[column].tolist())
-    alias_list = sorted(list(set(alias)))
+
     log.info("aliases ({}) {}".format(len(alias_list),alias_list[:10]))
+
+    # remove alias keys that are not in stock_list
+    alias_list.loc[ alias_list.index.isin(stock_list), : ]
+    
     log.info("Stock ({}) {}".format(len(stock_list),stock_list[:10]))
     log.info("ETF ({}) {}".format(len(etf_list),etf_list[:10]))
     log.info("Funds ({}) {}".format(len(fund_list),fund_list[:10]))
+    log.info(('alias',alias_list))
     return {"fund_list" : fund_list,"stock_list"  : stock_list, "etf_list" : etf_list, "alias_list" : alias_list}

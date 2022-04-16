@@ -1,5 +1,5 @@
-import logging
-import csv as _csv
+import logging as log
+import csv as CVS
 import pandas as PD
 from libCommon import FTP
 
@@ -134,6 +134,109 @@ class TRANSFORM_FUND() :
           row[cls.CATEGORY_FIELD] = cls.CATEGORY.get(value,value)
           return row
 
+def filter_test(ret) :
+    keys = ret.filter(regex="Test", axis=1).values.ravel()
+    keys = PD.unique(keys)
+    log.info(('test',keys))
+    test = ret[ret['Test Issue']=='Y']
+    ret = ret[ret['Test Issue'] == 'N']
+    log.debug(test)
+    return ret
+def filter_alias(data) :
+    ret = data.filter(regex="Symbol", axis=1)
+    log.debug(ret)
+    for column in ret.columns.values.tolist() :
+        for key in ret.index.values.tolist() :
+            ret = ret[ret[column]!=key]
+    log.debug(ret)
+    return ret
+def is_unexpected(key) :
+    if not key :
+       return True
+    if not isinstance(key,str) :
+       log.warning(key)
+       log.warning(type(key))
+       return True
+    return False
+    
+def transform_stocks(listed,other) :
+    ret = listed.rename(columns={'Market Category' : 'Exchange'})
+    ret = ret.filter(items=['Exchange', 'ETF','Security Name'])
+    other_list = other.filter(items=['Exchange', 'ETF', 'Security Name'])
+    ret = PD.concat([ret,other_list])
+    return ret
+def transform_listed(row_list) :
+    row_list = transform_to_list(row_list)
+    ret = [ TRANSFORM_STOCK.Market(row) for row in row_list]
+    ret = [ TRANSFORM_STOCK.Finance(row) for row in ret]
+    ret = transform_to_dict('Symbol',*ret)
+    ret = transform_to_pandas(**ret)
+    log.debug(ret)
+    return ret
+def transform_traded(row_list) :
+    row_list = transform_to_list(row_list)
+    ret = [ TRANSFORM_STOCK.Market(row) for row in row_list]
+    ret = [ TRANSFORM_STOCK.Finance(row) for row in ret]
+    ret = [ TRANSFORM_STOCK.Exchange(row) for row in ret]
+    ret = transform_to_dict('Symbol',*ret)
+    ret = transform_to_pandas(**ret)
+    log.debug(ret)
+    return ret
+def transform_other(row_list) :
+    row_list = transform_to_list(row_list)
+    log.debug(('other',len(row_list)))
+    ret = [ TRANSFORM_STOCK.Exchange2(row) for row in row_list]
+    ret = transform_to_dict('NASDAQ Symbol',*ret)
+    log.debug(('other',len(ret)))
+    ret = transform_to_pandas(**ret)
+    log.debug(ret)
+    return ret
+def transform_fund(row_list) :
+    row_list = transform_to_list(row_list)
+    ret = [ TRANSFORM_FUND.Type(row) for row in row_list ]
+    ret = [ TRANSFORM_FUND.Category(row)for row in ret ]
+    ret = transform_to_dict('Fund Symbol',*ret)
+    ret = transform_to_pandas(**ret)
+    log.debug(ret)
+    return ret
+def transform_bond(row_list) :
+    ret = transform_to_list(row_list)
+    ret = transform_to_dict('Symbol',*ret)
+    ret = transform_to_pandas(**ret)
+    log.debug(ret)
+    return ret
+def transform_participants(row_list) :
+    row_list = transform_to_list(row_list)
+    ret = [ TRANSFORM_PARTICIPANT.Type(row) for row in row_list]
+    ret = transform_to_dict('MPID',*ret)
+    ret = transform_to_pandas(**ret)
+    log.debug(ret)
+    return ret
+
+def transform_to_list(ret) :
+    data = str(ret)
+    reader = CVS.DictReader(data.split('\n'), delimiter='|')
+    ret = []
+    for i, row in enumerate(reader):
+        ret.append(row)
+    return ret
+def transform_to_dict(target, *entry_list) :
+    log.debug(entry_list[0])
+    ret = {}
+    for entry in entry_list :
+        key = entry.pop(target,target)
+        if is_unexpected(key) :
+            continue
+        ret[key] = dict(zip(entry,entry.values()))
+    #if len(ret) > 1 :
+    #   log.debug(ret)
+    return ret
+def transform_to_pandas(**kwargs) :
+    column_list = list(kwargs[list(kwargs.keys())[0]].keys())
+    log.debug(column_list)
+    ret = PD.DataFrame.from_dict(kwargs, orient='index',columns=column_list)
+    return ret    
+
 class NASDAQ() :
       URL = CONSTANTS.NASDAQ_URL
       file_list = CONSTANTS.NASDAQ_FILE_LIST.copy()
@@ -142,106 +245,54 @@ class NASDAQ() :
       def __init__(self,ftp,*file_list) :
           self.ftp = ftp
           self.file_list = file_list
-      def listed(self) :
+      def extract_listed(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[9])
-          ret = NASDAQ.to_list(raw)
-          ret = map(lambda row : TRANSFORM_STOCK.Market(row), ret)
-          ret = map(lambda row : TRANSFORM_STOCK.Finance(row), ret)
-          ret = NASDAQ.to_dict('Symbol',*ret)
-          ret = NASDAQ.to_pandas(**ret)
-
-          keys = ret.filter(regex="Test", axis=1).values.ravel()
-          keys = PD.unique(keys)
-          logging.info(keys)
-
-          test = ret[ret['Test Issue']=='Y']
-          ret = ret[ret['Test Issue'] == 'N']
-          logging.debug(test)
-
+          ret = transform_listed(raw)
+          ret = filter_test(ret)
           return ret, raw 
-      def traded(self) :
+      def extract_traded_list(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[10])
-          ret = NASDAQ.to_list(raw)
-          ret = map(lambda row : TRANSFORM_STOCK.Market(row), ret)
-          ret = map(lambda row : TRANSFORM_STOCK.Finance(row), ret)
-          ret = map(lambda row : TRANSFORM_STOCK.Exchange(row), ret)
-          ret = NASDAQ.to_dict('Symbol',*ret)
-          ret = NASDAQ.to_pandas(**ret)
-
-          keys = ret.filter(regex="Test", axis=1).values.ravel()
-          keys = PD.unique(keys)
-          logging.info(keys)
-
-          test = ret[ret['Test Issue']=='Y']
-          ret = ret[ret['Test Issue'] == 'N']
-          logging.debug(test)
+          ret = transform_traded(raw)
+          ret = filter_test(ret)
           return ret, raw 
-      def other(self) :
+      def extract_other_list(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[13])
-          ret = NASDAQ.to_list(raw)
-          logging.debug(len(ret))
-          ret = map(lambda row : TRANSFORM_STOCK.Exchange2(row), ret)
-          ret = NASDAQ.to_dict('NASDAQ Symbol',*ret)
-          logging.debug(len(ret))
-          ret = NASDAQ.to_pandas(**ret)
-
-          test = ret[ret['Test Issue']=='Y']
-          ret = ret[ret['Test Issue'] == 'N']
-          logging.debug(test)
+          ret = transform_other(raw)
+          ret = filter_test(ret)
           return ret, raw 
-      def funds(self) :
+      def extract_fund_list(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[7])
-          ret = NASDAQ.to_list(raw)
-          ret = map(lambda row : TRANSFORM_FUND.Type(row), ret)
-          ret = map(lambda row : TRANSFORM_FUND.Category(row), ret)
-          ret = NASDAQ.to_dict('Fund Symbol',*ret)
-          ret = NASDAQ.to_pandas(**ret)
+          ret = transform_fund(raw)
           return ret, raw 
-      def bonds(self) :
+      def extract_bond_list(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[0])
-          ret = NASDAQ.to_list(raw)
-          ret = NASDAQ.to_dict('Symbol',*ret)
-          ret = NASDAQ.to_pandas(**ret)
+          ret = transform_bond(raw)
           return ret, raw
-      def participants(self) :
+      def extract_participant_list(self) :
           raw = FTP.GET(self.ftp, pwd = self.file_list[8])
-          ret = NASDAQ.to_list(raw)
-          ret = map(lambda row : TRANSFORM_PARTICIPANT.Type(row), ret)
-          ret = NASDAQ.to_dict('MPID',*ret)
-          ret = NASDAQ.to_pandas(**ret)
+          ret = transform_participants(raw)
           return ret, raw 
-      def stock_list(self) :
-          listed, csv = self.listed()
+      def extract_stock_list(self) :
+          listed, csv = self.extract_listed()
           #traded, csv = self.traded()
-          other, csv = self.other()
-          total = listed.rename(columns={'Market Category' : 'Exchange'})
-          total = total.filter(items=['Exchange', 'ETF','Security Name'])
-          x = other.filter(items=['Exchange', 'ETF', 'Security Name'])
-          total = PD.concat([total,x])
+          other, csv = self.extract_other_list()
+          alias_list = filter_alias(other)
+          total = transform_stocks(listed, other)
 
-          etf = total[total['ETF']=='Y']
-          stock = total[total['ETF']!='Y']
-          keys = etf.filter(regex="Exchange", axis=1).values.ravel()
+          etf_list  = total[total['ETF']=='Y']
+          stock_list = total[total['ETF']!='Y']
+          
+          keys = etf_list.filter(regex="Exchange", axis=1).values.ravel()
           keys = PD.unique(keys)
-          logging.info(keys)
-          keys = stock.filter(regex="Exchange", axis=1).values.ravel()
+          log.info(('etf',len(keys),keys))
+          keys = stock_list.filter(regex="Exchange", axis=1).values.ravel()
           keys = PD.unique(keys)
-          logging.info(keys)
+          log.info(('stock',len(keys),keys))
 
-          alias = other.filter(regex="Symbol", axis=1)
-          for column in alias.columns.values.tolist() :
-              for key in alias.index.values.tolist() :
-                  alias = alias[alias[column]!=key]
-          logging.info(len(alias))
-
-          logging.info(('Stocks',len(stock)))
-          logging.info(('ETF',len(etf)))
-          logging.info(('alias',len(alias)))
-          return stock, etf, alias 
-      def fund_list(self) :
-          ret, csv = self.funds()
-          logging.info(('Funds',len(ret)))
-          return ret
+          log.info(('Stocks',len(stock_list)))
+          log.info(('ETF',len(etf_list)))
+          log.info(('alias',len(alias_list)))
+          return stock_list, etf_list, alias_list 
       def by_family(self) :
           ret = {}
           fund_list, csv = self.funds()
@@ -251,63 +302,13 @@ class NASDAQ() :
                  ret[name] = []
               ret[name].append(fund)
           for i, family in enumerate(ret) :
-              logging.debug((family,ret[family][0]))
-          logging.info(('Funds',len(fund_list)))
+              log.debug((family,ret[family][0]))
+          log.info(('Funds',len(fund_list)))
           return fund_list
 
       @classmethod
       def init(cls) :
           ftp = FTP.init(server=cls.URL)
-          file_list = map(lambda x : '/symboldirectory/{}'.format(x), cls.file_list)
+          file_list = ['/symboldirectory/{}'.format(file) for file in cls.file_list ]
           ret = cls(ftp,*file_list)
           return ret
-      @classmethod
-      def to_list(cls,ret) :
-          data = str(ret)
-          reader = _csv.DictReader(data.split('\n'), delimiter='|')
-          ret = []
-          for i, row in enumerate(reader):
-              ret.append(row)
-          return ret
-      @classmethod
-      def to_dict(cls, target, *entry_list) :
-          logging.debug(entry_list[0])
-          ret = {}
-          for entry in entry_list :
-              key = entry.pop(target,target)
-              if not isinstance(key,str) :
-                 logging.warning(key)
-                 logging.warning(type(key))
-                 continue
-              ret[key] = dict(zip(entry,entry.values()))
-              if len(ret) == 1 :
-                 logging.debug(ret)
-          return ret
-      @classmethod
-      def to_pandas(cls, **kwargs) :
-          _columns = list(kwargs[list(kwargs.keys())[0]].keys())
-          logging.debug(_columns)
-          ret = PD.DataFrame.from_dict(kwargs, orient='index',columns=_columns)
-          return ret
-
-if __name__ == '__main__' :
-   import logging
-   import sys
-   from libUtils import ENVIRONMENT
-
-   env = ENVIRONMENT.instance()
-   log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
-
-   obj = NASDAQ.init()
-   #listed, csv = obj.listed()
-   #funds, csv = obj.funds()
-   #bonds, csv = obj.bonds()
-   #traded, csv = obj.traded()
-   #other, csv = obj.other()
-   #participants, csv = obj.participants()
-   #print obj()
-
-   stock, etf, alias = obj.stock_list()
-   print (stock[:10])
-   #obj.fund_list()

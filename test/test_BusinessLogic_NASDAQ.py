@@ -49,51 +49,51 @@ class TEST_NASDAQ(unittest.TestCase):
               logging.info((i, name))
         logging.info(ret)
 
-    #@unittest.skip("demonstrating skipping")
     def test_04_(self) :
         test = TEST.init()
-        a,raw = test.listed()
+        a,raw = test.extract_listed()
         logging.info(a.filter(items=test_columns_list))
         logging.info(a.filter(items=test_columns_list).describe())
         logging.info(list(a.columns))
-    #@unittest.skip("demonstrating skipping")
+
     def test_05_(self) :
         test = TEST.init()
-        a,raw = test.traded()
+        a,raw = test.extract_traded_list()
         logging.info(a.filter(items=test_columns_traded))
         logging.info(a.filter(items=test_columns_traded).describe())
         logging.info(list(a.columns))
-    #@unittest.skip("Typeerror, keywords must be strings")
+
     def test_06_(self) :
         test = TEST.init()
-        a,raw = test.other()
+        a,raw = test.extract_other_list()
         logging.info(a.filter(items=test_columns_other))
         logging.info(a.filter(items=test_columns_other).describe())
         logging.info(list(a.columns))
-    #@unittest.skip("demonstrating skipping")
+
     def test_07_(self) :
         test = TEST.init()
-        a,raw = test.funds()
+        a,raw = test.extract_fund_list()
         logging.info(a.filter(items=test_columns_funds))
         logging.info(a.filter(items=test_columns_funds).describe())
         logging.info(list(a.columns))
-    #@unittest.skip("demonstrating skipping")
+
     def test_08_(self) :
         test = TEST.init()
-        a,raw = test.bonds()
+        a,raw = test.extract_bond_list()
         logging.info(a.filter(items=test_columns_bonds))
         logging.info(a.filter(items=test_columns_bonds).describe())
         logging.info(list(a.columns))
-    #@unittest.skip("demonstrating skipping")
+
     def test_09_(self) :
         test = TEST.init()
-        a,raw = test.participants()
+        a,raw = test.extract_participant_list()
         logging.info(a.filter(items=test_columns_participants))
         logging.info(a.filter(items=test_columns_participants).describe())
         logging.info(list(a.columns))
+
     def test_10_(self) :
         test = TEST.init()
-        stock, etf, alias = test.stock_list()
+        stock, etf, alias = test.extract_stock_list()
         logging.info(list(stock.columns))
         logging.info(list(etf.columns))
         logging.info(list(alias.columns))
@@ -101,12 +101,11 @@ class TEST_NASDAQ(unittest.TestCase):
 
 if __name__ == '__main__' :
 
-   import sys
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   logging.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=logging.INFO)
+   logging.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=logging.DEBUG)
    #logging.basicConfig(stream=sys.stdout, format=LOG_FORMAT_TEST, level=logging.DEBUG)
 
    unittest.main()

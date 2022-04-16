@@ -112,14 +112,19 @@ class YAHOO() :
       @classmethod
       def findSector(cls,ticker,recognized) :
           soup = cls._extract(ticker)
+          if not soup :
+              return None
           data = [ span.text for span in soup.body.findAll('span') ]
           profile = cls.parse(data,ticker)
           sector = { key:value for (key,value) in profile.items() if 'sector' in key.lower() }
           if not sector or len(sector) == 0:
-             log.warning('Lost the sector info for {}'.format(ticker))
+             log.warning('Sector info unavailable for {}'.format(ticker))
              return None
           log.debug(sector)
           sector = list(sector.values())[0]
+          if not sector or len(sector) == 0:
+             log.warning('Sector info unavailable for {}'.format(ticker))
+             return None
           if sector not in recognized :
              sector = TRANSFORM_SECTOR.normalize(sector)
           log.info("Stock {} belongs in sector {}".format(ticker,sector))

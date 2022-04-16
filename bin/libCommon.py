@@ -9,16 +9,12 @@ from sys import version_info
 from traceback import print_exc
 
 try :
-   if version_info.major ==3 :
+   if version_info > (3, 0) :
        from configparser import RawConfigParser as CF
    else:
       from ConfigParser import RawConfigParser as CF
 except :
     print_exc()
-if version_info < (3, 0):
-   import ConfigParser
-else:
-    import configparser as ConfigParser
       
 LOG_FORMAT_TEST = '%(levelname)s [%(module)s.%(funcName)s:%(lineno)d] %(message)s'
 LOG_FORMAT_APP = '[%(asctime)] %(levelname)s [%(module)s.%(funcName)s:%(lineno)d] %(message)s'
@@ -65,13 +61,18 @@ def is_json_enabled(obj) :
 def transform_obj(obj) :
     if obj is None :
         raise ValueError('Object is None')
-    if isinstance(obj,(float, int, str, dict, tuple)) : 
+    if isinstance(obj,(float, int, str, tuple)) : 
         return obj
+    log.info(type(obj))
     if isinstance(obj,list) :
         return [ transform_obj(arg) for arg in obj if is_str(arg) ]
+    if isinstance(obj,dict) :
+        return { key : transform_obj(value) for (key,value) in obj.items() }
+    # config parser object
     if hasattr(obj,'sections') and hasattr(obj,'items') :
        return { section : { key : value for (key,value) in obj.items(section) } for section in obj.sections() }
-    prop_list = [ key for key in dir(obj) if not key.startswith("__") and _build_arg(getattr(obj,key)) ]
+    # what is this thing?
+    prop_list = [ key for key in dir(obj) if not key.startswith("__") ]
     return { key : transform_obj(getattr(obj,key))  for key in prop_list }
 def build_args(*largs) :
     return "".join( [ str(arg).strip(' ') for arg in largs if is_str(arg) ] )
@@ -83,7 +84,7 @@ def is_str(arg) :
     if arg is None : return False
     if callable(arg) : return False
     if hasattr(arg,'__str__') : return True
-    return True
+    return False
 def find_subset(obj,*largs) :
     if obj is None :
        raise ValueError("obj is NoneType")
@@ -96,9 +97,10 @@ def find_subset(obj,*largs) :
         return ret
     return { key : getattr(obj,key) for key in largs if key in hasattr(obj.key) }
 def load_config(fileName) :
+    log.info("Loading config file {}".format(fileName))
     config = CF()
     config.read(fileName)
-    log.debug(config)
+    log.debug("Loaded config file {}".format(fileName))
     return transform_obj(config)
 def load_json(fileName) :
     with open(glob(fileName)[0]) as fp :
@@ -107,12 +109,17 @@ def iterate_config(config) :
     log.debug(config)
     ret = transform_obj(config)
     log.info(ret)
-    for i, section in enumerate(sorted(ret)) :
-        log.info((section,type(ret[section])))
-        for j, key in enumerate(sorted(ret[section])) :
-            log.debug(type(key))
-            log.debug(key)
-            yield i,j, section, key, ret[section][key]
+    for i, section, section_v in get_key_value_config(ret) :
+        log.debug((section,section_v))
+        for j, key, key_v in get_key_value_config(section_v) :
+            yield i,j, section, key, key_v
+def get_key_value_config(obj):
+    log.debug(type(obj))
+    if not isinstance(obj,dict) :
+        raise ValueError("unexpected type {}".format(type(obj)))
+    for i, key in enumerate(sorted(obj)) :
+        log.debug((key,type(obj[key])))
+        yield i, key, obj[key]
 def dict_append_list(ret, key, *value_list):
     if not isinstance(ret,dict) :
        return ret
@@ -168,22 +175,24 @@ from ftplib import FTP as _ftp
 class INI_BASE(object) :
       @classmethod
       def init(cls) :
-          ret = ConfigParser.ConfigParser()
+          ret = CF()
           ret.optionxform=str
           return ret
 
 class INI_READ(object) :
       @classmethod
       def read(cls, *file_list) :
-          file_list = [ load_config(arg) for arg in file_list]
-          for i, ini_file in enumerate(file_list) :
-              log.info('Reading results : {}'.format(ini_file))
-              for i,j, section, key, value in iterate_config(file_list[i]) :
-                  key = load_ticker_name(key)
-                  value = pre_load_ticker_name(value)
-                  value = load_ticker_name(value)
+          config_list = [ load_config(arg) for arg in file_list]
+          for x, config in enumerate(config_list) :
+              for i,j, section, key, value in iterate_config(config) :
+                  key, value = cls.transform(key, value)
                   yield section, key, value
-              log.info('Read results : {}'.format(ini_file))
+      @classmethod
+      def transform(cls, key,value) :
+            key = load_ticker_name(key)
+            value = pre_load_ticker_name(value)
+            value = load_ticker_name(value)
+            return key, value
                   
 class INI_WRITE(object) :
       @classmethod
@@ -194,16 +203,20 @@ class INI_WRITE(object) :
           config = INI_BASE.init()
           #cls.write_ini(config,**data)
           for i,j, section, key, value in iterate_config(data) :
-              value = pre_dump_ticker_name(value)
-              value = dump_ticker_name(value)
-              key = dump_ticker_name(key)
               if not config.has_section(section) :
                   config.add_section(section)
+              key, value = cls.transform(key, value)
               config.set(section,key,value)
           fp = open(filename, 'w')
           config.write(fp)
           fp.close()
           log.info('Saved results : {}'.format(filename))
+      @classmethod
+      def transform(cls, key,value) :
+              value = pre_dump_ticker_name(value)
+              value = dump_ticker_name(value)
+              key = dump_ticker_name(key)
+              return key, value
 class FTP:
       get = 'RETR {pwd}'
       def __init__(self, connection):
@@ -284,9 +297,3 @@ class CSV :
              return key, row
           return None, None
 
-if __name__ == "__main__" :
-
-   import sys
-   import logging
-
-   logging.basicConfig(stream=sys.stdout, format=LOG_FORMAT_TEST, level=logging.DEBUG)

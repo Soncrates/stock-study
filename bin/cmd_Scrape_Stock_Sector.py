@@ -12,33 +12,32 @@ from libDecorators import exit_on_exception, singleton
 '''
 
 @singleton
-class VARIABLES() :
+class GGG() :
     var_names = ['env','draft','final','omit_list','save_file','sector_enum','headers', 'stock_names', 'alias']
     def __init__(self) :
-        self.__dict__.update(**find_subset(globals(),*VARIABLES.var_names))
+        self.__dict__.update(**find_subset(globals(),*GGG.var_names))
 
-class TRANSFORM() :
-      @classmethod
-      def merge(cls,omit_list, *file_list) :
-          ret = {}
-          for section, key, stock in INI_READ.read(*file_list) :
-              if isinstance(stock,str) :
-                  stock = [stock]
-              dict_append_list(ret, key,*stock)
-          ret = { key : value for (key,value) in ret.items() if key not in omit_list }
-          return ret
+def merge(omit_list, *file_list) :
+    ret = {}
+    for section, key, stock in INI_READ.read(*file_list) :
+        if isinstance(stock,str) :
+            stock = [stock]
+        dict_append_list(ret, key,*stock)
+    ret = { key : value for (key,value) in ret.items() if key not in omit_list }
+    return ret
 
 @exit_on_exception
 def main() :
-    draft = EXTRACT_SECTOR(VARIABLES().stock_names,VARIABLES().alias,VARIABLES().sector_enum,VARIABLES().headers)
+    draft = EXTRACT_SECTOR(GGG().stock_names,GGG().alias,GGG().sector_enum,GGG().headers)
     #alias = draft.pop('alias',{})
     data = { key : sorted(value) for (key,value) in draft.items() }
-    data.update(VARIABLES().alias)
-    INI_WRITE.write(format(VARIABLES().draft), **data)
+    log.info(GGG().alias)
+    #data.update(VAR_G().alias)
+    INI_WRITE.write(GGG().draft, **data)
 
-    final = TRANSFORM.merge(VARIABLES().omit_list,*[VARIABLES().draft])
+    final = merge(GGG().omit_list,*[GGG().draft])
 
-    INI_WRITE.write(VARIABLES().final,**{'MERGED' : final})
+    INI_WRITE.write(GGG().final,**{'MERGED' : final})
 
 if __name__ == '__main__' :
 
@@ -46,7 +45,7 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
+   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.DEBUG)
 
    draft = '{}/local/stock_by_sector_draft.ini'.format(env.pwd_parent)
    final = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
