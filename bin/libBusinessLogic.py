@@ -199,20 +199,38 @@ class TRANSFORM_TICKER() :
         ret = ret.to_dict()
         log.debug(type(ret))
         return ret
-    
+        
+def filter_alias(data) :
+    log.debug(data)
+    ret = data.filter(regex="Symbol", axis=1)
+    log.debug(ret)
+    for column in ret.columns.values.tolist() :
+        for key in ret.index.values.tolist() :
+            ret = ret[ret[column]!=key]
+    log.debug(ret)
+    return ret
+def transform_alias(data) :
+    ret = {}
+    key_list = data.index.values.tolist()
+    value_list = data.values.tolist()
+    for i, key in enumerate(key_list) :
+        ret[key] = list(set(value_list[i]))
+    return ret
 @exit_on_exception
 def NASDAQ_EXTRACT() :
     nasdaq = NASDAQ.init()
-    stock_list, etf_list, alias_list = nasdaq.extract_stock_list()
+    stock_list, etf_list, other_list = nasdaq.extract_stock_list()
     fund_list, raw = nasdaq.extract_fund_list()
     stock_list = stock_list.index.values.tolist()
     etf_list = etf_list.index.values.tolist()
     fund_list = fund_list.index.values.tolist()
 
-    log.info("aliases ({}) {}".format(len(alias_list),alias_list[:10]))
-
     # remove alias keys that are not in stock_list
-    alias_list.loc[ alias_list.index.isin(stock_list), : ]
+    other_list.loc[ other_list.index.isin(stock_list), : ]
+    log.info("other_list ({}) {}".format(len(other_list),other_list[:10]))
+    alias_list = filter_alias(other_list)
+    log.info("aliases ({}) {}".format(len(alias_list),alias_list[:10]))
+    alias_list = transform_alias(alias_list)
     
     log.info("Stock ({}) {}".format(len(stock_list),stock_list[:10]))
     log.info("ETF ({}) {}".format(len(etf_list),etf_list[:10]))

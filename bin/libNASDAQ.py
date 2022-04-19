@@ -142,14 +142,7 @@ def filter_test(ret) :
     ret = ret[ret['Test Issue'] == 'N']
     log.debug(test)
     return ret
-def filter_alias(data) :
-    ret = data.filter(regex="Symbol", axis=1)
-    log.debug(ret)
-    for column in ret.columns.values.tolist() :
-        for key in ret.index.values.tolist() :
-            ret = ret[ret[column]!=key]
-    log.debug(ret)
-    return ret
+
 def is_unexpected(key) :
     if not key :
        return True
@@ -276,7 +269,6 @@ class NASDAQ() :
           listed, csv = self.extract_listed()
           #traded, csv = self.traded()
           other, csv = self.extract_other_list()
-          alias_list = filter_alias(other)
           total = transform_stocks(listed, other)
 
           etf_list  = total[total['ETF']=='Y']
@@ -291,8 +283,7 @@ class NASDAQ() :
 
           log.info(('Stocks',len(stock_list)))
           log.info(('ETF',len(etf_list)))
-          log.info(('alias',len(alias_list)))
-          return stock_list, etf_list, alias_list 
+          return stock_list, etf_list, other
       def by_family(self) :
           ret = {}
           fund_list, csv = self.funds()

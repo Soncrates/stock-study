@@ -25,6 +25,7 @@ class TEST_NASDAQ(unittest.TestCase):
 
     def test_Total(self) :
         fund_list,stock_list, etf_list, alias = FINAL()
+        logging.info(alias)
         
     #@unittest.skip("demonstrating skipping")
     def test_01_(self) :

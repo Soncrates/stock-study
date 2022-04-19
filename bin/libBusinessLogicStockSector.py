@@ -138,8 +138,9 @@ class YAHOO() :
               dict_append_list(ret, sector,ticker)
           log.info(ret)
           found_list = []
-          for sub_list in list(ret.values()) :
-              found_list.extend(sub_list)
+          for v in list(ret.values()) :
+              found_list.extend(v)
+          log.info('Found {}'.format(len(found_list)))
           return ret, found_list
 
 class FINANCEMODELLING_STOCK_LIST() :
@@ -254,15 +255,21 @@ class STOCKMONITOR() :
           obj = STOCKMONITOR.init(headers)
           ret = {sector : obj.business_logic(sector,url,obj.headers) for (sector,url) in obj.url_list.items() }
           found_list = []
-          for v in ret.values() :
+          for v in list(ret.values()) :
               found_list.extend(v)
-          log.info('Found {}'.format(len(found_list)))
-          return ret, found_list
+          found_set = sorted(list(set(found_list)))
+          if len(found_list) != len(found_set) :
+              log.warning("Some stocks in multiple sectors")
+          log.info('Found {}'.format(len(found_set)))
+          return ret, found_set
               
 def handle_alias(stock_list,alias_list) :
-    ret = set(set(alias_list).intersection(set(stock_list)))
-    left_overs = set(stock_list) - ret
-    ret = sorted(list(ret))
+    ret = [ stock for stock in alias_list if stock not in stock_list]
+    if not ret or len(ret) == 0 :
+        log.warning("No aliases found in remaining stock list")
+        return [], stock_list
+    left_overs = set(stock_list) - set(ret)
+    ret = sorted(ret)
     left_overs = sorted(list(left_overs))
     log.info(ret)
     log.debug(left_overs)
@@ -316,26 +323,39 @@ def dep_EXTRACT_SECTOR(stock_names, alias,recognized,headers):
 def EXTRACT_SECTOR(stock_list, alias_list,sector_set,headers):
 
     sm, found_list = STOCKMONITOR.extract(headers)
-    stock_list = set(stock_list) - set(found_list)
-    stock_list = sorted(list(stock_list))
+ 
+    outdated_list  = [ stock for stock in found_list if stock not in stock_list ]
+    if len(outdated_list) > 0 :
+       log.warning(("Stocks no longer in NASDAQ",len(outdated_list),outdated_list))
 
-    y, found_list = YAHOO.extract(stock_list,sector_set)
-    stock_list = set(stock_list) - set(found_list)
-    stock_list = sorted(list(stock_list))
+    remaining_stock_list = [stock for stock in stock_list if stock not in found_list]        
+    y, found_list = YAHOO.extract(remaining_stock_list,sector_set)
+    remaining_stock_list = [stock for stock in remaining_stock_list if stock not in found_list]
 
     '''
     Try a set of alternative names
     '''
-    retry_list, unknown_list = handle_alias(stock_list,alias_list) 
+    retry_list = []
+    _rety_list = [ stock for stock in alias_list if stock not in remaining_stock_list]
+    if len(_rety_list) == 0 :
+        log.warning("No aliases found in remaining stock list")
+    else :
+        for stock in _rety_list :
+            retry_list.extend(alias_list[stock])
 
     y2, found_list = YAHOO.extract(retry_list,sector_set)
-    retry_list = set(retry_list) - set(found_list)
+    retry_list = [ stock for stock in retry_list if stock not in found_list]
     if len(retry_list) > 0 :
-       retry_list = sorted(list(retry_list))
        log.warning((len(retry_list),retry_list[:10]))
 
-    ret = { "STOCKMONITOR" : sm, "YAHOO" : y
-          , "YAHOO2" : y2 }
-    ret["NASDAQTRADER"] = {'unknown' : unknown_list , 'alias' : retry_list }
-    ret['alias'] = alias_list
+    unknown_list = [ stock for stock in remaining_stock_list if stock not in _rety_list]
+    nasdaq = {'unknown' : unknown_list }
+    if len(retry_list) > 0 :
+        nasdaq['alias'] = retry_list 
+        
+    ret = { "STOCKMONITOR" : sm , 'alias' : alias_list, "NASDAQTRADER" : nasdaq}
+    if len(y) > 0 :
+       ret["YAHOO"] = y
+    if len(y2) > 0 :
+       ret["YAHOO2"] = y2
     return ret 

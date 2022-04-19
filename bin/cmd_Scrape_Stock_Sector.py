@@ -30,10 +30,10 @@ def merge(omit_list, *file_list) :
 def main() :
     draft = EXTRACT_SECTOR(GGG().stock_names,GGG().alias,GGG().sector_enum,GGG().headers)
     #alias = draft.pop('alias',{})
-    data = { key : sorted(value) for (key,value) in draft.items() }
+    #data = { key : sorted(value) for (key,value) in draft.items() }
     log.info(GGG().alias)
     #data.update(VAR_G().alias)
-    INI_WRITE.write(GGG().draft, **data)
+    INI_WRITE.write(GGG().draft, **draft)
 
     final = merge(GGG().omit_list,*[GGG().draft])
 
@@ -45,7 +45,7 @@ if __name__ == '__main__' :
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.DEBUG)
+   log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
 
    draft = '{}/local/stock_by_sector_draft.ini'.format(env.pwd_parent)
    final = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
