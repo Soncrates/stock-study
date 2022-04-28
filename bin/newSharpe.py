@@ -60,8 +60,8 @@ class PORTFOLIO :
           flag = len(stocks) == 0 and isinstance(data, pd.Series)
           if flag :
              return data, stocks, portfolios, risk_free_rate, period
-          logging.info(stocks)
-          logging.info(data)
+          logging.debug(stocks)
+          logging.debug(data)
           #ticker_list = data.index.values
           ticker_list = data.columns.values
           ticker_list = list(ticker_list)

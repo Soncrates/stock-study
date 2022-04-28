@@ -1,19 +1,88 @@
-# -*- coding: utf-8 -*-
+"""
+Created on Fri Apr  1 13:59:31 2022
+ -*- coding: utf-8 -*-
+
+@author: emers
+"""
 from copy import deepcopy
 import datetime
+from json import dumps, load
 import logging as log
 import os
 import time
 import pandas as PD
 import pandas_datareader as WEB
 
+from libCommon import iterate_config, load_config, CF
 from libUtils import log_on_exception, exit_on_exception
 from libNASDAQ import NASDAQ
-"""
-Created on Fri Apr  1 13:59:31 2022
 
-@author: emers
-"""
+def dump_ticker_name(ret) :
+    if not isinstance(ret,str) :
+       return ret
+    return ret.replace('%', '_pct_').replace('=', '_eq_')
+def load_ticker_name(ret) :
+    if not isinstance(ret,str) :
+       return ret
+    return ret.replace('_pct_','%').replace('_eq_','=')
+def pre_load_ticker_name(ret) :
+    ret = ret.strip()
+    if ret.startswith('{') and ret.endswith('}') :
+       return load(ret.replace("'",'"').replace("`","'"))
+    return [ arg.strip() for arg in ret.split(',') ]
+def pre_dump_ticker_name(ret) :
+    if isinstance(ret,list) :
+       return ",".join(ret)
+    if isinstance(ret,dict) :
+       return dumps(ret)
+    if isinstance(ret,str) :
+       return ret.replace("'","`").replace('"',"'")
+    return str(ret)
+
+class INI_BASE(object) :
+      @classmethod
+      def init(cls) :
+          ret = CF()
+          ret.optionxform=str
+          return ret
+
+class INI_READ(object) :
+      @classmethod
+      def read(cls, *file_list) :
+          config_list = [ load_config(arg) for arg in file_list]
+          for x, config in enumerate(config_list) :
+              for i,j, section, key, value in iterate_config(config) :
+                  key, value = cls.transform(key, value)
+                  yield section, key, value
+      @classmethod
+      def transform(cls, key,value) :
+            key = load_ticker_name(key)
+            value = pre_load_ticker_name(value)
+            value = load_ticker_name(value)
+            return key, value
+                  
+class INI_WRITE(object) :
+      @classmethod
+      def write(cls, filename,**data) :
+          filename = filename.replace(' ','SPACE')
+          log.info('Writing results : {}'.format(filename))
+          log.debug(data)
+          config = INI_BASE.init()
+          for i,j, section, key, value in iterate_config(data) :
+              if not config.has_section(section) :
+                  config.add_section(section)
+              key, value = cls.transform(key, value)
+              config.set(section,key,value)
+          fp = open(filename, 'w')
+          config.write(fp)
+          fp.close()
+          log.info('Saved results : {}'.format(filename))
+      @classmethod
+      def transform(cls, key,value) :
+              value = pre_dump_ticker_name(value)
+              value = dump_ticker_name(value)
+              key = dump_ticker_name(key)
+              return key, value
 
 class YAHOO_SCRAPER:
       '''

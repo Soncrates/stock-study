@@ -9,7 +9,7 @@ from reportlab.platypus import PageBreak
 from reportlab.platypus import Paragraph
 from reportlab.platypus import Table
 
-from libCommon import INI_READ
+from libBusinessLogic import INI_READ
 from libUtils import exit_on_exception
 from libDebug import trace
 from libReport import StockTemplate, ReturnsTemplate, SectorTemplate

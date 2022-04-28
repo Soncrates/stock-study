@@ -3,7 +3,8 @@
 import logging as log
 
 from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE as BPF
-from libCommon import INI_WRITE,find_subset,LOG_FORMAT_TEST
+from libBusinessLogic import INI_WRITE
+from libCommon import find_subset,LOG_FORMAT_TEST
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
 from libFinance import TRANSFORM_BACKGROUND
 from libDecorators import singleton, exit_on_exception
@@ -11,7 +12,7 @@ from libDebug import trace
 
 @singleton
 class GGG() :
-    var_names = ['env','save_file',"data_store",'scraper']
+    var_names = ['env','output_file',"data_store",'scraper']
     def __init__(self) :
         self.__dict__.update(**find_subset(globals(),*GGG.var_names))
 
@@ -64,10 +65,10 @@ def main() :
     fund_list, csv = NASDAQ.init().extract_fund_list()
     fund_list = fund_list.T.to_dict()
     ret, transpose = transform(GGG().data_store,fund_list,GGG().scraper)
-
-    INI_WRITE.write(GGG().save_file,**transpose)
+    INI_WRITE.write(GGG().output_file,**transpose)
 
 if __name__ == '__main__' :
+   import argparse
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
@@ -75,10 +76,13 @@ if __name__ == '__main__' :
    log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
 
    scraper = YAHOO_SCRAPER.pandas()
-   save_file = '{}/local/fund_background.ini'.format(env.pwd_parent)
+   output_file = '{}/outputs/fund_background.ini'.format(env.pwd_parent)
    data_store = '{}/local/historical_prices_fund'.format(env.pwd_parent)
-   if len(env.argv) > 1 :
-      output_file_by_type =env.argv[1]
 
+   parser = argparse.ArgumentParser(description='Scrape Funds')
+   parser.add_argument('--input', action='store', dest='data_store', type=str, default=data_store, help='portfolios to read in')
+   parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
+   cli = vars(parser.parse_args())
+   
    main()
 

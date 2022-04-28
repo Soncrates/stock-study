@@ -3,8 +3,9 @@ from glob import glob
 from json import dumps, load, loads
 import logging as log
 from os import path, environ, remove, stat, mkdir as MKDIR
-import logging
+import csv
 import pandas as PD
+from ftplib import FTP as _ftp
 from sys import version_info
 from traceback import print_exc
 
@@ -19,7 +20,7 @@ except :
 LOG_FORMAT_TEST = '%(levelname)s [%(module)s.%(funcName)s:%(lineno)d] %(message)s'
 LOG_FORMAT_APP = '[%(asctime)] %(levelname)s [%(module)s.%(funcName)s:%(lineno)d] %(message)s'
 LOG_FORMAT_DATE = "%Y%m%dT%"
-LOG = logging.getLogger(__name__) 
+LOG = log.getLogger(__name__) 
 
 def find_files(path_name) :
     return glob('{}*'.format(str(path_name).strip('*')))
@@ -63,7 +64,6 @@ def transform_obj(obj) :
         raise ValueError('Object is None')
     if isinstance(obj,(float, int, str, tuple)) : 
         return obj
-    log.info(type(obj))
     if isinstance(obj,list) :
         return [ transform_obj(arg) for arg in obj if is_str(arg) ]
     if isinstance(obj,dict) :
@@ -72,6 +72,7 @@ def transform_obj(obj) :
     if hasattr(obj,'sections') and hasattr(obj,'items') :
        return { section : { key : value for (key,value) in obj.items(section) } for section in obj.sections() }
     # what is this thing?
+    log.info(type(obj))
     prop_list = [ key for key in dir(obj) if not key.startswith("__") ]
     return { key : transform_obj(getattr(obj,key))  for key in prop_list }
 def build_args(*largs) :
@@ -131,33 +132,28 @@ def dict_append_list(ret, key, *value_list):
        ret[key] = []
     ret[key].extend(value_list)
     return ret
-def dump_ticker_name(ret) :
-    if not isinstance(ret,str) :
-       return ret
-    return ret.replace('%', '_pct_').replace('=', '_eq_')
-def load_ticker_name(ret) :
-    if not isinstance(ret,str) :
-       return ret
-    return ret.replace('_pct_','%').replace('_eq_','=')
-def pre_load_ticker_name(ret) :
-    ret = ret.strip()
-    if ret.startswith('{') and ret.endswith('}') :
-       return load(ret.replace("'",'"').replace("`","'"))
-    return [ arg.strip() for arg in ret.split(',') ]
-def pre_dump_ticker_name(ret) :
-    if isinstance(ret,list) :
-       return ",".join(ret)
-    if isinstance(ret,dict) :
-       return dumps(ret)
-    if isinstance(ret,str) :
-       return ret.replace("'","`").replace('"',"'")
-    return str(ret)
 
-            
-import csv
-import logging
-from ftplib import FTP as _ftp
-
+class INI_BASE(object) :
+      @classmethod
+      def init(cls) :
+          ret = CF()
+          ret.optionxform=str
+          return ret           
+class INI_WRITE(object) :
+      @classmethod
+      def write(cls, filename,**data) :
+          filename = filename.replace(' ','SPACE')
+          log.info('Writing results : {}'.format(filename))
+          log.debug(data)
+          config = INI_BASE.init()
+          for i,j, section, key, value in iterate_config(data) :
+              if not config.has_section(section) :
+                  config.add_section(section)
+              config.set(section,key,value)
+          fp = open(filename, 'w')
+          config.write(fp)
+          fp.close()
+          log.info('Saved results : {}'.format(filename))
 #import warnings
 #warnings.warn("period must be positive", RuntimeWarning)
 
@@ -172,51 +168,6 @@ from ftplib import FTP as _ftp
 '''
 '''
 
-class INI_BASE(object) :
-      @classmethod
-      def init(cls) :
-          ret = CF()
-          ret.optionxform=str
-          return ret
-
-class INI_READ(object) :
-      @classmethod
-      def read(cls, *file_list) :
-          config_list = [ load_config(arg) for arg in file_list]
-          for x, config in enumerate(config_list) :
-              for i,j, section, key, value in iterate_config(config) :
-                  key, value = cls.transform(key, value)
-                  yield section, key, value
-      @classmethod
-      def transform(cls, key,value) :
-            key = load_ticker_name(key)
-            value = pre_load_ticker_name(value)
-            value = load_ticker_name(value)
-            return key, value
-                  
-class INI_WRITE(object) :
-      @classmethod
-      def write(cls, filename,**data) :
-          filename = filename.replace(' ','SPACE')
-          log.info('Writing results : {}'.format(filename))
-          logging.debug(data)
-          config = INI_BASE.init()
-          #cls.write_ini(config,**data)
-          for i,j, section, key, value in iterate_config(data) :
-              if not config.has_section(section) :
-                  config.add_section(section)
-              key, value = cls.transform(key, value)
-              config.set(section,key,value)
-          fp = open(filename, 'w')
-          config.write(fp)
-          fp.close()
-          log.info('Saved results : {}'.format(filename))
-      @classmethod
-      def transform(cls, key,value) :
-              value = pre_dump_ticker_name(value)
-              value = dump_ticker_name(value)
-              key = dump_ticker_name(key)
-              return key, value
 class FTP:
       get = 'RETR {pwd}'
       def __init__(self, connection):
@@ -262,7 +213,7 @@ class FTP:
 class CSV :
       @classmethod
       def to_dict(cls, path) :
-          logging.info("reading file {}".format(path))
+          log.info("reading file {}".format(path))
           with open(path, 'rt') as csvfile:
                row_list = csv.DictReader(csvfile)
                #ret = {row[0]:row[1] for row in row_list}
@@ -270,7 +221,7 @@ class CSV :
                    yield row
       @classmethod
       def rows(cls, path) :
-          logging.info("reading file {}".format(path))
+          log.info("reading file {}".format(path))
           with open(path, 'rt') as csvfile:
                row_list = csv.reader(csvfile)
                for row in row_list :

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import logging as log
+
 from libBusinessLogic import NASDAQ_EXTRACT
+from libBusinessLogic import INI_READ,INI_WRITE
 from libBusinessLogicStockSector import STOCKMONITOR,EXTRACT_SECTOR,TRANSFORM_SECTOR
-from libCommon import INI_READ, INI_WRITE, find_subset, LOG_FORMAT_TEST
-from libCommon import dict_append_list
+from libCommon import find_subset, LOG_FORMAT_TEST,dict_append_list
 from libDecorators import exit_on_exception, singleton
 '''
    Web Scraper
@@ -13,7 +14,7 @@ from libDecorators import exit_on_exception, singleton
 
 @singleton
 class GGG() :
-    var_names = ['env','draft','final','omit_list','save_file','sector_enum','headers', 'stock_names', 'alias']
+    var_names = ['env','draft','output_file','omit_list','sector_enum','headers', 'stock_names', 'alias']
     def __init__(self) :
         self.__dict__.update(**find_subset(globals(),*GGG.var_names))
 
@@ -29,28 +30,29 @@ def merge(omit_list, *file_list) :
 @exit_on_exception
 def main() :
     draft = EXTRACT_SECTOR(GGG().stock_names,GGG().alias,GGG().sector_enum,GGG().headers)
-    #alias = draft.pop('alias',{})
-    #data = { key : sorted(value) for (key,value) in draft.items() }
     log.info(GGG().alias)
-    #data.update(VAR_G().alias)
     INI_WRITE.write(GGG().draft, **draft)
 
     final = merge(GGG().omit_list,*[GGG().draft])
-
-    INI_WRITE.write(GGG().final,**{'MERGED' : final})
+    INI_WRITE.write(GGG().output_file,**{'MERGED' : final})
 
 if __name__ == '__main__' :
-
+   import argparse
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
 
-   draft = '{}/local/stock_by_sector_draft.ini'.format(env.pwd_parent)
-   final = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
-   save_file = '{}/local/stock_background.ini'.format(env.pwd_parent)
+   draft = '{}/outputs/stock_by_sector_draft.ini'.format(env.pwd_parent)
+   output_file = '{}/outputs/stock_by_sector.ini'.format(env.pwd_parent)
    omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
+   
+   parser = argparse.ArgumentParser(description='Scrape Sector data for Stock')
+   parser.add_argument('--draft', action='store', dest='draft', type=str, default=draft, help='temporary file')
+   parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
+   cli = vars(parser.parse_args())
+   
    sector_enum = TRANSFORM_SECTOR.sector_set
    headers = STOCKMONITOR.default_headers
    ticker_list = NASDAQ_EXTRACT()

@@ -2,16 +2,17 @@
 
 import logging as log
 import pandas as PD
-from libCommon import INI_WRITE, INI_READ, find_subset,LOG_FORMAT_TEST
+from libBusinessLogic import INI_READ,INI_WRITE
+from libCommon import find_subset,LOG_FORMAT_TEST
 from libNASDAQ import NASDAQ
 from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE as BPF
 from libFinance import TRANSFORM_BACKGROUND
-from libDecorators import singleton, exit_on_exception, log_on_exception
+from libDecorators import singleton, exit_on_exception
 from libDebug import trace, debug_object
 
 @singleton
 class GGG() :
-    var_names = ['env','save_file',"data_store", 'sector_file','scraper']
+    var_names = ['env','output_file',"data_store", 'sector','scraper']
     def __init__(self) :
         self.__dict__.update(**find_subset(globals(),*GGG.var_names))
         debug_object(self)
@@ -56,24 +57,28 @@ def action(data_store,ticker_list, background,scraper) :
 @exit_on_exception
 @trace
 def main() : 
-    data_store = GGG().data_store
     ticker_list, background = get_tickers()
-    background = enrich_background(GGG().sector_file, background)
-    ret, transpose = action(data_store, ticker_list, background,GGG().scraper)
-
-    INI_WRITE.write(GGG().save_file,**transpose)
+    background = enrich_background(GGG().sector, background)
+    ret, transpose = action(GGG().data_store, ticker_list, background,GGG().scraper)
+    INI_WRITE.write(GGG().output_file,**transpose)
 
 if __name__ == '__main__' :
+   import argparse
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
-   #logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
 
    scraper = YAHOO_SCRAPER.pandas()
-   save_file = '{}/local/stock_background.ini'.format(env.pwd_parent)
+   output_file = '{}/outputs/stock_background.ini'.format(env.pwd_parent)
    data_store = '{}/local/historical_prices'.format(env.pwd_parent)
-   sector_file = '{}/local/stock_by_sector.ini'.format(env.pwd_parent)
+   sector = '{}/outputs/stock_by_sector.ini'.format(env.pwd_parent)
+
+   parser = argparse.ArgumentParser(description='Process summary values for stocks')
+   parser.add_argument('--data_store', action='store', dest='data_store', type=str, default=data_store, help='location of stock data')
+   parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
+   parser.add_argument('--sector', action='store', dest='sector', type=str, default=sector, help='store report meta')
+   cli = vars(parser.parse_args())
 
    main()

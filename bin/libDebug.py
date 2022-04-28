@@ -115,6 +115,8 @@ class cpu(WRAPPER):
         return ret
 
 def debug_object(obj):
+    if logging.DEBUG == logging.root.level:
+        return
     msg = { key : value for (key,value) in vars(obj).items() if not key.startswith('__') }
     for i, key in enumerate(sorted(msg)) :
         value = msg[key]
