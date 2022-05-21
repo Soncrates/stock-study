@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-import logging
+import logging as log
 
 if sys.version_info < (3, 0):
    import pandas as pd
@@ -39,7 +39,7 @@ class HELPER :
           for index, row in results.iterrows():
               symbol_value = map(lambda x : row[x],symbol_list)
               ret = dict(zip(symbol_list,symbol_value))
-              logging.info(ret)
+              log.info(ret)
               yield symbol_list[1], symbol_list[0], ret
 
 class NASDAQ :
@@ -72,23 +72,22 @@ class NASDAQ :
 
 @exit_on_exception
 @trace
-def main(save_file) :
+def test(save_file) :
     nasdaq = NASDAQ.init(filename=save_file)
     for stock in nasdaq() :
-        logging.info(stock)
+        log.info(stock)
         if stock == 'AAPL' : break
 
 if __name__ == '__main__' :
-   import logging
    import sys
    from libUtils import ENVIRONMENT
 
    env = ENVIRONMENT.instance()
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.INFO)
+   log.basicConfig(stream=sys.stdout, format=log_msg, level=log.INFO)
    #logging.basicConfig(filename=log_filename, filemode='w', format=log_msg, level=logging.INFO)
 
    #nasdaq = env.list_filenames('local/'+NASDAQ.path)
    save_file = '{}/local/{}'.format(env.pwd_parent,NASDAQ.path)
-   main(save_file)
+   test(save_file)

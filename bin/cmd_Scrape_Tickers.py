@@ -2,9 +2,9 @@
 
 import logging as log
 from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE, NASDAQ_EXTRACT
-from libCommon import find_subset, LOG_FORMAT_TEST
+from libCommon import LOG_FORMAT_TEST
 from libUtils import mkdir
-from libDecorators import exit_on_exception, singleton
+from libDecorators import exit_on_exception
 from libDebug import trace
 
 
@@ -13,12 +13,6 @@ from libDebug import trace
 2) use pandas interface to scrape historical price data
 3) save to local directories
 """
-
-@singleton
-class GGG() :
-    var_names = ['env','data_store_stock', 'data_store_fund','scraper']
-    def __init__(self) :
-        self.__dict__.update(**find_subset(globals(),*GGG.var_names))
 
 @trace
 def refresh(**kwargs) :
@@ -32,21 +26,23 @@ def refresh(**kwargs) :
     if len(retry) > 0 :
        log.error((len(retry), sorted(retry)))
 
-
 @exit_on_exception
 @trace
-def main() : 
-    mkdir(GGG().data_store_stock)
-    mkdir(GGG().data_store_fund)
+def main(**args) : 
+    log.debug(args)
+    mkdir(args['data_store_stock'])
+    mkdir(args['data_store_fund'])
 
-    args = find_subset(vars(GGG()),*GGG.var_names)
-    args['ticker_list'] = GGG().stock_list
-    args['data_store'] = GGG().data_store_stock
+    ticker_list = NASDAQ_EXTRACT()
+    log.debug(ticker_list['alias_list'])
+
+    args['ticker_list'] = ticker_list['stock_list']
+    args['data_store'] = args['data_store_stock']
     refresh(**args)
-    args['ticker_list'] = GGG().etf_list
+    args['ticker_list'] = ticker_list['etf_list']
     #refresh(**args)
-    args['ticker_list'] = GGG().fund_list
-    args['data_store'] = GGG().data_store_fund
+    args['ticker_list'] = ticker_list['fund_list']
+    args['data_store'] =  args['data_store_fund']
     #refresh(**args)
 
 if __name__ == '__main__' :
@@ -57,21 +53,16 @@ if __name__ == '__main__' :
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
 
-   ticker_list = NASDAQ_EXTRACT()
-   fund_list   = ticker_list['fund_list']
-   stock_list  = ticker_list['stock_list']
-   etf_list    = ticker_list['etf_list']
-   alias       = ticker_list['alias_list']
-
-   scraper = YAHOO_SCRAPER().pandas()
    data_store_stock = '{}/local/historical_prices'.format(env.pwd_parent)
    data_store_fund = '{}/local/historical_prices_fund'.format(env.pwd_parent)
    
    parser = argparse.ArgumentParser(description='WEb Scrape stock data from YAHOO')
    parser.add_argument('--data_store_stock', action='store', dest='data_store_stock', type=str, default=data_store_stock, help='location of stock data')
    parser.add_argument('--data_store_fund', action='store', dest='data_store_fund', type=str, default=data_store_fund, help='store report meta')
-   cli = vars(parser.parse_args())
 
+   scraper = YAHOO_SCRAPER().pandas()
 
-   main()
+   var_names = ['env','data_store_stock', 'data_store_fund','scraper']
+   init = { key : value for (key,value) in globals().items() if key in var_names }
+   main(**init)
 

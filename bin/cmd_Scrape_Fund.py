@@ -4,17 +4,11 @@ import logging as log
 
 from libBusinessLogic import YAHOO_SCRAPER, BASE_PANDAS_FINANCE as BPF
 from libBusinessLogic import INI_WRITE
-from libCommon import find_subset,LOG_FORMAT_TEST
+from libCommon import LOG_FORMAT_TEST
 from libNASDAQ import NASDAQ, TRANSFORM_FUND as FUND
 from libFinance import TRANSFORM_BACKGROUND
-from libDecorators import singleton, exit_on_exception
+from libDecorators import exit_on_exception
 from libDebug import trace
-
-@singleton
-class GGG() :
-    var_names = ['env','output_file',"data_store",'scraper']
-    def __init__(self) :
-        self.__dict__.update(**find_subset(globals(),*GGG.var_names))
 
 def filter_by_type(fund) :
     target = 'Type'
@@ -61,11 +55,12 @@ def transform(data_store,fund_list,scraper) :
 
 @exit_on_exception
 @trace
-def main() : 
+def main(**args) : 
+    log.debug(args)
     fund_list, csv = NASDAQ.init().extract_fund_list()
     fund_list = fund_list.T.to_dict()
-    ret, transpose = transform(GGG().data_store,fund_list,GGG().scraper)
-    INI_WRITE.write(GGG().output_file,**transpose)
+    ret, transpose = transform(args['data_store'],fund_list,args['scraper'])
+    INI_WRITE.write(args['output_file'],**transpose)
 
 if __name__ == '__main__' :
    import argparse
@@ -75,14 +70,16 @@ if __name__ == '__main__' :
    log_filename = '{pwd_parent}/log/{name}.log'.format(**vars(env))
    log.basicConfig(filename=log_filename, filemode='w', format=LOG_FORMAT_TEST, level=log.INFO)
 
-   scraper = YAHOO_SCRAPER.pandas()
    output_file = '{}/outputs/fund_background.ini'.format(env.pwd_parent)
    data_store = '{}/local/historical_prices_fund'.format(env.pwd_parent)
 
    parser = argparse.ArgumentParser(description='Scrape Funds')
    parser.add_argument('--input', action='store', dest='data_store', type=str, default=data_store, help='portfolios to read in')
    parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
-   cli = vars(parser.parse_args())
+
+   scraper = YAHOO_SCRAPER.pandas()
    
-   main()
+   var_names = ['env','output_file',"data_store",'scraper']
+   init = { key : value for (key,value) in globals().items() if key in var_names }
+   main(**init)
 

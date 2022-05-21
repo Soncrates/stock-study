@@ -5,9 +5,9 @@ import pandas as pd
 from libBusinessLogic import INI_WRITE
 from libBusinessLogic import YAHOO_SCRAPER, TRANSFORM_TICKER, BASE_PANDAS_FINANCE
 from libCommon import LOG_FORMAT_TEST
-from libCommon import load_config, iterate_config, find_subset, find_files
+from libCommon import load_config, iterate_config, find_files
 from libUtils import mkdir
-from libDecorators import singleton, exit_on_exception
+from libDecorators import exit_on_exception
 from libFinance import TRANSFORM_BACKGROUND
 
 def _get_config(*config_list) :
@@ -33,30 +33,22 @@ def prep(config_file_list,benchmarks, omit_list) :
     log.info(sorted(list(ret.keys())))
     return ret
 
-@singleton
-class GGG() :
-    names = ['env','data_store','output_file','config_file_list','config_file','benchmarks','omit_list','scraper']
-    def __init__(self) :
-        self.__dict__.update(**find_subset(globals(),*GGG.names))
-
 @exit_on_exception
-def main() : 
-    mkdir(GGG().data_store)
+def main(**args) : 
+    mkdir(args.get('data_store'))
     
-    benchmark_list = prep( [ GGG().config_file ] , GGG().benchmarks,GGG().omit_list )
+    benchmark_list = prep( [ args['config_file'] ] , args['benchmarks'],args['omit_list'] )
     ticker_list = list(benchmark_list.values())
     
-    BASE_PANDAS_FINANCE.SAVE(GGG().data_store, *ticker_list, **GGG().scraper)
-    #ret { ticker : TRANSFORM_BACKGROUND.find(data) for (ticker, data) in BASE_PANDAS_FINANCE.LOAD(GGG().data_store, *ticker_list) }
+    BASE_PANDAS_FINANCE.SAVE(args['data_store'], *ticker_list, **args['scraper'])
     ret = {}
-    for ticker, data in BASE_PANDAS_FINANCE.LOAD(GGG().data_store, *ticker_list) :
+    for ticker, data in BASE_PANDAS_FINANCE.LOAD(args['data_store'], *ticker_list) :
         ret[ticker] = TRANSFORM_BACKGROUND.find(data)
     ret = pd.DataFrame(ret)
     log.debug(ret)
         
     ret = TRANSFORM_TICKER.enhance(ret,benchmark_list)
-
-    INI_WRITE.write(GGG().output_file,**ret)
+    INI_WRITE.write(args['output_file'],**ret)
 
 if __name__ == '__main__' :
    import argparse
@@ -77,13 +69,13 @@ if __name__ == '__main__' :
    benchmarks = ['Index']
    omit_list = ['ACT Symbol', 'CQS Symbol', 'alias', 'unknown']
 
-
    parser = argparse.ArgumentParser(description='Scrape Benchmarks')
    parser.add_argument('--input', action='store', dest='data_store', type=str, default=data_store, help='dirctory to write in')
    parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
    parser.add_argument('--config', action='store', dest='config_file', type=str, default=config_file, help='read in data')
-   cli = vars(parser.parse_args())
 
    scraper = YAHOO_SCRAPER.pandas()
 
-   main()
+   names = ['env','data_store','output_file','config_file_list','config_file','benchmarks','omit_list','scraper']
+   init = { key : value for (key,value) in globals().items() if key in names }
+   main(**init)
