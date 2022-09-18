@@ -43,7 +43,8 @@ class CURATE_BACKGROUND():
             ret[field] = ret[field].apply(lambda x : round(float(x),2))
         for field in floats_in_summary :
             ret[field] = ret[field].apply(lambda x : round(float(x),4))
-        ret = cls.curate_names(ret)
+        for index, row in ret.iterrows():
+            row['NAME'] = cls.curate_name(row['NAME'])
         log.info(ret)
         return ret
     @classmethod
@@ -55,6 +56,7 @@ class CURATE_BACKGROUND():
         f = cls.curate_funds(f)
         ret.update(f)
         ret.drop(['CATEGORY', 'TYPE','GROWTH'], axis=1,errors='ignore',inplace=True)
+        log.info(ret)
         log.info(ret.dtypes)
         return ret
     @classmethod
@@ -69,20 +71,30 @@ class CURATE_BACKGROUND():
         log.info(ret[ret['CATEGORY'].notnull()])
         return ret
     @classmethod
-    def curate_names(cls,ret) :
-        for index, row in ret.iterrows():
-            n = row['NAME']
-            n = n.replace("'", "")
-            n = n.replace(" - ", ", ")
-            n = n.replace(", ", " ")
-            n = n.replace("Common Stock", "Cmn Stk")
-            n = n.replace("Limited", "Ltd.")
-            n = n.replace("Corporation", "Corp.")
-            n = n.replace("Pharmaceuticals", "Pharm.")
-            n = n.replace("Technologies", "Tech.")
-            n = n.replace("Technology", "Tech.")
-            n = n.replace("International", "Int.")
-            row['NAME'] = n
+    def curate_name(cls,n) :
+        log.debug(n)
+        if "unknown" == n.lower() :
+            return n
+        ret = n.replace("'", "")
+        ret = ret.replace(" - ", ", ")
+        ret = ret.replace(", ", " ")
+        ret = ret.replace("Common Stock", "Cmn Stk")
+        ret = ret.replace("common stock", "Cmn Stk")
+        ret = ret.replace("Common Shares", "Cmn Shr")
+        ret = ret.replace("common shares", "Cmn Shr")
+        ret = ret.replace("Depositary Shares", "Dep. Shr")
+        ret = ret.replace("depositary shares", "Dep. Shr")
+        ret = ret.replace("Ordinary Shares", "Ord. Shr")
+        ret = ret.replace("ordinary shares", "Ord. Shr")
+        ret = ret.replace("Limited", "Ltd.")
+        ret = ret.replace("Corporation", "Corp.")
+        ret = ret.replace("Pharmaceuticals", "Pharm.")
+        ret = ret.replace("Technologies", "Tech.")
+        ret = ret.replace("Technology", "Tech.")
+        ret = ret.replace("International", "Int.")
+        log.debug(ret)
+        if ret == n :
+           log.warn(ret)
         return ret
 
 class MEAN():
@@ -106,16 +118,20 @@ class BACKGROUND():
         ret = {}
         for key, value in cls.by_field(d,cls.ENTITY) :
             ret[key] = value
-        stock = ret.pop('stock',None)
-        funds = ret.pop('fund',None)
+        stock_list = ret.pop('stock',None)
+        fund_list = ret.pop('fund',None)
+        if stock_list is not None and stock_list.empty == False:
+           log.info(stock_list.columns)
+        if fund_list is not None and fund_list.empty == False:
+           log.info(fund_list.columns)
         log.info(ret)
-        MEAN.stats('stock',stock)
-        for sector, group in cls.by_field(stock,cls.SECTOR):
+        MEAN.stats('stock',stock_list)
+        for sector, group in cls.by_field(stock_list,cls.SECTOR):
             pass
-        MEAN.stats('fund',funds)
-        for sector, group in cls.by_field(funds,cls.SECTOR):
+        MEAN.stats('fund',fund_list)
+        for sector, group in cls.by_field(fund_list,cls.SECTOR):
             pass
-        return stock, funds
+        return stock_list, fund_list
     @classmethod
     def by_sector(cls,d) :
         for sector, ret in cls.by_field(d,cls.SECTOR) :
@@ -129,7 +145,7 @@ class BACKGROUND():
         if t is None :
            t = cls.SECTOR
         distinct = d[t].unique()
-        log.info((t,distinct))
+        log.info((t,list(distinct)))
         for key in sorted(distinct) :
             value = d[d[t] == key]
             MEAN.stats(key,value)
@@ -176,6 +192,8 @@ class TRANSFORM():
         return stock_list, minimum_portfolio_size
     @classmethod
     def merge(cls, left, right) :
+        log.info(left)
+        log.info(right)
         left = left.T.reset_index(drop=True)
         ret = PD.concat([left,right.T],sort=True)
         log.info(ret)
@@ -183,21 +201,18 @@ class TRANSFORM():
 class PORTFOLIO():
     @classmethod
     def truncate_5(cls, ret) :
+        log.info(ret)
         if ret is None or ret.empty :
             log.warning("no data")
             return ret
         if len(ret) <= 5 :
            return ret
         ret = ret.T
-        #min_risk = ret.sort_values(['risk']).head(5)
-        #max_sharpe = ret.sort_values(['sharpe']).tail(5)
         min_risk = ret.sort_values(['risk']).head(2)
         max_sharpe = ret.sort_values(['sharpe']).tail(2)
-        ret = PD.DataFrame()
-        ret = ret.append(min_risk)
-        ret = ret.append(max_sharpe)
         log.debug(min_risk)
         log.debug(max_sharpe)
+        ret = PD.concat([min_risk,max_sharpe])
         ret = ret.T
         log.info(ret)
         return ret
@@ -219,10 +234,13 @@ class PORTFOLIO():
     @trace
     def portfolio(cls, prices, stocks, portfolio_iterations, ret = None) :
         if ret is None :
-           ret = PD.DataFrame()
+           ret = []
         max_sharpe, min_dev = MONTERCARLO.find(prices, stocks=stocks, portfolios=portfolio_iterations, period=FINANCE.YEAR)
-        ret = PD.concat([ret,max_sharpe])
-        ret = PD.concat([ret,min_dev])
+        log.info(max_sharpe)
+        log.info(min_dev)
+        ret.append(max_sharpe)
+        ret.append(min_dev)
+        log.info(PD.DataFrame(ret))
         return ret
     @classmethod
     def massage(cls, ret) :
@@ -237,7 +255,8 @@ class PORTFOLIO():
 
 class FILTER_STOCKS_BY_PERFORNACE() :
     '''
-    FILTER_STOCKS_BY_PERFORNACE based on background, filter list 
+    FILTER_STOCKS_BY_PERFORNACE based on background, filter list
+    constructor params originate from the command line.
     '''
     def __init__(self, cap_size, reduce_risk, reduce_return) :
         self.cap_size = cap_size
@@ -245,12 +264,12 @@ class FILTER_STOCKS_BY_PERFORNACE() :
         self.reduce_return = reduce_return
     def __repr__(self):
         return f"Background filter (max:{self.cap_size},risk reduction:{self.reduce_risk}, return improve : {self.reduce_return})"
-    def act(self, background, keys = None) :
-        if keys is None :
-           keys = []
+    def act(self, background) :
         while len(background) > self.cap_size :
               background = self.reduce(background)
-        keys.extend(background.index.values.tolist())
+        keys = background.index.values.tolist()
+        log.info(background)
+        log.info(keys)
         return background, keys
     def reduce(self, ret) :
         target = 'RISK'
@@ -306,7 +325,7 @@ class LOAD_HISTORICAL_DATA() :
         log.info(ret)
         return ret
 
-class STEP_03() :
+class MONTE_CARLO_REFINEMENT_ROUGH() :
     def __init__(self, portfolio_iterations,columns_drop) :
         self.portfolio_iterations = portfolio_iterations
         self.columns_drop = columns_drop
@@ -338,86 +357,114 @@ class STEP_03() :
         if ret is None :
             log.warning("Lost data!!")
             return ret
+        if isinstance(ret, list) :
+            ret = PD.DataFrame(ret)
+        log.info(ret)
         ret = ret.drop_duplicates()
+        log.info(ret)
         ret.reset_index(drop=True, inplace=True)
+        log.info(ret)
         ret.fillna(0, inplace=True)
+        log.info(ret)
         ret = ret.T
         log.info(ret)
         return ret
-class STEP_04() :
+class MONTE_CARLO_REFINEMENT_FINE() :
     def __init__(self, portfolio_iterations,threshold, columns_drop) :
         self.portfolio_iterations = portfolio_iterations
         self.threshold = threshold
         self.columns_drop = columns_drop
     def __repr__(self):
         return f"Sweet Spot (iterations:{self.portfolio_iterations},remove columns {self.columns_drop}, threshold : {self.threshold})"
+    def rebalance(self, ret, threshold):
+        if len(ret) <= threshold :
+            log.info(ret)
+            log.info("sufficently small")
+            return ret
+        log.info(repr(self))
+        log.info(ret)
+        while len(ret) > threshold :
+            ret = ret[ret > min(ret)]
+            ret = ret/ret.sum()
+            log.info(ret)
+        ret = round(ret,2)
+        log.info(ret)
+        return ret
     def find_average(self, ret):
         ret = ret.drop(labels=self.columns_drop,errors='ignore')
+        log.info(repr(self))
+        log.info(ret)
         ret = ret.T.mean()
-        ret = ret[ret > self.threshold]
-        ret = ret/ret.sum()
-        ret = round(ret,2)
-        log.debug(ret)
+        ret = self.rebalance(ret,5)
         stock_list = ret[ ret > 0 ]
+        log.info(stock_list)
         stock_list = stock_list.T.keys().tolist()
-        log.debug(stock_list)
+        log.info(stock_list)
+        log.info(ret)
         return ret, stock_list
 
-    def act(self, data, prices, total) :
-        if total is None :
-           total = []
-        avg, stock_list = self.find_average(data)
-        total.extend(stock_list)
+    def act(self, data, prices) :
+        avg, name_list = self.find_average(data)
         ret = None
-        ret = PORTFOLIO.portfolio(prices,stock_list,self.portfolio_iterations*5,ret)
+        ret = PORTFOLIO.portfolio(prices,name_list,self.portfolio_iterations*5,ret)
+        if isinstance(ret,list) :
+            ret = PD.DataFrame(ret)
         ret = ret.drop_duplicates().T
+        log.info(ret)
         ret['summary'] = avg
+        log.info(ret)
         ret.fillna(0, inplace=True)
         log.info(ret)
-        return ret, total
+        return ret, name_list
 
-def process_stock(data_store, suffix, data, step_01, step_02, step_03, step_04,reduce_99) :
-    _90 = None
-    _99 = None
-    for sector, group in BACKGROUND.by_sector(data) :
-        top_tier, _90 = step_01.act(group, _90)
+def process_stock(data_store, suffix, data, performance_based_as_1, load_prices_as_2, monte_carlo_as_3, monte_carlo_refinement_fine_as_4,reduce_99) :
+    _90 = []
+    _99 = []
+    for sector, stock_name_subset in BACKGROUND.by_sector(data) :
+        stock_summary, name_list = performance_based_as_1.act(stock_name_subset)
+        _90.extend(name_list)
 
-        summary = TRANSFORM.addMean(top_tier)
+        summary = TRANSFORM.addMean(stock_summary)
         output_file = "{}/sector_{}{}.ini".format(data_store, sector,suffix)
         output_file = output_file.replace(' ','_')
         LOAD.config(output_file,**summary.to_dict())
 
-        prices = step_02.act(top_tier)
-        left = step_03.act(top_tier, prices)
-        right, _99 = step_04.act(left, prices,_99)
+        prices = load_prices_as_2.act(stock_summary)
+        left = monte_carlo_as_3.act(stock_summary, prices)
+        right, name_list = monte_carlo_refinement_fine_as_4.act(left, prices)
+        _99.extend(name_list)
         left = PORTFOLIO.truncate_5(left)
         output_data = TRANSFORM.merge(left,right).T
         output_data = PORTFOLIO.massage(output_data)
         output_data = round(output_data,3)
+        log.info(output_data)
 
         output_file = "{}/portfolio_{}{}.ini".format(data_store, sector,suffix)
         output_file = output_file.replace(" ", "_")
         LOAD.config(output_file,**output_data.to_dict())
 
-    output_file = "{}/sector_90{}.ini".format(data_store,suffix)
     log.info(data)
+    log.debug(data.index)
     log.info(_90)
-    _90 = data.loc[[ _90 ]]
+    log.info(_99)
+    
+    output_file = "{}/sector_90{}.ini".format(data_store,suffix)
+    _90 = data.loc[ _90 ]
     _90s = TRANSFORM.addMean(_90)
     log.info(_90s)
     LOAD.config(output_file,**_90s.to_dict())
 
+    output_file = "{}/sector_99{}.ini".format(data_store,suffix)
     _99 = data.loc[ _99 , : ]
     log.info(_99)
     MEAN.stats('99',_99)
     _99,dummy = reduce_99.act(_99)
     log.info(_99)
-    output_file = "{}/sector_99{}.ini".format(data_store,suffix)
     _99s = TRANSFORM.addMean(_99)
     LOAD.config(output_file,**_99s.to_dict())
 
-    prices = step_02.act(_99)
-    portfolios = step_03.act(_99, prices)
+    prices = load_prices_as_2.act(_99)
+    portfolios = monte_carlo_as_3.act(_99, prices)
     portfolios = PORTFOLIO.truncate_5(portfolios)
     portfolios = PORTFOLIO.massage(portfolios)
     if portfolios is None or portfolios.empty :
@@ -426,20 +473,21 @@ def process_stock(data_store, suffix, data, step_01, step_02, step_03, step_04,r
     output_file = "{}/portfolio_99{}.ini".format(data_store,suffix)
     LOAD.config(output_file,**portfolios.to_dict())
 
-def process_fund(data_store,suffix, data, step_01, step_02, step_03, step_04) :
-    _90_Alt = None
-    _99 = None
-    for sector, group in BACKGROUND.by_sector(data) :
-        top_tier, _90_Alt = step_01.act(group, _90_Alt)
+def process_fund(data_store,suffix, data, performance_based_as_1, step_02, monte_carlo_as_3, monte_carlo_refinement_fine) :
+    _90_Alt = []
+    _99 = {}
+    for sector, fund_name_subset in BACKGROUND.by_sector(data) :
+        fund_summary, name_list = performance_based_as_1.act(fund_name_subset)
+        _90_Alt.extend(name_list)
 
-        summary = TRANSFORM.addMean(top_tier)
+        summary = TRANSFORM.addMean(fund_summary)
         output_file = "{}/fund_{}{}.ini".format(data_store, sector,suffix)
         output_file = output_file.replace(' ','_')
         LOAD.config(output_file,**summary.to_dict())
 
-        prices = step_02.act(top_tier)
-        left = step_03.act(top_tier, prices)
-        right, _99 = step_04.act(left, prices,_99)
+        prices = step_02.act(fund_summary)
+        left = monte_carlo_as_3.act(fund_summary, prices)
+        right, _99 = monte_carlo_refinement_fine.act(left, prices,_99)
         left = PORTFOLIO.truncate_5(left)
         output_data = TRANSFORM.merge(left,right).T
         output_data = PORTFOLIO.massage(output_data)

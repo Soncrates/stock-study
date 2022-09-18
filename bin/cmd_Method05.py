@@ -2,20 +2,20 @@
 
 import logging as log
 import pandas as PD
-from libBusinessLogicMethod05 import FILTER_STOCKS_BY_PERFORNACE,LOAD_HISTORICAL_DATA,STEP_03,STEP_04, process_stock, process_fund
+from libBusinessLogicMethod05 import FILTER_STOCKS_BY_PERFORNACE,LOAD_HISTORICAL_DATA,MONTE_CARLO_REFINEMENT_ROUGH,MONTE_CARLO_REFINEMENT_FINE, process_stock, process_fund
 from libBusinessLogicMethod05 import CURATE_BACKGROUND,BACKGROUND, LOAD
 from libCommon import find_files, LOG_FORMAT_TEST
 from libDebug import trace
 from libDecorators import exit_on_exception
 
-def modify(**args) :
-    log.debug(args)
+def businesslogic(**args) :
+    log.info(args)
     if len(args['suffix']) > 0 :
        args['suffix'] = "_" + args['suffix']
     args['entity'] = args['entity'].lower()
-    args['flag_stock'] = 'stock' in args['entity']
-    args['flag_fund'] = 'fund' in args['entity']
-    args['flag_etl'] = 'etl' in args['entity']
+    args['flag_stock'] = 'stocks' in args['entity'].lower()
+    args['flag_fund'] = 'funds' in args['entity'].lower()
+    args['flag_etl'] = 'etls' in args['entity'].lower()
     args['flag_etl'] = False
     if not (args['flag_stock'] or args['flag_fund'] or args['flag_etl']) :
        raise ValueError('entity must be stocks or funds')
@@ -33,19 +33,26 @@ def modify(**args) :
 @exit_on_exception
 @trace
 def main(**args) : 
-    args = modify(**args)
+    args = businesslogic(**args)
     step_01 = FILTER_STOCKS_BY_PERFORNACE(args['sector_cap'],args['reduce_risk'],args['reduce_returns'])
     step_02 = LOAD_HISTORICAL_DATA(args['price_list'],args['prices'])
-    step_03 = STEP_03(args['portfolio_iterations'],args['columns_drop'])
-    step_04 = STEP_04(args['portfolio_iterations'],args['threshold'],args['columns_drop'])
+    step_03 = MONTE_CARLO_REFINEMENT_ROUGH(args['portfolio_iterations'],args['columns_drop'])
+    step_04 = MONTE_CARLO_REFINEMENT_FINE(args['portfolio_iterations'],args['threshold'],args['columns_drop'])
     reduce_99 = FILTER_STOCKS_BY_PERFORNACE(25,1,2)
-    for msg in [step_01,step_02,step_03,step_04] :
+    for msg in [step_01,step_02,MONTE_CARLO_REFINEMENT_ROUGH,step_04] :
         log.info(repr(msg))
 
     bg = LOAD.background(args['background_files'])
     bg = PD.DataFrame(bg).T
+    if args['flag_stock'] :
+        drop = [ x for x in bg.columns if x in ['CATEGORY', 'TYPE'] ]
+        bg.drop(drop,axis=1,errors='ignore',inplace=True)
+    elif args['flag_fund'] :
+        drop = [ x for x in bg.columns if x in ['SECTOR'] ]
+        bg.drop(drop,axis=1,errors='ignore',inplace=True)
     bg = CURATE_BACKGROUND.simple(bg, args['floats_in_summary'], args['disqualified'])
     bg = CURATE_BACKGROUND.act(bg)
+        
     bg = BACKGROUND.refine(bg)
     bg.drop(['LEN', 'MAX DRAWDOWN','MAX INCREASE'], axis=1,errors='ignore',inplace=True)
     stock, fund = BACKGROUND.by_entity(bg)
@@ -76,7 +83,7 @@ if __name__ == '__main__' :
    parser.add_argument('--sector', action='store', dest='sector_cap', type=int, default=11, help='Max number of stocks per sector')
    parser.add_argument('--prices', action='store', dest='prices', default='Adj Close', help='Open|Close|Adj Close|Volume')
    parser.add_argument('--suffix', action='store', dest='suffix',default="",help='Store a simple value')
-   parser.add_argument('--entity', action='store', dest='entity',default="stock",help='stock|fund')
+   parser.add_argument('--entity', action='store', dest='entity',default="stocks",help='stocks|funds|etls')
 
    # too risky AMZN 
    # levelled off after initial increase

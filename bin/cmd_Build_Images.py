@@ -9,27 +9,13 @@ fig, ax = plt.subplots()
 ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
 
 from libBusinessLogicImages import process
-from libCommon import INI_WRITE, find_subset, find_files, LOG_FORMAT_TEST
-from libDecorators import exit_on_exception, singleton
+from libCommon import INI_WRITE, find_files, LOG_FORMAT_TEST
+from libDecorators import exit_on_exception
 from libDebug import trace
 from libGraph import LINE, BAR, POINT, save, HELPER as GRAPH
 '''
    Graph portfolios to determine perfomance, risk, diversification
 '''
-
-@singleton
-class GGG() :
-    var_names = [ 'cli', "env", "local_dir", "data_store", "category","input_file",'output_file', 'background','benchmark','repo_stock']
-
-    def __init__(self) :
-        self.__dict__.update(find_subset(globals(),*GGG.var_names))
-        self.__dict__.update(**self.cli)
-        msg = vars(self)
-        for i, key in enumerate(sorted(msg)) :
-            value = msg[key]
-            if isinstance(value,list) and len(value) > 10 :
-               value = value[:10]
-            log.info((i,key, value))
 
 class LOAD() :
 
@@ -44,8 +30,8 @@ class LOAD() :
 
 @exit_on_exception
 @trace
-def main() :
-   returns, diversified, graph_summary, graph_portfolio_sharpe_list, text_summary, portfolio_name_list = process(GGG().background,GGG().repo_stock,GGG().benchmark,GGG().input_file)
+def main(**args) :
+   returns, diversified, graph_summary, graph_portfolio_sharpe_list, text_summary, portfolio_name_list = process(args['background'],args['repo_stock'],args['benchmark'],args['input_file'])
    summary_path_list = []
    log.info(graph_portfolio_sharpe_list)
    POINT.plot(graph_portfolio_sharpe_list,x='RISK',y='RETURNS',ylabel="Returns", xlabel="Risk", title="Sharpe Ratio")
@@ -54,7 +40,7 @@ def main() :
    SHARPE = LINE.plot_sharpe(ratio=2)
    SHARPE.plot.line(style='r:',label='sharpe ratio 2',alpha=0.3)
 
-   local_dir = GGG().local_dir
+   local_dir = args['local_dir']
    path = "{}/images/portfolio_sharpe.png".format(local_dir)
    save(path,loc="lower right")
    summary_path_list.append(path)
@@ -107,7 +93,7 @@ def main() :
        key = "portfolio_{}".format(i)
        portfolio[key] = section
 
-   LOAD.config(GGG().output_file,summary,portfolio)
+   LOAD.config(args['output_file'],summary,portfolio)
 
 if __name__ == '__main__' :
 
@@ -130,16 +116,16 @@ if __name__ == '__main__' :
 
    local_dir = "{pwd_parent}/outputs".format(**vars(env))
    data_store = '{}/images'.format(local_dir)
-   #data_store = '../outputs/images'
    output_file = "{pwd_parent}/outputs/report_generator.ini".format(**vars(env))
    input_file = find_files('{}/outputs/portfolios*.ini'.format(local_dir))
 
    parser = argparse.ArgumentParser(description='Image Generator')
    parser.add_argument('--input', action='store', dest='input_file', type=str, default=input_file, help='portfolios to read in')
    parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
-   cli = vars(parser.parse_args())
 
-   main()
+   var_names = [ 'cli', "env", "local_dir", "data_store", "category","input_file",'output_file', 'background','benchmark','repo_stock']
+   init = { key : value for (key,value) in globals().items() if key in var_names }
+   main(**init)
    #ret = EXTRACT.readSummary()
    #print(ret)
    #print(ret['RISK'].describe())

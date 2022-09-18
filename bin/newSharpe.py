@@ -1,6 +1,4 @@
-import logging
-import warnings
-#warnings.warn("period must be positive", RuntimeWarning)
+import logging as log
 try:
     xrange
 except NameError:
@@ -46,26 +44,26 @@ class PORTFOLIO :
           target = "risk_free_rate"
           risk_free_rate = kwargs.get(target,0.02)
           if portfolios < 0 :
-             logging.warn("portfolios must be positive")
+             log.warn("portfolios must be positive")
              portfolios = 0
           if period < 0 :
-             logging.warn("period must be positive")
+             log.warn("period must be positive")
              period = 0
           if risk_free_rate < 0 :
-             logging.warn("risk_free_rate must be positive")
+             log.warn("risk_free_rate must be positive")
              risk_free_rate = 0
           if data is None :
-             logging.warn('No data!')
+             log.warn('No data!')
              return data, stocks, portfolios, risk_free_rate, period
           flag = len(stocks) == 0 and isinstance(data, pd.Series)
           if flag :
              return data, stocks, portfolios, risk_free_rate, period
-          logging.debug(stocks)
-          logging.debug(data)
+          log.debug(stocks)
+          log.debug(data)
           #ticker_list = data.index.values
           ticker_list = data.columns.values
           ticker_list = list(ticker_list)
-          logging.debug(ticker_list)
+          log.debug(ticker_list)
           stocks = filter(lambda x : x in ticker_list, stocks)
           if not isinstance(stocks,list) :
              stocks = list(stocks)
@@ -75,13 +73,13 @@ class PORTFOLIO :
           else :
              #data = data.filter(items=stocks,axis='index')
              data = data.filter(items=stocks,axis='columns')
-          logging.debug(data)
+          log.debug(data)
           return data, stocks, portfolios, risk_free_rate, period
       @classmethod
       @cpu
       def findWeightedSharpe(cls, data, weights, risk_free_rate=0.02, period=252) :
           if not isinstance(data,pd.DataFrame) :
-             logging.warn("prices are not in a dataframe {}".format(type(data)))
+             log.warn("prices are not in a dataframe {}".format(type(data)))
              data = pd.DataFrame(data)
 
           #calculate mean daily return and covariance of daily returns
@@ -89,7 +87,7 @@ class PORTFOLIO :
           cov_matrix = data.cov()
           returns, risk, sharpe = cls._sharpe(cov_matrix, mean, period, risk_free_rate, weights)
           ret = dict(zip(['returns', 'risk', 'sharpe'],[returns,risk,sharpe]))
-          logging.info(ret)
+          log.info(ret)
           return ret
       @classmethod
       def _weights(cls, size, num_portfolios) :
@@ -124,9 +122,9 @@ class PORTFOLIO :
           ret = FINANCE.findDailyReturns(returns)
           mean = ret.mean()
           cov_matrix = ret.cov()
-          #logging.info(cov_matrix)
-          #logging.info(ret)
-          #logging.info(mean)
+          #log.info(cov_matrix)
+          #log.info(ret)
+          #log.info(mean)
           return ret, mean, cov_matrix
 
       @classmethod
@@ -150,8 +148,8 @@ class PORTFOLIO :
           #convert results array to Pandas DataFrame
           columns = cls.columns + stocks
           ret = pd.DataFrame(ret.T,columns=columns)
-          logging.debug(ret.head(3))
-          logging.debug(ret.tail(3))
+          log.debug(ret.head(3))
+          log.debug(ret.tail(3))
           return ret
 
       @classmethod
@@ -164,18 +162,20 @@ class PORTFOLIO :
 
           #locate position of portfolio with highest Sharpe Ratio
           max_sharpe = ret['sharpe'].idxmax()
+          log.debug(max_sharpe)
           max_sharpe_port = ret.iloc[max_sharpe]
+          log.info(max_sharpe_port)
 
           #locate positon of portfolio with minimum risk
           min_vol = ret['risk'].idxmin()
+          log.debug(min_vol)
           min_vol_port = ret.iloc[min_vol]
+          log.info(min_vol_port)
           return max_sharpe_port, min_vol_port
 
 if __name__ == "__main__" :
 
    import sys
-   import logging
-
    from libCommon import INI_READ
    from libUtils import ENVIRONMENT
    from libFinance import STOCK_TIMESERIES
@@ -183,7 +183,7 @@ if __name__ == "__main__" :
    env = ENVIRONMENT.instance()
 
    log_msg = '%(module)s.%(funcName)s(%(lineno)s) %(levelname)s - %(message)s'
-   logging.basicConfig(stream=sys.stdout, format=log_msg, level=logging.DEBUG)
+   log.basicConfig(stream=sys.stdout, format=log_msg, level=log.DEBUG)
 
    def prep(*ini_list) :
        ini_list = filter(lambda x : "benchmark" in x , ini_list)
