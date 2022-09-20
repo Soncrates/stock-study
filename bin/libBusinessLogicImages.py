@@ -15,7 +15,7 @@ class EXTRACT() :
     def readPortfolio(cls,input_file) :
         portfolio = input_file
         ret = {}
-        for path, section, key, weight in INI_READ.read(*[portfolio]) :
+        for section, key, weight in INI_READ.read(*[portfolio]) :
             if section.startswith('dep_') :
                continue
             if section not in ret :
@@ -31,6 +31,7 @@ class EXTRACT_PRICES() :
         return flag_1 or flag_2 or flag_3
     @classmethod
     def read(cls, value_list, repo_stock) :
+        log.info(value_list)
         repo = repo_stock
         ret = {}
         for name, data in STOCK_TIMESERIES.read(repo, value_list) :
@@ -59,11 +60,9 @@ class TRANSFORM_PRICES() :
     _prices = 'Adj Close'
     @classmethod
     def adjClose(cls,data) :
-        stock_list = sorted(data)
-        price_list = [ pd.DataFrame(data[stock])[cls._prices] for stock in stock_list ]
-        ret = dict(zip(stock_list, price_list))
-        log.info(stock_list)
-        ret = pd.DataFrame(ret, columns=stock_list)
+        stock_list = sorted(list(set(data)))
+        price_list = { stock : pd.DataFrame(data[stock])[cls._prices] for stock in stock_list }
+        ret = pd.DataFrame.from_dict(price_list)
         log.info(ret.head(3))
         log.info(ret.tail(3))
         return ret
@@ -202,9 +201,11 @@ class EXTRACT_BENCHMARK() :
     @classmethod
     def tickers(cls,benchmark) :
         bench_list = cls.read(benchmark)
+        log.debug(bench_list)
         ret = bench_list.get(cls.FUNDS,[])
         snp = bench_list.get(cls.SNP,[])
         ret += snp
+        log.debug(ret)
         return ret
     @classmethod
     def process(cls,background,benchmark) :
@@ -220,7 +221,7 @@ class EXTRACT_BENCHMARK() :
         log.info(ret)
         return ret
     @classmethod
-    def prices(cls,repo_stock,benchmark) :
+    def find_prices(cls,repo_stock,benchmark) :
         bench = cls.tickers(benchmark)
         bench_list = cls.read(benchmark)
         SNP = 'SNP500'
@@ -429,7 +430,7 @@ class Group :
 
 def process(background,repo_ticker,benchmark,input_file) :
 
-    price_summary = EXTRACT_BENCHMARK.prices(repo_ticker,benchmark)
+    price_summary = EXTRACT_BENCHMARK.find_prices(repo_ticker,benchmark)
     text_summary = EXTRACT_BENCHMARK.process(background,benchmark).T
     _returns = Group()
     distribution = Group()

@@ -31,6 +31,8 @@ class LOAD() :
 @exit_on_exception
 @trace
 def main(**args) :
+   for key in sorted(args) :
+       log.info((key,args[key]))
    returns, diversified, graph_summary, graph_portfolio_sharpe_list, text_summary, portfolio_name_list = process(args['background'],args['repo_stock'],args['benchmark'],args['input_file'])
    summary_path_list = []
    log.info(graph_portfolio_sharpe_list)
@@ -111,20 +113,24 @@ if __name__ == '__main__' :
    category = [ x for x in ini_list if 'stock_by_sector.ini' in x]
    background = [ x for x in ini_list if 'background.ini' in x ]
    benchmark = [ x for x in ini_list if 'benchmark' in x ]
-   repo_stock = find_files('local/historical_prices/*pkl')
-   repo_fund = find_files('local/historical_prices_fund/*pkl')
+   repo_stock = find_files('{pwd_parent}/local/historical_prices/*pkl'.format(**vars(env)))
+   repo_fund = find_files('{pwd_parent}/local/historical_prices_fund/*pkl'.format(**vars(env)))
 
    local_dir = "{pwd_parent}/outputs".format(**vars(env))
    data_store = '{}/images'.format(local_dir)
-   output_file = "{pwd_parent}/outputs/report_generator.ini".format(**vars(env))
-   input_file = find_files('{}/outputs/portfolios*.ini'.format(local_dir))
+   _output = "{pwd_parent}/outputs/report_generator.ini".format(**vars(env))
+   _input ='{}/outputs/portfolio*.ini'.format(local_dir)
+   log.debug(_input)
+   _input = find_files(_input)
+   log.debug(_input)
 
    parser = argparse.ArgumentParser(description='Image Generator')
-   parser.add_argument('--input', action='store', dest='input_file', type=str, default=input_file, help='portfolios to read in')
-   parser.add_argument('--output', action='store', dest='output_file', type=str, default=output_file, help='store report meta')
+   parser.add_argument('--input', action='store', dest='input_file', type=str, default=_input, help='portfolios to read in')
+   parser.add_argument('--output', action='store', dest='output_file', type=str, default=_output, help='store report meta')
 
    var_names = [ 'cli', "env", "local_dir", "data_store", "category","input_file",'output_file', 'background','benchmark','repo_stock']
    init = { key : value for (key,value) in globals().items() if key in var_names }
+   init.update(**vars(parser.parse_args()))
    main(**init)
    #ret = EXTRACT.readSummary()
    #print(ret)

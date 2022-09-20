@@ -461,6 +461,8 @@ def process_stock(data_store, suffix, data, performance_based_as_1, load_prices_
     _99,dummy = reduce_99.act(_99)
     log.info(_99)
     _99s = TRANSFORM.addMean(_99)
+    _99s = round(_99s,5)
+    log.info(_99s)
     LOAD.config(output_file,**_99s.to_dict())
 
     prices = load_prices_as_2.act(_99)
@@ -470,6 +472,7 @@ def process_stock(data_store, suffix, data, performance_based_as_1, load_prices_
     if portfolios is None or portfolios.empty :
         log.warning("portfolio is empty")
         return
+    portfolios = round(portfolios,5)
     output_file = "{}/portfolio_99{}.ini".format(data_store,suffix)
     LOAD.config(output_file,**portfolios.to_dict())
 
