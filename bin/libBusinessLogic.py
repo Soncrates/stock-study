@@ -268,7 +268,51 @@ class TRANSFORM_TICKER() :
         ret = ret.to_dict()
         log.debug(type(ret))
         return ret
-        
+
+class LOAD_HISTORICAL_DATA() :
+    default_column = 'Adj Close'
+    def __init__(self, price_list, price_column) :
+        self.price_list = price_list
+        self.price_column = price_column
+    def __repr__(self):
+        return f"Historical loader (column:{self.price_column})"
+    def act(self, data):
+        ticker_list = []
+        if isinstance(data,list) :
+            ticker_list = deepcopy(data)
+        else :
+            ticker_list = data.index.values.tolist()
+        ret = {}
+        for key, name, data in self.load(*ticker_list) :
+            ret[key] = data[self.price_column]
+        ret = PD.DataFrame(ret)
+        ret.fillna(method='bfill', inplace=True)
+        log.info(ret.head(3))
+        log.info(ret.tail(3))
+        return ret
+    def load(self, *ticker_list):
+        log.info(ticker_list)
+        filename_list = [ self.find_file(self.make_suffix(ticker)) for ticker in ticker_list ]
+        log.debug((ticker_list,filename_list))
+        for i, filename in enumerate(filename_list) :
+            if not filename : continue
+            name, temp = PANDAS_FINANCE.LOAD(filename)
+            yield ticker_list[i], name, temp
+    def make_suffix(self, ticker):
+        log.info(ticker)
+        return '{}{}.pkl'.format(os.path.sep,ticker.upper())
+    def find_file(self, suffix):
+        ret = [ x for x in self.price_list if x.endswith(suffix)]
+        if len(ret) == 0 :
+           log.warning("{} not in {}".format(suffix, self.price_list[:5]))
+           return None
+        if len(ret) > 1 :
+            suffix = os.path.sep + suffix
+            ret = [ x for x in ret if x.endswith(suffix)]
+        ret = ret[0]
+        log.info(ret)
+        return ret        
+
 def filter_alias(data) :
     log.debug(data)
     ret = data.filter(regex="Symbol", axis=1)

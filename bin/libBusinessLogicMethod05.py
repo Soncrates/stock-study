@@ -6,9 +6,8 @@ Created on Thu Apr 21 15:09:44 2022
 """
 import logging as log
 import pandas as PD
-import os
 
-from libBusinessLogic import INI_READ,INI_WRITE,PANDAS_FINANCE
+from libBusinessLogic import INI_READ,INI_WRITE
 from libFinance import HELPER as FINANCE
 from newSharpe import PORTFOLIO as MONTERCARLO
 from libUtils import combinations
@@ -285,44 +284,6 @@ class FILTER_STOCKS_BY_PERFORNACE() :
             cap = self.cap_size
         ret = ret.sort_values(by=[target],ascending=False).head(cap)
         MEAN.stats(target,ret)
-        return ret
-
-class LOAD_HISTORICAL_DATA() :
-    def __init__(self, price_list, price_column) :
-        self.price_list = price_list
-        self.price_column = price_column
-    def __repr__(self):
-        return f"Historical loader (column:{self.price_column})"
-    def load(self, *ticker_list):
-        filename_list = [ '{}{}.pkl'.format(os.path.sep,ticker.upper()) for ticker in ticker_list ]
-        log.debug((ticker_list,filename_list))
-        ret = {}
-        for i, suffix in enumerate(filename_list) :
-            filename = self.transform(suffix)
-            if not filename : continue
-            #name, temp = STOCK_TIMESERIES.load(filename)
-            name, temp = PANDAS_FINANCE.LOAD(filename)
-            key = ticker_list[i]
-            ret[key] =  temp[self.price_column]
-        return ret
-    def act(self, data):
-        ticker_list = data.index.values.tolist()
-        log.info(ticker_list)
-        ret = self.load(*ticker_list)
-        ret = PD.DataFrame(ret)
-        ret.fillna(method='bfill', inplace=True)
-        log.info(ret)
-        return ret
-    def transform(self, suffix):
-        ret = [ x for x in self.price_list if x.endswith(suffix)]
-        if len(ret) == 0 :
-           log.warning("{} not in {}".format(suffix, self.price_list[:5]))
-           return None
-        if len(ret) > 1 :
-            suffix = os.path.sep + suffix
-            ret = [ x for x in ret if x.endswith(suffix)]
-        ret = ret[0]
-        log.info(ret)
         return ret
 
 class MONTE_CARLO_REFINEMENT_ROUGH() :

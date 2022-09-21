@@ -115,6 +115,7 @@ if __name__ == '__main__' :
    benchmark = [ x for x in ini_list if 'benchmark' in x ]
    repo_stock = find_files('{pwd_parent}/local/historical_prices/*pkl'.format(**vars(env)))
    repo_fund = find_files('{pwd_parent}/local/historical_prices_fund/*pkl'.format(**vars(env)))
+   price_list = find_files('{}/local/historical_*/*pkl'.format(env.pwd_parent))
 
    local_dir = "{pwd_parent}/outputs".format(**vars(env))
    data_store = '{}/images'.format(local_dir)

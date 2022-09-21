@@ -7,8 +7,8 @@ Created on Thu Apr 21 12:20:27 2022
 import logging as log
 import pandas as pd
 
-from libBusinessLogic import INI_READ
-from libFinance import STOCK_TIMESERIES, HELPER as FINANCE
+from libBusinessLogic import INI_READ,LOAD_HISTORICAL_DATA
+from libFinance import HELPER as FINANCE
 
 class EXTRACT() :
     @classmethod
@@ -30,15 +30,6 @@ class EXTRACT_PRICES() :
         flag_3 = 'portfolio' in value
         return flag_1 or flag_2 or flag_3
     @classmethod
-    def read(cls, value_list, repo_stock) :
-        log.info(value_list)
-        repo = repo_stock
-        ret = {}
-        for name, data in STOCK_TIMESERIES.read(repo, value_list) :
-            log.info((name,type(data),data.shape))
-            ret[name] = data
-        return ret
-    @classmethod
     def smartMassage(cls,data) :
         log.info(data)
         data.fillna(method='backfill',inplace=True)
@@ -55,16 +46,6 @@ class EXTRACT_PRICES() :
         ret.fillna(method='backfill',inplace=True)
         ret = pd.concat([ret,reserved],axis=1, sort=False)
         log.info(ret)
-        return ret
-class TRANSFORM_PRICES() :
-    _prices = 'Adj Close'
-    @classmethod
-    def adjClose(cls,data) :
-        stock_list = sorted(list(set(data)))
-        price_list = { stock : pd.DataFrame(data[stock])[cls._prices] for stock in stock_list }
-        ret = pd.DataFrame.from_dict(price_list)
-        log.info(ret.head(3))
-        log.info(ret.tail(3))
         return ret
 class EXTRACT_SUMMARY() :
     _background_cache = None
@@ -230,8 +211,8 @@ class EXTRACT_BENCHMARK() :
         if len(snp) > 0 :
             gcps = snp[0]
 
-        raw_prices = EXTRACT_PRICES.read(bench,repo_stock)
-        ret = TRANSFORM_PRICES.adjClose(raw_prices)
+        loader = LOAD_HISTORICAL_DATA(repo_stock,LOAD_HISTORICAL_DATA.default_column)
+        ret = loader.act(bench)
         ret.rename(columns={gcps:SNP},inplace=True)
         return ret
 class TRANSFORM_STOCK() :
@@ -359,12 +340,12 @@ class TRANSFORM_PORTFOLIO() :
             yield key, ret[key], meta_name_list
     @classmethod
     def find(cls,input_file,repo_stock,background) :
+        loader = LOAD_HISTORICAL_DATA(repo_stock,LOAD_HISTORICAL_DATA.default_column)
         for name, weights, meta_name_list in cls._find(input_file) :
             weights = cls.parseWeights(weights)
             if len(weights.columns.values) == 0 :
                 continue
-            raw_prices = EXTRACT_PRICES.read(weights.columns.values,repo_stock)
-            prices = TRANSFORM_PRICES.adjClose(raw_prices)
+            prices = loader.act(weights.T)
             prices[meta_name_list['legend']] = cls.getPortfolioPrice(weights,prices)
             returns = TRANSFORM_STOCK.summarizeReturns(prices)
 
