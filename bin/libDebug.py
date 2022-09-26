@@ -17,9 +17,6 @@ class WRAPPER(object) :
         _name = "WRAPPER"
         if hasattr(self, '__name__') :
             _name = self.__name__
-        #for i, key in enumerate(dir(f)) :
-        #    if '__' in key and key in str(getattr(f,key)) : continue
-        #    print ("{} {}".format(_name, i), key, getattr(f,key))
 
         self.__isfunction__ = getattr(f,'__isfunction__',None)
         self.__ismethod__ = getattr(f,'__ismethod__',None)
@@ -34,8 +31,9 @@ class WRAPPER(object) :
            self.__name__ = f.__name__
         elif self.__isstaticmethod__ or self.__isclassmethod__  :
            self.__name__ = [f.__class__, f.__func__]
-           self.__name__ = filter(lambda x : hasattr(x,'__name__'), self.__name__)
-           self.__name__ = map(lambda x : x.__name__, self.__name__)
+           #self.__name__ = filter(lambda x : hasattr(x,'__name__'), self.__name__)
+           #self.__name__ = map(lambda x : x.__name__, self.__name__)
+           self.__name__ = [ getattr(x, '__name__',None) for x in self.__name__ if hasattr(x,'__name__') ]
            self.__name__ = '.'.join(self.__name__)
 
         self.f = f

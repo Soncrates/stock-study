@@ -26,7 +26,7 @@ class LOAD() :
             if not isinstance(values,dict) :
                values = values.to_dict()
             ret[key] = values
-        INI_WRITE.write(output_file, ret)
+        INI_WRITE.write(output_file, **ret)
 
 @exit_on_exception
 @trace
@@ -84,9 +84,7 @@ def main(**args) :
    for i, value in enumerate(local_diversify_list) :
        images = [ local_diversify_list[i], local_returns_list[i] ]
        captions = [ "portfolio diversity {}", "portfolio returns {}"]
-       captions = map(lambda x : x.format(portfolio_name_list[i]), captions)
-       captions = map(lambda x : x.replace('_', ' '), captions)
-       captions = list(captions)
+       captions = [ x.format(portfolio_name_list[i]).replace('_','') for x in captions]
        section = { "images" : images, "captions" : captions }
        section['description1'] = diversified['description'][i]
        section['description2'] = returns['description_summary'][i]

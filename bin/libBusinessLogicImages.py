@@ -22,6 +22,16 @@ class EXTRACT() :
                ret[section] = {}
             ret[section][key] = float(weight[0])
         return ret
+    @classmethod
+    def find_value(cls,key,**data) :
+        ret = data.get(key,None)
+        if ret is None :
+            ret = data.get(key.lower(),None)
+        if ret is None :
+            ret = data.get(key.upper(),None)
+        if ret is None :
+            log.warn("key : '{}' , not in {}".format(key,sorted(data)))
+        return ret
 class EXTRACT_PRICES() :
     @classmethod
     def isReserved(cls,value) :
@@ -45,6 +55,8 @@ class EXTRACT_PRICES() :
         ret = FINANCE.new_graphReturns(ret)
         ret.fillna(method='backfill',inplace=True)
         ret = pd.concat([ret,reserved],axis=1, sort=False)
+        if '^GSPC' in ret.columns.values :
+            ret.rename(columns={'^GSPC':'SNP500'}, inplace = True)
         log.info(ret)
         log.info(ret.columns.values)
         return ret
@@ -78,7 +90,9 @@ class TRANSFORM_SUMMARY() :
       columns = ['CAGR', 'GROWTH','RISK','SHARPE']
       @classmethod
       def step01(cls, ticker_list,background) :
-          ret = EXTRACT_SUMMARY.read(background).loc[ticker_list]
+          column_list = [key.lower() for key in ticker_list]
+          ret = EXTRACT_SUMMARY.read(background).loc[column_list]
+          ret.columns = ret.columns.str.upper()
           ret['RETURNS'] = ret['RETURNS'].astype(float).round(4)
           ret['GROWTH'] = ret['GROWTH'].astype(float).round(4)
           ret['Initial Balance'] = 10000
@@ -98,10 +112,8 @@ class TRANSFORM_SUMMARY() :
       def step03(cls, ret) :
           columns = ret.columns.values
           log.info(columns)
-          weighted_columns = filter(lambda x : x.startswith('weighted_'), columns)
-          weighted_columns = list(weighted_columns)
-          new_columns = map(lambda x : x.replace('weighted_',''), weighted_columns)
-          new_columns = list(new_columns)
+          weighted_columns = [x for x in columns if x.startswith('weighted_') ]
+          new_columns = [ x.replace('weighted_','') for x in weighted_columns ]
           temp = map(lambda x : ret[x], weighted_columns)
           temp = map(lambda x : cls._refactorSum(x), temp)
           temp = map(lambda x : round(x,4), temp)
@@ -187,21 +199,21 @@ class EXTRACT_BENCHMARK() :
     def tickers(cls,benchmark) :
         bench_list = cls.read(benchmark)
         log.debug(bench_list)
-        ret = bench_list.get(cls.FUNDS,[])
-        snp = bench_list.get(cls.SNP,[])
+        ret = EXTRACT.find_value(cls.FUNDS, **bench_list)
+        snp = EXTRACT.find_value(cls.SNP, **bench_list)
         ret += snp
         log.debug(ret)
         return ret
     @classmethod
     def process(cls,background,benchmark) :
         bench_list = cls.read(benchmark)
-        snp = bench_list.get(cls.SNP,[])
-        if len(snp) == 0 :
-            snp = bench_list.get(cls.SNP.lower(),[])
+        snp = EXTRACT.find_value(cls.SNP, **bench_list)
         gcps = None
         if len(snp) > 0 :
             gcps = snp[0]
+        log.info("snp : {}".format(gcps))
         ret = cls.tickers(benchmark)
+        log.info("snp : {}".format(ret))
         ret = TRANSFORM_SUMMARY.step01(ret,background)
         ret.rename(index={gcps:cls.SNP},inplace=True)
         log.info(ret)
@@ -287,7 +299,7 @@ class TRANSFORM_PORTFOLIO() :
         weight = weight.round(1)
 
         ticker_list = summary[['NAME']].copy()
-        ticker_list['weight']  =weight
+        ticker_list['weight'] = weight
         ticker_list['ticker'] = ticker_list.index.values
         ticker_list = cls.cleanup(ticker_list)
         log.info(weight)
