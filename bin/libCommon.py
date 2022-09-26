@@ -1,6 +1,6 @@
 # ./libCommon.py
 from glob import glob
-from json import dumps, load, loads
+from json import dumps, load
 import logging as log
 from os import path, environ, remove, stat, mkdir as MKDIR
 import csv
@@ -109,7 +109,7 @@ def load_json(fileName) :
 def iterate_config(config) :
     log.debug(config)
     ret = transform_obj(config)
-    log.info(ret)
+    log.debug(ret)
     for i, section, section_v in get_key_value_config(ret) :
         log.debug((section,section_v))
         for j, key, key_v in get_key_value_config(section_v) :

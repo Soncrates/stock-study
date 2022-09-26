@@ -54,4 +54,5 @@ if __name__ == '__main__' :
    
    var_names = ['env','draft','output_file','omit_list','sector_enum','headers']
    init = { key : value for (key,value) in globals().items() if key in var_names }
+   init.update(**vars(parser.parse_args()))
    main(**init)

@@ -299,7 +299,7 @@ class LOAD_HISTORICAL_DATA() :
             name, temp = PANDAS_FINANCE.LOAD(filename)
             yield ticker_list[i], name, temp
     def make_suffix(self, ticker):
-        log.info(ticker)
+        log.debug(ticker)
         return '{}{}.pkl'.format(os.path.sep,ticker.upper())
     def find_file(self, suffix):
         ret = [ x for x in self.price_list if x.endswith(suffix)]
@@ -310,7 +310,7 @@ class LOAD_HISTORICAL_DATA() :
             suffix = os.path.sep + suffix
             ret = [ x for x in ret if x.endswith(suffix)]
         ret = ret[0]
-        log.info(ret)
+        log.debug(ret)
         return ret        
 
 def filter_alias(data) :
